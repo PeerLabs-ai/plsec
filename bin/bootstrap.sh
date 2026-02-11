@@ -19,7 +19,7 @@
 set -euo pipefail
 
 # Configuration
-PLSEC_DIR="${HOME}/.plsec"
+PLSEC_DIR="${HOME}/.peerlabs/plsec"
 PLSEC_VERSION="0.1.1-bootstrap"
 WITH_PIPELOCK=false
 STRICT_MODE=false
@@ -36,10 +36,45 @@ else
     RED='' GREEN='' YELLOW='' BLUE='' NC=''
 fi
 
-log_info()  { echo -e "${BLUE}[INFO]${NC} $*"; }
-log_ok()    { echo -e "${GREEN}[OK]${NC} $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
+# Helper functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1" >&2
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1" >&2
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1" >&2
+}
+
+# Check OS type
+detect_os() {
+    log_info "Detecting details of ${OSTYPE}"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # Check macOS version
+        log_info "Found darwin based system"
+        macos_version=$(sw_vers -productVersion | cut -d. -f1)
+        if [[ $macos_version -ge 26 ]]; then
+            log_info "Detected macOS Tahoe (${macos_version}) or later"
+            echo "macos"
+        else
+            log_error "macOS version ${macos_version} is not supported. Requires macOS 26 (Tahoe) or later."
+            exit 1
+        fi
+    elif [[ -f /etc/debian_version ]]; then
+        log_info "Detected Debian-based Linux (Ubuntu/Debian)"
+        echo "linux"
+    else
+        log_error "Unsupported operating system"
+        exit 1
+    fi
+}
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -112,7 +147,7 @@ if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
             log_info "Installing Homebrew..."
             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         fi
-        
+
         for dep in "${MISSING_DEPS[@]}"; do
             case $dep in
                 homebrew) ;; # Already handled
@@ -225,7 +260,7 @@ You are operating with security monitoring enabled.
 
 ### Logging
 
-Commands are logged to ~/.plsec/logs/
+Commands are logged to ~/.peerlabs/plsec/logs/
 '
 fi
 
@@ -260,6 +295,7 @@ audit_logging = true
 allow_network = false
 # Commands requiring explicit approval
 dangerous_commands = [
+    "git",
     "rm -rf",
     "curl",
     "wget",
@@ -304,7 +340,7 @@ denied_paths = [
 
 [logging]
 # Log directory
-dir = "~/.plsec/logs"
+dir = "~/.peerlabs/plsec/logs"
 # Log level: debug, info, warn, error
 level = "info"
 # Include command output in logs
@@ -362,7 +398,7 @@ denied_paths = [
 ]
 
 [logging]
-dir = "~/.plsec/logs"
+dir = "~/.peerlabs/plsec/logs"
 level = "info"
 include_output = false
 
@@ -504,7 +540,7 @@ if [[ "$AGENT_TYPE" == "claude" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
 #!/bin/bash
 # claude-wrapper.sh - Logging wrapper for Claude Code
 
-PLSEC_DIR="${HOME}/.plsec"
+PLSEC_DIR="${HOME}/.peerlabs/plsec"
 LOG_FILE="${PLSEC_DIR}/logs/claude-$(date +%Y%m%d).log"
 
 log() {
@@ -537,7 +573,7 @@ if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
 #!/bin/bash
 # opencode-wrapper.sh - Logging wrapper for Opencode
 
-PLSEC_DIR="${HOME}/.plsec"
+PLSEC_DIR="${HOME}/.peerlabs/plsec"
 LOG_FILE="${PLSEC_DIR}/logs/opencode-$(date +%Y%m%d).log"
 
 log() {
@@ -575,7 +611,7 @@ cat > "${PLSEC_DIR}/scan.sh" << 'EOF'
 #!/bin/bash
 # scan.sh - Run security scans
 
-PLSEC_DIR="${HOME}/.plsec"
+PLSEC_DIR="${HOME}/.peerlabs/plsec"
 TARGET="${1:-.}"
 
 echo "Running security scans on: $TARGET"
@@ -619,7 +655,7 @@ cat > "${PLSEC_DIR}/configs/pre-commit" << 'EOF'
 #!/bin/bash
 # Pre-commit hook for secret scanning
 
-PLSEC_DIR="${HOME}/.plsec"
+PLSEC_DIR="${HOME}/.peerlabs/plsec"
 
 echo "Running pre-commit security scan..."
 
@@ -650,31 +686,31 @@ log_ok "Created pre-commit hook template"
 # -----------------------------------------------------------------------------
 if [[ "$WITH_PIPELOCK" == true ]]; then
     log_info "Installing Pipelock..."
-    
+
     if ! command -v go &> /dev/null; then
         log_error "Go is required for Pipelock. Install with: brew install go"
         log_warn "Skipping Pipelock installation"
     else
         # Install Pipelock
         go install github.com/luckyPipewrench/pipelock/cmd/pipelock@latest
-        
+
         if command -v pipelock &> /dev/null; then
             log_ok "Pipelock installed"
-            
+
             # Generate audit config
             pipelock generate config --preset balanced -o "${PLSEC_DIR}/pipelock.yaml"
-            
+
             # Modify to audit mode (log only, don't block)
             sed -i.bak 's/enforce: true/enforce: false/' "${PLSEC_DIR}/pipelock.yaml" 2>/dev/null || \
             sed -i '' 's/enforce: true/enforce: false/' "${PLSEC_DIR}/pipelock.yaml"
-            
+
             log_ok "Pipelock configured in AUDIT mode (logging only)"
             log_warn "Review logs before enabling enforcement"
-            
+
             # Create start script
             cat > "${PLSEC_DIR}/pipelock-start.sh" << 'EOF'
 #!/bin/bash
-PLSEC_DIR="${HOME}/.plsec"
+PLSEC_DIR="${HOME}/.peerlabs/plsec"
 LOG_FILE="${PLSEC_DIR}/logs/pipelock.log"
 
 echo "Starting Pipelock proxy (audit mode)..."
@@ -695,17 +731,17 @@ log_info "Setting up shell aliases..."
 # Build aliases based on agent type
 ALIASES='
 # Peerlabs Security aliases
-alias plsec-scan="${HOME}/.plsec/scan.sh"
-alias plsec-logs="tail -f ${HOME}/.plsec/logs/*.log"
+alias plsec-scan="${HOME}/.peerlabs/plsec/scan.sh"
+alias plsec-logs="tail -f ${HOME}/.peerlabs/plsec/logs/*.log"
 '
 
 if [[ "$AGENT_TYPE" == "claude" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    ALIASES+='alias claude-safe="${HOME}/.plsec/claude-wrapper.sh"
+    ALIASES+='alias claude-safe="${HOME}/.peerlabs/plsec/claude-wrapper.sh"
 '
 fi
 
 if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    ALIASES+='alias opencode-safe="${HOME}/.plsec/opencode-wrapper.sh"
+    ALIASES+='alias opencode-safe="${HOME}/.peerlabs/plsec/opencode-wrapper.sh"
 '
 fi
 
