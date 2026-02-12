@@ -23,6 +23,7 @@ PLSEC_DIR="${HOME}/.peerlabs/plsec"
 PLSEC_VERSION="0.1.1-bootstrap"
 WITH_PIPELOCK=false
 STRICT_MODE=false
+DRY_RUN=false
 AGENT_TYPE="both"  # claude, opencode, or both
 
 # Colors (disable if not tty)
@@ -53,6 +54,82 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
 }
 
+# Dry-run helpers
+# These wrap destructive operations so --dry-run shows intent without acting.
+
+run_cmd() {
+    # Execute a command, or print it in dry-run mode
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would run: $*"
+    else
+        "$@"
+    fi
+}
+
+write_file() {
+    # Write content (stdin) to a file, or describe the write in dry-run mode
+    local target="$1"
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would write: ${target}"
+        cat > /dev/null  # consume stdin
+    else
+        cat > "$target"
+    fi
+}
+
+write_file_from_var() {
+    # Write a variable's contents to a file, or describe the write in dry-run mode
+    local target="$1"
+    local content="$2"
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would write: ${target}"
+    else
+        echo "$content" > "$target"
+    fi
+}
+
+copy_file() {
+    # Copy a file, or describe the copy in dry-run mode
+    local src="$1"
+    local dst="$2"
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would copy: ${src} -> ${dst}"
+    else
+        cp "$src" "$dst"
+    fi
+}
+
+make_executable() {
+    # chmod +x a file, or describe it in dry-run mode
+    local target="$1"
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would chmod +x: ${target}"
+    else
+        chmod +x "$target"
+    fi
+}
+
+ensure_dir() {
+    # mkdir -p, or describe it in dry-run mode
+    local target="$1"
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would create directory: ${target}"
+    else
+        mkdir -p "$target"
+    fi
+}
+
+append_to_file() {
+    # Append content to a file, or describe it in dry-run mode
+    local target="$1"
+    local content="$2"
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would append to: ${target}"
+    else
+        echo "$content" >> "$target"
+    fi
+}
+
 # Check OS type
 detect_os() {
     log_info "Detecting details of ${OSTYPE}"
@@ -81,6 +158,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --with-pipelock) WITH_PIPELOCK=true; shift ;;
         --strict) STRICT_MODE=true; shift ;;
+        --dry-run|--simulate) DRY_RUN=true; shift ;;
         --agent)
             AGENT_TYPE="$2"
             if [[ ! "$AGENT_TYPE" =~ ^(claude|opencode|both)$ ]]; then
@@ -90,11 +168,13 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --help|-h)
-            echo "Usage: $0 [--with-pipelock] [--strict] [--agent TYPE]"
+            echo "Usage: $0 [--with-pipelock] [--strict] [--dry-run] [--agent TYPE]"
             echo ""
             echo "Options:"
             echo "  --with-pipelock  Install and configure Pipelock proxy (audit mode)"
             echo "  --strict         Use strict deny patterns (more restrictive)"
+            echo "  --dry-run        Show what would be done without making changes"
+            echo "  --simulate       Alias for --dry-run"
             echo "  --agent TYPE     Agent type: claude, opencode, or both (default: both)"
             exit 0
             ;;
@@ -105,6 +185,9 @@ done
 log_info "Peerlabs Security Bootstrap v${PLSEC_VERSION}"
 log_info "Setting up AI coding assistant security..."
 log_info "Agent type: ${AGENT_TYPE}"
+if [[ "$DRY_RUN" == true ]]; then
+    log_warn "DRY RUN MODE - no changes will be made"
+fi
 echo ""
 
 # -----------------------------------------------------------------------------
@@ -140,26 +223,30 @@ fi
 if [[ ${#MISSING_DEPS[@]} -gt 0 ]]; then
     log_warn "Missing dependencies: ${MISSING_DEPS[*]}"
     echo ""
-    read -p "Install missing dependencies via Homebrew? (y/N) " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        if [[ " ${MISSING_DEPS[*]} " =~ " homebrew " ]]; then
-            log_info "Installing Homebrew..."
-            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        fi
-
-        for dep in "${MISSING_DEPS[@]}"; do
-            case $dep in
-                homebrew) ;; # Already handled
-                trivy) brew install trivy ;;
-                go) brew install go ;;
-                *) brew install "$dep" ;;
-            esac
-        done
-        log_ok "Dependencies installed"
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY RUN] Would prompt to install: ${MISSING_DEPS[*]}"
     else
-        log_error "Cannot continue without dependencies"
-        exit 1
+        read -p "Install missing dependencies via Homebrew? (y/N) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            if [[ " ${MISSING_DEPS[*]} " =~ " homebrew " ]]; then
+                log_info "Installing Homebrew..."
+                run_cmd /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            fi
+
+            for dep in "${MISSING_DEPS[@]}"; do
+                case $dep in
+                    homebrew) ;; # Already handled
+                    trivy) run_cmd brew install trivy ;;
+                    go) run_cmd brew install go ;;
+                    *) run_cmd brew install "$dep" ;;
+                esac
+            done
+            log_ok "Dependencies installed"
+        else
+            log_error "Cannot continue without dependencies"
+            exit 1
+        fi
     fi
 fi
 
@@ -170,8 +257,10 @@ echo ""
 # -----------------------------------------------------------------------------
 log_info "Creating plsec directory structure..."
 
-mkdir -p "${PLSEC_DIR}"/{configs,logs,manifests}
-mkdir -p "${PLSEC_DIR}/trivy/policies"
+ensure_dir "${PLSEC_DIR}/configs"
+ensure_dir "${PLSEC_DIR}/logs"
+ensure_dir "${PLSEC_DIR}/manifests"
+ensure_dir "${PLSEC_DIR}/trivy/policies"
 
 log_ok "Created ${PLSEC_DIR}"
 
@@ -266,7 +355,7 @@ fi
 
 # Write to plsec directory
 if [[ "$AGENT_TYPE" == "claude" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    echo "$CLAUDE_MD_CONTENT" > "${PLSEC_DIR}/configs/CLAUDE.md"
+    write_file_from_var "${PLSEC_DIR}/configs/CLAUDE.md" "$CLAUDE_MD_CONTENT"
     log_ok "Created ${PLSEC_DIR}/configs/CLAUDE.md"
 fi
 
@@ -373,7 +462,7 @@ if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
 }'
     fi
 
-    echo "$OPENCODE_JSON_CONTENT" > "${PLSEC_DIR}/configs/opencode.json"
+    write_file_from_var "${PLSEC_DIR}/configs/opencode.json" "$OPENCODE_JSON_CONTENT"
     log_ok "Created ${PLSEC_DIR}/configs/opencode.json"
 
     # Warn about known permission bypass issues
@@ -381,9 +470,9 @@ if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
     log_warn "Strict mode is aspirational; review https://opencode.ai/docs/permissions/"
 
     # Also create global config location
-    mkdir -p "${HOME}/.config/opencode"
-    if [[ ! -f "${HOME}/.config/opencode/opencode.json" ]]; then
-        cp "${PLSEC_DIR}/configs/opencode.json" "${HOME}/.config/opencode/opencode.json"
+    ensure_dir "${HOME}/.config/opencode"
+    if [[ ! -f "${HOME}/.config/opencode/opencode.json" ]] || [[ "$DRY_RUN" == true ]]; then
+        copy_file "${PLSEC_DIR}/configs/opencode.json" "${HOME}/.config/opencode/opencode.json"
         log_ok "Installed global config: ~/.config/opencode/opencode.json"
     else
         log_warn "Global opencode config exists, not overwriting"
@@ -396,7 +485,7 @@ fi
 # -----------------------------------------------------------------------------
 log_info "Creating Trivy configuration..."
 
-cat > "${PLSEC_DIR}/trivy/trivy-secret.yaml" << 'EOF'
+write_file "${PLSEC_DIR}/trivy/trivy-secret.yaml" << 'EOF'
 # trivy-secret.yaml - LLM-tuned secret detection
 # Disable allow-rules: LLMs put secrets in unexpected places
 
@@ -475,7 +564,7 @@ EOF
 log_ok "Created ${PLSEC_DIR}/trivy/trivy-secret.yaml"
 
 # Main trivy config
-cat > "${PLSEC_DIR}/trivy/trivy.yaml" << 'EOF'
+write_file "${PLSEC_DIR}/trivy/trivy.yaml" << 'EOF'
 scan:
   scanners:
     - vuln
@@ -503,7 +592,7 @@ log_info "Creating wrapper scripts..."
 
 # Claude Code logging wrapper
 if [[ "$AGENT_TYPE" == "claude" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    cat > "${PLSEC_DIR}/claude-wrapper.sh" << 'EOF'
+    write_file "${PLSEC_DIR}/claude-wrapper.sh" << 'EOF'
 #!/bin/bash
 # claude-wrapper.sh - Logging wrapper for Claude Code
 
@@ -530,13 +619,13 @@ EXIT_CODE=$?
 log "=== Session ended: exit code $EXIT_CODE ==="
 exit $EXIT_CODE
 EOF
-    chmod +x "${PLSEC_DIR}/claude-wrapper.sh"
+    make_executable "${PLSEC_DIR}/claude-wrapper.sh"
     log_ok "Created Claude Code wrapper"
 fi
 
 # Opencode logging wrapper
 if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    cat > "${PLSEC_DIR}/opencode-wrapper.sh" << 'EOF'
+    write_file "${PLSEC_DIR}/opencode-wrapper.sh" << 'EOF'
 #!/bin/bash
 # opencode-wrapper.sh - Logging wrapper for Opencode
 
@@ -569,12 +658,12 @@ EXIT_CODE=$?
 log "=== Session ended: exit code $EXIT_CODE ==="
 exit $EXIT_CODE
 EOF
-    chmod +x "${PLSEC_DIR}/opencode-wrapper.sh"
+    make_executable "${PLSEC_DIR}/opencode-wrapper.sh"
     log_ok "Created Opencode wrapper"
 fi
 
 # Scan script
-cat > "${PLSEC_DIR}/scan.sh" << 'EOF'
+write_file "${PLSEC_DIR}/scan.sh" << 'EOF'
 #!/bin/bash
 # scan.sh - Run security scans
 
@@ -609,7 +698,7 @@ fi
 
 echo "Scan complete."
 EOF
-chmod +x "${PLSEC_DIR}/scan.sh"
+make_executable "${PLSEC_DIR}/scan.sh"
 
 log_ok "Created wrapper scripts"
 
@@ -618,7 +707,7 @@ log_ok "Created wrapper scripts"
 # -----------------------------------------------------------------------------
 log_info "Creating pre-commit hook template..."
 
-cat > "${PLSEC_DIR}/configs/pre-commit" << 'EOF'
+write_file "${PLSEC_DIR}/configs/pre-commit" << 'EOF'
 #!/bin/bash
 # Pre-commit hook for secret scanning
 
@@ -644,7 +733,7 @@ fi
 
 exit 0
 EOF
-chmod +x "${PLSEC_DIR}/configs/pre-commit"
+make_executable "${PLSEC_DIR}/configs/pre-commit"
 
 log_ok "Created pre-commit hook template"
 
@@ -659,23 +748,27 @@ if [[ "$WITH_PIPELOCK" == true ]]; then
         log_warn "Skipping Pipelock installation"
     else
         # Install Pipelock
-        go install github.com/luckyPipewrench/pipelock/cmd/pipelock@latest
+        run_cmd go install github.com/luckyPipewrench/pipelock/cmd/pipelock@latest
 
-        if command -v pipelock &> /dev/null; then
+        if command -v pipelock &> /dev/null || [[ "$DRY_RUN" == true ]]; then
             log_ok "Pipelock installed"
 
             # Generate audit config
-            pipelock generate config --preset balanced -o "${PLSEC_DIR}/pipelock.yaml"
+            run_cmd pipelock generate config --preset balanced -o "${PLSEC_DIR}/pipelock.yaml"
 
             # Modify to audit mode (log only, don't block)
-            sed -i.bak 's/enforce: true/enforce: false/' "${PLSEC_DIR}/pipelock.yaml" 2>/dev/null || \
-            sed -i '' 's/enforce: true/enforce: false/' "${PLSEC_DIR}/pipelock.yaml"
+            if [[ "$DRY_RUN" == true ]]; then
+                log_info "[DRY RUN] Would modify ${PLSEC_DIR}/pipelock.yaml: enforce: true -> enforce: false"
+            else
+                sed -i.bak 's/enforce: true/enforce: false/' "${PLSEC_DIR}/pipelock.yaml" 2>/dev/null || \
+                sed -i '' 's/enforce: true/enforce: false/' "${PLSEC_DIR}/pipelock.yaml"
+            fi
 
             log_ok "Pipelock configured in AUDIT mode (logging only)"
             log_warn "Review logs before enabling enforcement"
 
             # Create start script
-            cat > "${PLSEC_DIR}/pipelock-start.sh" << 'EOF'
+            write_file "${PLSEC_DIR}/pipelock-start.sh" << 'EOF'
 #!/bin/bash
 PLSEC_DIR="${HOME}/.peerlabs/plsec"
 LOG_FILE="${PLSEC_DIR}/logs/pipelock.log"
@@ -683,7 +776,7 @@ LOG_FILE="${PLSEC_DIR}/logs/pipelock.log"
 echo "Starting Pipelock proxy (audit mode)..."
 pipelock run --config "${PLSEC_DIR}/pipelock.yaml" 2>&1 | tee -a "$LOG_FILE"
 EOF
-            chmod +x "${PLSEC_DIR}/pipelock-start.sh"
+            make_executable "${PLSEC_DIR}/pipelock-start.sh"
         else
             log_error "Pipelock installation failed"
         fi
@@ -723,7 +816,7 @@ fi
 
 # Check if already added
 if ! grep -q "Peerlabs Security aliases" "$SHELL_RC" 2>/dev/null; then
-    echo "$ALIASES" >> "$SHELL_RC"
+    append_to_file "$SHELL_RC" "$ALIASES"
     log_ok "Added aliases to $SHELL_RC"
     log_warn "Run 'source $SHELL_RC' or restart terminal to use aliases"
 else
