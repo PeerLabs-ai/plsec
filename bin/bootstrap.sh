@@ -11,7 +11,7 @@
 #
 # What it does:
 #   1. Checks dependencies
-#   2. Creates restrictive CLAUDE.md and/or .opencode.toml
+#   2. Creates restrictive CLAUDE.md and/or opencode.json
 #   3. Installs Trivy with LLM-tuned secret scanning
 #   4. Sets up pre-commit hooks
 #   5. (Optional) Installs and configures Pipelock in audit mode
@@ -41,12 +41,12 @@ log_info() {
     echo -e "${BLUE}[INFO]${NC} $1" >&2
 }
 
-log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
+log_ok() {
+    echo -e "${GREEN}[OK]${NC} $1" >&2
 }
 
-log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1" >&2
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1" >&2
 }
 
 log_error() {
@@ -271,156 +271,123 @@ if [[ "$AGENT_TYPE" == "claude" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
 fi
 
 # -----------------------------------------------------------------------------
-# 3b. Create Opencode configuration template
+# 3b. Create Opencode configuration template (opencode.json)
+# -----------------------------------------------------------------------------
+# OpenCode uses opencode.json with a permission system supporting allow/ask/deny
+# actions and pattern-based rules. Schema: https://opencode.ai/config.json
+#
+# Known caveats (as of January 2026):
+#   - SDK may ignore custom agent deny permissions (anomalyco/opencode#6396)
+#   - Agents can circumvent denied tools via bash (sst/opencode#4642)
+#   - Plan agent may ignore edit permissions (sst/opencode#3991)
+# See: https://opencode.ai/docs/permissions/
 # -----------------------------------------------------------------------------
 if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    log_info "Creating .opencode.toml template..."
+    log_info "Creating opencode.json template..."
 
     if [[ "$STRICT_MODE" == true ]]; then
-        OPENCODE_TOML_CONTENT='# .opencode.toml - Strict Security Configuration
-# Place in project root or ~/.config/opencode/config.toml
-
-[ai]
-provider = "anthropic"  # or "openai", "openrouter"
-model = "claude-sonnet-4-20250514"
-
-[security]
-# Require confirmation for all shell commands
-confirm_commands = true
-# Log all operations
-audit_logging = true
-
-[shell]
-# Restricted shell - no network, limited filesystem
-allow_network = false
-# Commands requiring explicit approval
-dangerous_commands = [
-    "git",
-    "rm -rf",
-    "curl",
-    "wget",
-    "ssh",
-    "scp",
-    "rsync",
-    "nc",
-    "netcat",
-    "eval",
-    "exec",
-    "sudo",
-    "chmod 777",
-    "pip install",
-    "npm install",
-    "go install",
-]
-
-[filesystem]
-# Restrict to project directory
-sandbox = true
-# Allowed paths (relative to project root)
-allowed_paths = [
-    ".",
-    "src",
-    "tests",
-    "docs",
-    "scripts",
-]
-# Explicitly denied paths
-denied_paths = [
-    ".env",
-    ".env.*",
-    "**/.git/config",
-    "**/.ssh",
-    "**/.aws",
-    "**/.config",
-    "**/secrets*",
-    "**/credentials*",
-    "**/*.pem",
-    "**/*.key",
-]
-
-[logging]
-# Log directory
-dir = "~/.peerlabs/plsec/logs"
-# Log level: debug, info, warn, error
-level = "info"
-# Include command output in logs
-include_output = true
-
-[behavior]
-# Maximum file size to read (bytes)
-max_file_size = 1048576  # 1MB
-# Maximum lines to display
-max_lines = 500
-# Require confirmation for file writes outside allowed paths
-confirm_writes = true
-# Show full command before execution
-show_commands = true
-'
+        OPENCODE_JSON_CONTENT='{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "*": "ask",
+    "read": {
+      "*": "allow",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.ssh/*": "deny",
+      "**/.aws/*": "deny",
+      "**/.config/*": "deny",
+      "**/secrets*": "deny",
+      "**/credentials*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "edit": {
+      "*": "ask",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.git/config": "deny",
+      "**/.ssh/*": "deny",
+      "**/.aws/*": "deny",
+      "**/.config/*": "deny",
+      "**/secrets*": "deny",
+      "**/credentials*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "bash": {
+      "*": "deny",
+      "git status *": "allow",
+      "git diff *": "allow",
+      "git log *": "allow",
+      "git add *": "ask",
+      "git commit *": "ask",
+      "python -m pytest *": "allow",
+      "python -m ruff *": "allow",
+      "python -m mypy *": "allow",
+      "python manage.py *": "ask"
+    },
+    "external_directory": "deny",
+    "webfetch": "deny",
+    "websearch": "deny",
+    "doom_loop": "deny"
+  }
+}'
     else
-        OPENCODE_TOML_CONTENT='# .opencode.toml - Balanced Security Configuration
-# Place in project root or ~/.config/opencode/config.toml
-
-[ai]
-provider = "anthropic"  # or "openai", "openrouter"
-model = "claude-sonnet-4-20250514"
-
-[security]
-# Require confirmation for dangerous commands
-confirm_commands = true
-# Log operations
-audit_logging = true
-
-[shell]
-# Allow network but monitor
-allow_network = true
-# Commands requiring explicit approval
-dangerous_commands = [
-    "rm -rf",
-    "curl",
-    "wget",
-    "ssh",
-    "sudo",
-    "chmod 777",
-]
-
-[filesystem]
-# Soft sandbox - warn but allow
-sandbox = false
-# Denied paths (always blocked)
-denied_paths = [
-    ".env",
-    ".env.*",
-    "**/.ssh",
-    "**/.aws",
-    "**/secrets*",
-    "**/*.pem",
-    "**/*.key",
-]
-
-[logging]
-dir = "~/.peerlabs/plsec/logs"
-level = "info"
-include_output = false
-
-[behavior]
-max_file_size = 5242880  # 5MB
-max_lines = 1000
-confirm_writes = false
-show_commands = true
-'
+        OPENCODE_JSON_CONTENT='{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "*": "allow",
+    "read": {
+      "*": "allow",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.ssh/*": "deny",
+      "**/.aws/*": "deny",
+      "**/secrets*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "edit": {
+      "*": "allow",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.ssh/*": "deny",
+      "**/.aws/*": "deny",
+      "**/secrets*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "bash": {
+      "*": "ask",
+      "git *": "allow",
+      "rm -rf *": "deny",
+      "sudo *": "deny",
+      "chmod 777 *": "deny",
+      "curl *": "ask",
+      "wget *": "ask"
+    },
+    "external_directory": "ask",
+    "doom_loop": "ask"
+  }
+}'
     fi
 
-    echo "$OPENCODE_TOML_CONTENT" > "${PLSEC_DIR}/configs/.opencode.toml"
-    log_ok "Created ${PLSEC_DIR}/configs/.opencode.toml"
-    
+    echo "$OPENCODE_JSON_CONTENT" > "${PLSEC_DIR}/configs/opencode.json"
+    log_ok "Created ${PLSEC_DIR}/configs/opencode.json"
+
+    # Warn about known permission bypass issues
+    log_warn "OpenCode permission enforcement has known bypass issues (see script comments)"
+    log_warn "Strict mode is aspirational; review https://opencode.ai/docs/permissions/"
+
     # Also create global config location
     mkdir -p "${HOME}/.config/opencode"
-    if [[ ! -f "${HOME}/.config/opencode/config.toml" ]]; then
-        cp "${PLSEC_DIR}/configs/.opencode.toml" "${HOME}/.config/opencode/config.toml"
-        log_ok "Installed global config: ~/.config/opencode/config.toml"
+    if [[ ! -f "${HOME}/.config/opencode/opencode.json" ]]; then
+        cp "${PLSEC_DIR}/configs/opencode.json" "${HOME}/.config/opencode/opencode.json"
+        log_ok "Installed global config: ~/.config/opencode/opencode.json"
     else
         log_warn "Global opencode config exists, not overwriting"
-        log_info "Review: ${HOME}/.config/opencode/config.toml"
+        log_info "Review: ${HOME}/.config/opencode/opencode.json"
     fi
 fi
 
@@ -583,10 +550,10 @@ log() {
 log "=== Session started: $(pwd) ==="
 log "Args: $*"
 
-# Copy .opencode.toml to project if not present
-if [[ ! -f "./.opencode.toml" ]] && [[ -f "${PLSEC_DIR}/configs/.opencode.toml" ]]; then
-    cp "${PLSEC_DIR}/configs/.opencode.toml" ./.opencode.toml
-    log "Copied .opencode.toml to project"
+# Copy opencode.json to project if not present
+if [[ ! -f "./opencode.json" ]] && [[ -f "${PLSEC_DIR}/configs/opencode.json" ]]; then
+    cp "${PLSEC_DIR}/configs/opencode.json" ./opencode.json
+    log "Copied opencode.json to project"
 fi
 
 # Check for CLAUDE.md as well (Opencode respects it for system prompts)
@@ -776,8 +743,8 @@ if [[ "$AGENT_TYPE" == "claude" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
     echo "  - CLAUDE.md template: ${PLSEC_DIR}/configs/CLAUDE.md"
 fi
 if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    echo "  - .opencode.toml template: ${PLSEC_DIR}/configs/.opencode.toml"
-    echo "  - Global opencode config: ~/.config/opencode/config.toml"
+    echo "  - opencode.json template: ${PLSEC_DIR}/configs/opencode.json"
+    echo "  - Global opencode config: ~/.config/opencode/opencode.json"
 fi
 echo "  - Trivy config: ${PLSEC_DIR}/trivy/"
 echo "  - Wrapper scripts: ${PLSEC_DIR}/"
@@ -792,7 +759,7 @@ if [[ "$AGENT_TYPE" == "claude" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
     echo "  2. cp ${PLSEC_DIR}/configs/CLAUDE.md ."
 fi
 if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    echo "  2. cp ${PLSEC_DIR}/configs/.opencode.toml ."
+    echo "  2. cp ${PLSEC_DIR}/configs/opencode.json ."
 fi
 echo ""
 echo "  Use safe wrappers instead of direct commands:"
