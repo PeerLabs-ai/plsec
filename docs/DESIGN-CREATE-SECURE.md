@@ -114,7 +114,7 @@ Create project? [Y/n]
 Creating my-api/
   [OK] Created directory structure
   [OK] Created CLAUDE.md
-  [OK] Created .opencode.toml
+  [OK] Created opencode.json
   [OK] Created plsec.yaml
   [OK] Created .gitignore (security-enhanced)
   [OK] Created .pre-commit-config.yaml
@@ -135,7 +135,7 @@ my-api/
   .git/
   .gitignore              # Security-enhanced
   .pre-commit-config.yaml # Pre-commit hooks
-  .opencode.toml          # Opencode config
+  opencode.json          # Opencode config
   CLAUDE.md               # Claude Code config
   plsec.yaml              # plsec configuration
   README.md               # Project readme
@@ -223,7 +223,7 @@ Analyzing project...
 [OK] Detected: Git repository
 [OK] Detected: 47 Python files, 3 config files
 [WARN] No CLAUDE.md found
-[WARN] No .opencode.toml found
+[WARN] No opencode.json found
 [WARN] No pre-commit hooks installed
 [WARN] .gitignore missing common secret patterns
 
@@ -263,7 +263,7 @@ Running quick security scan...
 
     CREATE:
       + CLAUDE.md                    (AI assistant constraints)
-      + .opencode.toml               (Opencode configuration)
+      + opencode.json               (Opencode configuration)
       + plsec.yaml                   (plsec configuration)
       + trivy/trivy-secret.yaml      (Secret scanning rules)
       + .pre-commit-config.yaml      (Pre-commit hooks)
@@ -278,7 +278,7 @@ Running quick security scan...
 
 Applying changes...
   [OK] Created CLAUDE.md
-  [OK] Created .opencode.toml
+  [OK] Created opencode.json
   [OK] Created plsec.yaml
   [OK] Created trivy/trivy-secret.yaml
   [OK] Created .pre-commit-config.yaml
@@ -335,7 +335,7 @@ Apply changes? [Y/n/selective] s
 
 Select changes to apply:
   [x] CREATE CLAUDE.md
-  [x] CREATE .opencode.toml
+  [x] CREATE opencode.json
   [x] CREATE plsec.yaml
   [ ] CREATE trivy/trivy-secret.yaml     # User deselected
   [x] CREATE .pre-commit-config.yaml
@@ -554,7 +554,7 @@ $ plsec create my-api -t python -p balanced -a both --no-wizard
 Creating my-api/
   [OK] Created directory structure
   [OK] Created CLAUDE.md
-  [OK] Created .opencode.toml
+  [OK] Created opencode.json
   [OK] Created plsec.yaml
   [OK] Initialized git repository
 
@@ -573,7 +573,7 @@ Dry run - no changes will be made
 
 Would CREATE:
   + CLAUDE.md
-  + .opencode.toml
+  + opencode.json
   + plsec.yaml
 
 Would MODIFY:

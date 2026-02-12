@@ -41,7 +41,7 @@ class ProjectInfo:
 
     # Existing security configuration
     has_claude_md: bool = False
-    has_opencode_toml: bool = False
+    has_opencode_json: bool = False
     has_plsec_yaml: bool = False
     has_gitignore: bool = False
     has_pre_commit: bool = False
@@ -137,7 +137,7 @@ class ProjectDetector:
 
         # Check existing security configuration
         info.has_claude_md = (self.path / "CLAUDE.md").exists()
-        info.has_opencode_toml = (self.path / ".opencode.toml").exists()
+        info.has_opencode_json = (self.path / "opencode.json").exists()
         info.has_plsec_yaml = (self.path / "plsec.yaml").exists()
         info.has_gitignore = (self.path / ".gitignore").exists()
         info.has_pre_commit = (self.path / ".pre-commit-config.yaml").exists()

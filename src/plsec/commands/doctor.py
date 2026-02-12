@@ -108,7 +108,7 @@ def doctor(
 
     # Check for agent configs
     claude_md = plsec_home / "configs" / "CLAUDE.md"
-    opencode_toml = plsec_home / "configs" / ".opencode.toml"
+    opencode_json = plsec_home / "configs" / "opencode.json"
 
     if claude_md.exists():
         print_ok(f"CLAUDE.md template: {claude_md}")
@@ -117,11 +117,11 @@ def doctor(
         print_warning("CLAUDE.md template missing", details="Run 'plsec init' to create")
         warn_count += 1
 
-    if opencode_toml.exists():
-        print_ok(f".opencode.toml template: {opencode_toml}")
+    if opencode_json.exists():
+        print_ok(f"opencode.json template: {opencode_json}")
         ok_count += 1
     else:
-        print_warning(".opencode.toml template missing", details="Run 'plsec init' to create")
+        print_warning("opencode.json template missing", details="Run 'plsec init' to create")
         warn_count += 1
 
     # Check required tools

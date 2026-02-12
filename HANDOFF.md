@@ -37,7 +37,7 @@ plsec/
       detector.py          # Project analysis and detection
     configs/
       __init__.py
-      templates.py         # Embedded CLAUDE.md, .opencode.toml
+      templates.py         # Embedded CLAUDE.md, opencode.json
   homebrew/
     plsec.rb               # Homebrew formula
     README.md              # Tap setup instructions
@@ -93,6 +93,31 @@ plsec --version
 plsec --help
 ```
 
+## Known Issues / Fixes Applied
+
+### OpenCode Configuration Fix (2026-02-12)
+
+**Problem:** Initial implementation used hallucinated `.opencode.toml` format with invented schema sections (`[ai]`, `[security]`, `[shell]`, `[filesystem]`).
+
+**Actual Format:** OpenCode uses `opencode.json` with a specific schema:
+- Schema: `https://opencode.ai/config.json`
+- Key field: `permission` with tool-level controls
+- Permission values: `"allow"`, `"ask"`, `"deny"`
+- Tools: `bash`, `edit`, `read`, `webfetch`, `external_directory`, etc.
+
+**Files Updated:**
+- `src/plsec/configs/templates.py` - Replaced TOML templates with JSON
+- `src/plsec/commands/init.py` - Changed file creation to opencode.json
+- `src/plsec/commands/create.py` - Changed file creation to opencode.json
+- `src/plsec/commands/secure.py` - Changed detection and creation
+- `src/plsec/commands/validate.py` - Changed validation to JSON
+- `src/plsec/commands/doctor.py` - Changed template checking
+- `src/plsec/core/detector.py` - Changed detection field
+- `tests/test_plsec.py` - Updated template tests
+- Documentation (README.md, HANDOFF.md, DESIGN-CREATE-SECURE.md)
+
+---
+
 ## Implemented Commands
 
 | Command | Status | Notes |
@@ -100,7 +125,7 @@ plsec --help
 | `plsec create` | **New** | Create new secure project with wizard |
 | `plsec secure` | **New** | Retrofit security onto existing project |
 | `plsec doctor` | Complete | Checks dependencies, directories, configs |
-| `plsec init` | Complete | Generates CLAUDE.md, .opencode.toml, plsec.yaml |
+| `plsec init` | Complete | Generates CLAUDE.md, opencode.json, plsec.yaml |
 | `plsec scan` | Complete | Wraps Trivy, Bandit, Semgrep |
 | `plsec validate` | Complete | Validates config files |
 | `plsec proxy` | Complete | Start/stop/status/logs for Pipelock |

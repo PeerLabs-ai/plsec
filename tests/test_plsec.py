@@ -110,14 +110,16 @@ class TestTemplates:
         from plsec.configs.templates import (
             CLAUDE_MD_STRICT,
             CLAUDE_MD_BALANCED,
-            OPENCODE_TOML_STRICT,
-            OPENCODE_TOML_BALANCED,
+            OPENCODE_JSON_STRICT,
+            OPENCODE_JSON_BALANCED,
         )
 
         assert "NEVER" in CLAUDE_MD_STRICT
         assert "NEVER" in CLAUDE_MD_BALANCED
-        assert "[ai]" in OPENCODE_TOML_STRICT
-        assert "[ai]" in OPENCODE_TOML_BALANCED
+        assert '"$schema"' in OPENCODE_JSON_STRICT
+        assert '"$schema"' in OPENCODE_JSON_BALANCED
+        assert '"permission"' in OPENCODE_JSON_STRICT
+        assert '"permission"' in OPENCODE_JSON_BALANCED
 
     def test_strict_more_restrictive(self):
         """Strict templates should be more restrictive."""

@@ -99,7 +99,7 @@ plsec implements a 5-layer security model:
 
 ```
 Layer 1: STATIC      - Trivy, Bandit, Semgrep, detect-secrets
-Layer 2: CONFIG      - CLAUDE.md, .opencode.toml, deny patterns
+Layer 2: CONFIG      - CLAUDE.md, opencode.json, deny patterns
 Layer 3: ISOLATION   - Podman/Docker containers, macOS sandbox
 Layer 4: RUNTIME     - Pipelock egress proxy, DLP, response scanning
 Layer 5: AUDIT       - Structured logging, integrity monitoring

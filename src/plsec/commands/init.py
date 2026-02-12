@@ -1,7 +1,7 @@
 """
 plsec init - Initialize security configuration for a project.
 
-Sets up CLAUDE.md, .opencode.toml, plsec.yaml, and related configs.
+Sets up CLAUDE.md, opencode.json, plsec.yaml, and related configs.
 """
 
 from pathlib import Path
@@ -31,8 +31,8 @@ from plsec.core.output import (
 from plsec.configs.templates import (
     CLAUDE_MD_STRICT,
     CLAUDE_MD_BALANCED,
-    OPENCODE_TOML_STRICT,
-    OPENCODE_TOML_BALANCED,
+    OPENCODE_JSON_STRICT,
+    OPENCODE_JSON_BALANCED,
 )
 
 app = typer.Typer(
@@ -128,7 +128,7 @@ def init(
     """
     Initialize security configuration for a project.
 
-    Creates CLAUDE.md, .opencode.toml, plsec.yaml, and sets up
+    Creates CLAUDE.md, opencode.json, plsec.yaml, and sets up
     the ~/.plsec directory structure.
 
     Presets:
@@ -145,7 +145,7 @@ def init(
 
     # Determine which templates to use
     claude_md = CLAUDE_MD_STRICT if is_strict else CLAUDE_MD_BALANCED
-    opencode_toml = OPENCODE_TOML_STRICT if is_strict else OPENCODE_TOML_BALANCED
+    opencode_json = OPENCODE_JSON_STRICT if is_strict else OPENCODE_JSON_BALANCED
 
     # Set up global configs
     print_header("Global Configuration (~/.plsec)")
@@ -163,11 +163,11 @@ def init(
         else:
             print_warning(f"Exists: {claude_path} (use --force to overwrite)")
 
-    # Write global .opencode.toml template
+    # Write global opencode.json template
     if agent in ("opencode", "both"):
-        opencode_path = plsec_home / "configs" / ".opencode.toml"
+        opencode_path = plsec_home / "configs" / "opencode.json"
         if not opencode_path.exists() or force:
-            opencode_path.write_text(opencode_toml)
+            opencode_path.write_text(opencode_json)
             print_ok(f"Created {opencode_path}")
         else:
             print_warning(f"Exists: {opencode_path} (use --force to overwrite)")
@@ -175,9 +175,9 @@ def init(
         # Also install to ~/.config/opencode/
         opencode_global = Path.home() / ".config" / "opencode"
         opencode_global.mkdir(parents=True, exist_ok=True)
-        opencode_global_config = opencode_global / "config.toml"
+        opencode_global_config = opencode_global / "opencode.json"
         if not opencode_global_config.exists() or force:
-            opencode_global_config.write_text(opencode_toml)
+            opencode_global_config.write_text(opencode_json)
             print_ok(f"Created {opencode_global_config}")
         else:
             print_warning(f"Exists: {opencode_global_config}")
@@ -202,11 +202,11 @@ def init(
         else:
             print_warning(f"Exists: {project_claude}")
 
-    # Write project .opencode.toml
+    # Write project opencode.json
     if agent in ("opencode", "both"):
-        project_opencode = cwd / ".opencode.toml"
+        project_opencode = cwd / "opencode.json"
         if not project_opencode.exists() or force:
-            project_opencode.write_text(opencode_toml)
+            project_opencode.write_text(opencode_json)
             print_ok(f"Created {project_opencode}")
         else:
             print_warning(f"Exists: {project_opencode}")

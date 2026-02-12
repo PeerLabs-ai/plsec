@@ -86,135 +86,107 @@ You are operating with security monitoring enabled.
 Commands are logged to ~/.plsec/logs/
 '''
 
-OPENCODE_TOML_STRICT = '''# .opencode.toml - Strict Security Configuration
-# Place in project root or ~/.config/opencode/config.toml
-
-[ai]
-provider = "anthropic"  # or "openai", "openrouter"
-model = "claude-sonnet-4-20250514"
-
-[security]
-# Require confirmation for all shell commands
-confirm_commands = true
-# Log all operations
-audit_logging = true
-
-[shell]
-# Restricted shell - no network, limited filesystem
-allow_network = false
-# Commands requiring explicit approval
-dangerous_commands = [
-    "rm -rf",
-    "curl",
-    "wget",
-    "ssh",
-    "scp",
-    "rsync",
-    "nc",
-    "netcat",
-    "eval",
-    "exec",
-    "sudo",
-    "chmod 777",
-    "pip install",
-    "npm install",
-    "go install",
-]
-
-[filesystem]
-# Restrict to project directory
-sandbox = true
-# Allowed paths (relative to project root)
-allowed_paths = [
-    ".",
-    "src",
-    "tests",
-    "docs",
-    "scripts",
-]
-# Explicitly denied paths
-denied_paths = [
-    ".env",
-    ".env.*",
-    "**/.git/config",
-    "**/.ssh",
-    "**/.aws",
-    "**/.config",
-    "**/secrets*",
-    "**/credentials*",
-    "**/*.pem",
-    "**/*.key",
-]
-
-[logging]
-# Log directory
-dir = "~/.plsec/logs"
-# Log level: debug, info, warn, error
-level = "info"
-# Include command output in logs
-include_output = true
-
-[behavior]
-# Maximum file size to read (bytes)
-max_file_size = 1048576  # 1MB
-# Maximum lines to display
-max_lines = 500
-# Require confirmation for file writes outside allowed paths
-confirm_writes = true
-# Show full command before execution
-show_commands = true
+OPENCODE_JSON_STRICT = '''{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-sonnet-4-5",
+  "permission": {
+    "*": "deny",
+    "bash": {
+      "*": "deny",
+      "git status": "allow",
+      "git status *": "allow",
+      "git diff": "allow",
+      "git diff *": "allow",
+      "git log": "allow",
+      "git log *": "allow",
+      "git branch": "allow",
+      "git branch *": "allow",
+      "ls *": "allow",
+      "cat *": "ask",
+      "head *": "allow",
+      "tail *": "allow",
+      "wc *": "allow",
+      "grep *": "allow",
+      "find *": "allow",
+      "pwd": "allow",
+      "echo *": "ask"
+    },
+    "edit": "ask",
+    "read": {
+      "*": "ask",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      ".env": "deny",
+      ".env.*": "deny",
+      "*.pem": "deny",
+      "*.key": "deny",
+      "*.p12": "deny",
+      ".aws/**": "deny",
+      ".ssh/**": "deny",
+      ".config/**": "deny",
+      "**/secrets/**": "deny",
+      "**/credentials/**": "deny"
+    },
+    "webfetch": "deny",
+    "external_directory": "deny",
+    "doom_loop": "deny"
+  }
+}
 '''
 
-OPENCODE_TOML_BALANCED = '''# .opencode.toml - Balanced Security Configuration
-# Place in project root or ~/.config/opencode/config.toml
-
-[ai]
-provider = "anthropic"  # or "openai", "openrouter"
-model = "claude-sonnet-4-20250514"
-
-[security]
-# Require confirmation for dangerous commands
-confirm_commands = true
-# Log operations
-audit_logging = true
-
-[shell]
-# Allow network but monitor
-allow_network = true
-# Commands requiring explicit approval
-dangerous_commands = [
-    "rm -rf",
-    "curl",
-    "wget",
-    "ssh",
-    "sudo",
-    "chmod 777",
-]
-
-[filesystem]
-# Soft sandbox - warn but allow
-sandbox = false
-# Denied paths (always blocked)
-denied_paths = [
-    ".env",
-    ".env.*",
-    "**/.ssh",
-    "**/.aws",
-    "**/secrets*",
-    "**/*.pem",
-    "**/*.key",
-]
-
-[logging]
-dir = "~/.plsec/logs"
-level = "info"
-include_output = false
-
-[behavior]
-max_file_size = 5242880  # 5MB
-max_lines = 1000
-confirm_writes = false
-show_commands = true
+OPENCODE_JSON_BALANCED = '''{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-sonnet-4-5",
+  "permission": {
+    "*": "ask",
+    "bash": {
+      "*": "ask",
+      "git status": "allow",
+      "git status *": "allow",
+      "git diff": "allow",
+      "git diff *": "allow",
+      "git log": "allow",
+      "git log *": "allow",
+      "git branch": "allow",
+      "git branch *": "allow",
+      "git add *": "ask",
+      "git commit *": "ask",
+      "git push *": "ask",
+      "ls *": "allow",
+      "cat *": "allow",
+      "head *": "allow",
+      "tail *": "allow",
+      "wc *": "allow",
+      "grep *": "allow",
+      "find *": "allow",
+      "pwd": "allow",
+      "rm -rf *": "deny",
+      "rm -r *": "ask",
+      "curl *": "ask",
+      "wget *": "ask",
+      "ssh *": "deny",
+      "scp *": "deny",
+      "sudo *": "deny"
+    },
+    "edit": "ask",
+    "read": {
+      "*": "allow",
+      "*.env": "deny",
+      "*.env.*": "deny",
+      ".env": "deny",
+      ".env.*": "deny",
+      ".env.example": "allow",
+      "*.pem": "deny",
+      "*.key": "deny",
+      "*.p12": "deny",
+      ".aws/**": "deny",
+      ".ssh/**": "deny"
+    },
+    "webfetch": "ask",
+    "external_directory": "ask",
+    "doom_loop": "ask"
+  }
+}
 '''
 
 PLSEC_YAML_TEMPLATE = '''# plsec.yaml - Security configuration

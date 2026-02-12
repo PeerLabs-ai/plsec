@@ -24,8 +24,8 @@ from plsec.core.wizard import (
 from plsec.configs.templates import (
     CLAUDE_MD_STRICT,
     CLAUDE_MD_BALANCED,
-    OPENCODE_TOML_STRICT,
-    OPENCODE_TOML_BALANCED,
+    OPENCODE_JSON_STRICT,
+    OPENCODE_JSON_BALANCED,
 )
 
 app = typer.Typer(
@@ -161,15 +161,15 @@ def calculate_changes(
                 )
             )
 
-    # .opencode.toml
-    opencode_content = OPENCODE_TOML_STRICT if is_strict else OPENCODE_TOML_BALANCED
+    # opencode.json
+    opencode_content = OPENCODE_JSON_STRICT if is_strict else OPENCODE_JSON_BALANCED
     if "opencode" in state.agents:
-        if not info.has_opencode_toml:
+        if not info.has_opencode_json:
             changes.creates.append(
                 Change(
                     action="create",
-                    path=".opencode.toml",
-                    description="Opencode configuration",
+                    path="opencode.json",
+                    description="OpenCode configuration",
                     content=opencode_content,
                 )
             )
@@ -177,7 +177,7 @@ def calculate_changes(
             changes.modifies.append(
                 Change(
                     action="modify",
-                    path=".opencode.toml",
+                    path="opencode.json",
                     description="Replace with template",
                     content=opencode_content,
                 )
@@ -186,7 +186,7 @@ def calculate_changes(
             changes.skips.append(
                 Change(
                     action="skip",
-                    path=".opencode.toml",
+                    path="opencode.json",
                     description="Already exists",
                 )
             )
@@ -504,8 +504,8 @@ def secure(
     # Check existing security
     if not info.has_claude_md:
         print_warning("No CLAUDE.md found")
-    if not info.has_opencode_toml:
-        print_warning("No .opencode.toml found")
+    if not info.has_opencode_json:
+        print_warning("No opencode.json found")
     if not info.has_pre_commit:
         print_warning("No pre-commit hooks installed")
     if info.has_gitignore:

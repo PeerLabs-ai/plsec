@@ -1,7 +1,7 @@
 """
 plsec validate - Validate configuration files.
 
-Checks syntax and schema of plsec.yaml, CLAUDE.md, .opencode.toml, etc.
+Checks syntax and schema of plsec.yaml, CLAUDE.md, opencode.json, etc.
 """
 
 from pathlib import Path
@@ -64,29 +64,35 @@ def validate_claude_md(path: Path) -> tuple[bool, list[str]]:
         return False, [str(e)]
 
 
-def validate_opencode_toml(path: Path) -> tuple[bool, list[str]]:
-    """Validate .opencode.toml syntax."""
+def validate_opencode_json(path: Path) -> tuple[bool, list[str]]:
+    """Validate opencode.json syntax and schema."""
+    import json
+
     warnings = []
 
     try:
-        import tomllib
-    except ImportError:
-        try:
-            import tomli as tomllib
-        except ImportError:
-            return True, ["TOML library not available for validation"]
+        with open(path) as f:
+            data = json.load(f)
 
-    try:
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
+        # Check for schema reference
+        if "$schema" not in data:
+            warnings.append("Missing $schema field (recommended: https://opencode.ai/config.json)")
 
-        # Check for expected sections
-        expected = ["ai", "security", "shell", "filesystem"]
-        for section in expected:
-            if section not in data:
-                warnings.append(f"Missing [{section}] section")
+        # Check for permission section (the main security config)
+        if "permission" not in data:
+            warnings.append("Missing 'permission' section")
+        else:
+            perm = data["permission"]
+            # Check for security-relevant permissions
+            if isinstance(perm, dict):
+                if "bash" not in perm:
+                    warnings.append("No bash permission rules defined")
+                if "external_directory" not in perm:
+                    warnings.append("No external_directory permission (recommended: deny or ask)")
 
         return True, warnings
+    except json.JSONDecodeError as e:
+        return False, [f"Invalid JSON: {e}"]
     except Exception as e:
         return False, [str(e)]
 
@@ -110,7 +116,7 @@ def validate(
     Checks:
     - plsec.yaml syntax and schema
     - CLAUDE.md structure
-    - .opencode.toml syntax
+    - opencode.json syntax
     - Pre-commit hooks installation
     """
     console.print("[bold]plsec validate[/bold] - Configuration validation\n")
@@ -159,27 +165,27 @@ def validate(
         print_warning("CLAUDE.md not found", details="Run 'plsec init' to create")
         warn_count += 1
 
-    # Check .opencode.toml
-    print_header(".opencode.toml")
-    opencode_toml = path / ".opencode.toml"
+    # Check opencode.json
+    print_header("opencode.json")
+    opencode_json = path / "opencode.json"
 
-    if opencode_toml.exists():
-        valid, warnings = validate_opencode_toml(opencode_toml)
+    if opencode_json.exists():
+        valid, warnings = validate_opencode_json(opencode_json)
         if valid and not warnings:
-            print_ok(f"Valid: {opencode_toml}")
+            print_ok(f"Valid: {opencode_json}")
             ok_count += 1
         elif valid and warnings:
-            print_warning(f"Valid with warnings: {opencode_toml}")
+            print_warning(f"Valid with warnings: {opencode_json}")
             for w in warnings:
                 console.print(f"      {w}", style="dim")
             warn_count += 1
         else:
-            print_error(f"Invalid: {opencode_toml}")
+            print_error(f"Invalid: {opencode_json}")
             for w in warnings:
                 console.print(f"      {w}", style="dim")
             error_count += 1
     else:
-        print_warning(".opencode.toml not found", details="Optional for Claude Code users")
+        print_warning("opencode.json not found", details="Optional for Claude Code users")
 
     # Check pre-commit hook
     print_header("Pre-commit Hook")

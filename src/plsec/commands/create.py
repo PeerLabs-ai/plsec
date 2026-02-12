@@ -25,8 +25,8 @@ from plsec.core.wizard import (
 from plsec.configs.templates import (
     CLAUDE_MD_STRICT,
     CLAUDE_MD_BALANCED,
-    OPENCODE_TOML_STRICT,
-    OPENCODE_TOML_BALANCED,
+    OPENCODE_JSON_STRICT,
+    OPENCODE_JSON_BALANCED,
 )
 
 app = typer.Typer(
@@ -492,11 +492,11 @@ def create(
         (project_path / "CLAUDE.md").write_text(claude_content)
         print_ok("Created CLAUDE.md")
 
-    # Create .opencode.toml
+    # Create opencode.json
     if "opencode" in state.agents or "both" in state.agents:
-        opencode_content = OPENCODE_TOML_STRICT if is_strict else OPENCODE_TOML_BALANCED
-        (project_path / ".opencode.toml").write_text(opencode_content)
-        print_ok("Created .opencode.toml")
+        opencode_content = OPENCODE_JSON_STRICT if is_strict else OPENCODE_JSON_BALANCED
+        (project_path / "opencode.json").write_text(opencode_content)
+        print_ok("Created opencode.json")
 
     # Create plsec.yaml
     # (simplified - would use config builder in full implementation)
