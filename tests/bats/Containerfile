@@ -1,0 +1,36 @@
+# Containerfile - Hermetic environment for bootstrap.sh integration tests
+#
+# Build and run with podman (preferred) or docker:
+#   podman build -t plsec-test -f tests/bats/Containerfile .
+#   podman run --rm plsec-test tests/bats/integration/
+#
+# Or use tests/bats/run-in-container.sh for auto-detection.
+
+FROM ubuntu:24.04
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    bats \
+    git \
+    python3 \
+    python3-yaml \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for realistic HOME testing
+RUN useradd -m -s /bin/bash testuser
+
+WORKDIR /workspace
+
+# Copy project files
+COPY bin/bootstrap.sh /workspace/bin/bootstrap.sh
+COPY tests/bats/ /workspace/tests/bats/
+
+# Ensure bootstrap is executable
+RUN chmod +x /workspace/bin/bootstrap.sh
+
+USER testuser
+
+ENTRYPOINT ["bats"]
+CMD ["tests/bats/"]

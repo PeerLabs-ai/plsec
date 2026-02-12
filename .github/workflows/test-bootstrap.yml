@@ -1,0 +1,71 @@
+# test-bootstrap.yml - CI for bin/bootstrap.sh
+#
+# Runs BATS unit tests on Linux, integration tests in containers (Linux)
+# and natively (macOS), across mode and agent combinations.
+
+name: Test bootstrap.sh
+
+on:
+  push:
+    paths: ['bin/bootstrap.sh', 'tests/bats/**', 'templates/**']
+  pull_request:
+    paths: ['bin/bootstrap.sh', 'tests/bats/**', 'templates/**']
+  release:
+    types: [published]
+
+jobs:
+  unit:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install BATS
+        run: sudo apt-get update && sudo apt-get install -y bats
+      - name: Run unit tests
+        run: bats tests/bats/unit/
+
+  integration-linux:
+    name: Integration (Linux container)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Run integration tests in container
+        run: |
+          # GitHub Actions runners have docker; podman also available
+          if command -v podman &>/dev/null; then
+            RUNTIME=podman
+          else
+            RUNTIME=docker
+          fi
+          ${RUNTIME} build -t plsec-test -f tests/bats/Containerfile .
+          ${RUNTIME} run --rm plsec-test tests/bats/integration/
+
+  integration-macos:
+    name: Integration (macOS - ${{ matrix.agent }} ${{ matrix.mode }})
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: ['--strict', '']
+        agent: [claude, opencode, both]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install BATS
+        run: brew install bats-core
+      - name: Install Python (for JSON/YAML validation)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: Run integration tests
+        run: bats tests/bats/integration/
+        env:
+          TEST_MODE: ${{ matrix.mode }}
+          TEST_AGENT: ${{ matrix.agent }}
