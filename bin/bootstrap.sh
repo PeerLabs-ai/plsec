@@ -311,7 +311,7 @@ You are operating in a RESTRICTED security environment. Violations will terminat
 All commands will be logged for security audit.
 '
 else
-    CLAUDE_MD_CONTENT='# CLAUDE.md - Balanced Security Configuration
+    CLAUDE_MD_CONTENT="# CLAUDE.md - Balanced Security Configuration
 
 ## Security Constraints
 
@@ -349,8 +349,8 @@ You are operating with security monitoring enabled.
 
 ### Logging
 
-Commands are logged to ~/.peerlabs/plsec/logs/
-'
+Commands are logged to ${PLSEC_DIR}/logs/
+"
 fi
 
 # Write to plsec directory
@@ -592,32 +592,32 @@ log_info "Creating wrapper scripts..."
 
 # Claude Code logging wrapper
 if [[ "$AGENT_TYPE" == "claude" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    write_file "${PLSEC_DIR}/claude-wrapper.sh" << 'EOF'
+    write_file "${PLSEC_DIR}/claude-wrapper.sh" << EOF
 #!/bin/bash
 # claude-wrapper.sh - Logging wrapper for Claude Code
 
-PLSEC_DIR="${HOME}/.peerlabs/plsec"
-LOG_FILE="${PLSEC_DIR}/logs/claude-$(date +%Y%m%d).log"
+PLSEC_DIR="${PLSEC_DIR}"
+LOG_FILE="\${PLSEC_DIR}/logs/claude-\$(date +%Y%m%d).log"
 
 log() {
-    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] [$$] $*" >> "$LOG_FILE"
+    echo "[\$(date -u +"%Y-%m-%dT%H:%M:%SZ")] [\$\$] \$*" >> "\$LOG_FILE"
 }
 
-log "=== Session started: $(pwd) ==="
-log "Args: $*"
+log "=== Session started: \$(pwd) ==="
+log "Args: \$*"
 
 # Copy CLAUDE.md to project if not present
-if [[ ! -f "./CLAUDE.md" ]] && [[ -f "${PLSEC_DIR}/configs/CLAUDE.md" ]]; then
-    cp "${PLSEC_DIR}/configs/CLAUDE.md" ./CLAUDE.md
+if [[ ! -f "./CLAUDE.md" ]] && [[ -f "\${PLSEC_DIR}/configs/CLAUDE.md" ]]; then
+    cp "\${PLSEC_DIR}/configs/CLAUDE.md" ./CLAUDE.md
     log "Copied CLAUDE.md to project"
 fi
 
 # Run Claude Code
-claude "$@"
-EXIT_CODE=$?
+claude "\$@"
+EXIT_CODE=\$?
 
-log "=== Session ended: exit code $EXIT_CODE ==="
-exit $EXIT_CODE
+log "=== Session ended: exit code \$EXIT_CODE ==="
+exit \$EXIT_CODE
 EOF
     make_executable "${PLSEC_DIR}/claude-wrapper.sh"
     log_ok "Created Claude Code wrapper"
@@ -625,66 +625,66 @@ fi
 
 # Opencode logging wrapper
 if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    write_file "${PLSEC_DIR}/opencode-wrapper.sh" << 'EOF'
+    write_file "${PLSEC_DIR}/opencode-wrapper.sh" << EOF
 #!/bin/bash
 # opencode-wrapper.sh - Logging wrapper for Opencode
 
-PLSEC_DIR="${HOME}/.peerlabs/plsec"
-LOG_FILE="${PLSEC_DIR}/logs/opencode-$(date +%Y%m%d).log"
+PLSEC_DIR="${PLSEC_DIR}"
+LOG_FILE="\${PLSEC_DIR}/logs/opencode-\$(date +%Y%m%d).log"
 
 log() {
-    echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] [$$] $*" >> "$LOG_FILE"
+    echo "[\$(date -u +"%Y-%m-%dT%H:%M:%SZ")] [\$\$] \$*" >> "\$LOG_FILE"
 }
 
-log "=== Session started: $(pwd) ==="
-log "Args: $*"
+log "=== Session started: \$(pwd) ==="
+log "Args: \$*"
 
 # Copy opencode.json to project if not present
-if [[ ! -f "./opencode.json" ]] && [[ -f "${PLSEC_DIR}/configs/opencode.json" ]]; then
-    cp "${PLSEC_DIR}/configs/opencode.json" ./opencode.json
+if [[ ! -f "./opencode.json" ]] && [[ -f "\${PLSEC_DIR}/configs/opencode.json" ]]; then
+    cp "\${PLSEC_DIR}/configs/opencode.json" ./opencode.json
     log "Copied opencode.json to project"
 fi
 
 # Check for CLAUDE.md as well (Opencode respects it for system prompts)
-if [[ ! -f "./CLAUDE.md" ]] && [[ -f "${PLSEC_DIR}/configs/CLAUDE.md" ]]; then
-    cp "${PLSEC_DIR}/configs/CLAUDE.md" ./CLAUDE.md
+if [[ ! -f "./CLAUDE.md" ]] && [[ -f "\${PLSEC_DIR}/configs/CLAUDE.md" ]]; then
+    cp "\${PLSEC_DIR}/configs/CLAUDE.md" ./CLAUDE.md
     log "Copied CLAUDE.md to project (Opencode reads this too)"
 fi
 
 # Run Opencode
-opencode "$@"
-EXIT_CODE=$?
+opencode "\$@"
+EXIT_CODE=\$?
 
-log "=== Session ended: exit code $EXIT_CODE ==="
-exit $EXIT_CODE
+log "=== Session ended: exit code \$EXIT_CODE ==="
+exit \$EXIT_CODE
 EOF
     make_executable "${PLSEC_DIR}/opencode-wrapper.sh"
     log_ok "Created Opencode wrapper"
 fi
 
 # Scan script
-write_file "${PLSEC_DIR}/scan.sh" << 'EOF'
+write_file "${PLSEC_DIR}/scan.sh" << EOF
 #!/bin/bash
 # scan.sh - Run security scans
 
-PLSEC_DIR="${HOME}/.peerlabs/plsec"
-TARGET="${1:-.}"
+PLSEC_DIR="${PLSEC_DIR}"
+TARGET="\${1:-.}"
 
-echo "Running security scans on: $TARGET"
+echo "Running security scans on: \$TARGET"
 echo ""
 
 # Trivy secrets
 if command -v trivy &> /dev/null; then
     echo "=== Trivy Secret Scan ==="
-    trivy fs --secret-config "${PLSEC_DIR}/trivy/trivy-secret.yaml" "$TARGET"
+    trivy fs --secret-config "\${PLSEC_DIR}/trivy/trivy-secret.yaml" "\$TARGET"
     echo ""
 fi
 
 # Bandit (Python)
-if command -v bandit &> /dev/null && [[ -d "$TARGET" ]]; then
-    if find "$TARGET" -name "*.py" -type f | head -1 | grep -q .; then
+if command -v bandit &> /dev/null && [[ -d "\$TARGET" ]]; then
+    if find "\$TARGET" -name "*.py" -type f | head -1 | grep -q .; then
         echo "=== Bandit (Python) ==="
-        bandit -r "$TARGET" -ll 2>/dev/null || true
+        bandit -r "\$TARGET" -ll 2>/dev/null || true
         echo ""
     fi
 fi
@@ -692,7 +692,7 @@ fi
 # Semgrep
 if command -v semgrep &> /dev/null; then
     echo "=== Semgrep ==="
-    semgrep --config auto "$TARGET" --quiet 2>/dev/null || true
+    semgrep --config auto "\$TARGET" --quiet 2>/dev/null || true
     echo ""
 fi
 
@@ -707,11 +707,11 @@ log_ok "Created wrapper scripts"
 # -----------------------------------------------------------------------------
 log_info "Creating pre-commit hook template..."
 
-write_file "${PLSEC_DIR}/configs/pre-commit" << 'EOF'
+write_file "${PLSEC_DIR}/configs/pre-commit" << EOF
 #!/bin/bash
 # Pre-commit hook for secret scanning
 
-PLSEC_DIR="${HOME}/.peerlabs/plsec"
+PLSEC_DIR="${PLSEC_DIR}"
 
 echo "Running pre-commit security scan..."
 
@@ -719,12 +719,12 @@ echo "Running pre-commit security scan..."
 if command -v trivy &> /dev/null; then
     # Scan staged files
     git diff --cached --name-only | while read -r file; do
-        if [[ -f "$file" ]]; then
-            trivy fs --secret-config "${PLSEC_DIR}/trivy/trivy-secret.yaml" \
-                --exit-code 1 --quiet "$file" 2>/dev/null
-            if [[ $? -ne 0 ]]; then
-                echo "ERROR: Potential secret detected in: $file"
-                echo "Run 'trivy fs $file' for details"
+        if [[ -f "\$file" ]]; then
+            trivy fs --secret-config "\${PLSEC_DIR}/trivy/trivy-secret.yaml" \
+                --exit-code 1 --quiet "\$file" 2>/dev/null
+            if [[ \$? -ne 0 ]]; then
+                echo "ERROR: Potential secret detected in: \$file"
+                echo "Run 'trivy fs \$file' for details"
                 exit 1
             fi
         fi
@@ -768,13 +768,13 @@ if [[ "$WITH_PIPELOCK" == true ]]; then
             log_warn "Review logs before enabling enforcement"
 
             # Create start script
-            write_file "${PLSEC_DIR}/pipelock-start.sh" << 'EOF'
+            write_file "${PLSEC_DIR}/pipelock-start.sh" << EOF
 #!/bin/bash
-PLSEC_DIR="${HOME}/.peerlabs/plsec"
-LOG_FILE="${PLSEC_DIR}/logs/pipelock.log"
+PLSEC_DIR="${PLSEC_DIR}"
+LOG_FILE="\${PLSEC_DIR}/logs/pipelock.log"
 
 echo "Starting Pipelock proxy (audit mode)..."
-pipelock run --config "${PLSEC_DIR}/pipelock.yaml" 2>&1 | tee -a "$LOG_FILE"
+pipelock run --config "\${PLSEC_DIR}/pipelock.yaml" 2>&1 | tee -a "\$LOG_FILE"
 EOF
             make_executable "${PLSEC_DIR}/pipelock-start.sh"
         else
@@ -789,20 +789,20 @@ fi
 log_info "Setting up shell aliases..."
 
 # Build aliases based on agent type
-ALIASES='
+ALIASES="
 # Peerlabs Security aliases
-alias plsec-scan="${HOME}/.peerlabs/plsec/scan.sh"
-alias plsec-logs="tail -f ${HOME}/.peerlabs/plsec/logs/*.log"
-'
+alias plsec-scan=\"${PLSEC_DIR}/scan.sh\"
+alias plsec-logs=\"tail -f ${PLSEC_DIR}/logs/*.log\"
+"
 
 if [[ "$AGENT_TYPE" == "claude" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    ALIASES+='alias claude-safe="${HOME}/.peerlabs/plsec/claude-wrapper.sh"
-'
+    ALIASES+="alias claude-safe=\"${PLSEC_DIR}/claude-wrapper.sh\"
+"
 fi
 
 if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
-    ALIASES+='alias opencode-safe="${HOME}/.peerlabs/plsec/opencode-wrapper.sh"
-'
+    ALIASES+="alias opencode-safe=\"${PLSEC_DIR}/opencode-wrapper.sh\"
+"
 fi
 
 # Detect shell config file
