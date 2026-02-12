@@ -18,13 +18,13 @@
 
 set -euo pipefail
 
-# Configuration
-PLSEC_DIR="${HOME}/.peerlabs/plsec"
-PLSEC_VERSION="0.1.1-bootstrap"
-WITH_PIPELOCK=false
-STRICT_MODE=false
-DRY_RUN=false
-AGENT_TYPE="both"  # claude, opencode, or both
+# Configuration (overridable via environment for testing)
+PLSEC_DIR="${PLSEC_DIR:-${HOME}/.peerlabs/plsec}"
+PLSEC_VERSION="${PLSEC_VERSION:-0.1.1-bootstrap}"
+WITH_PIPELOCK="${WITH_PIPELOCK:-false}"
+STRICT_MODE="${STRICT_MODE:-false}"
+DRY_RUN="${DRY_RUN:-false}"
+AGENT_TYPE="${AGENT_TYPE:-both}"  # claude, opencode, or both
 
 # Colors (disable if not tty)
 if [[ -t 1 ]]; then
@@ -153,6 +153,27 @@ detect_os() {
     fi
 }
 
+# Check if a command is available
+check_command() {
+    if command -v "$1" &> /dev/null; then
+        log_ok "$1 found"
+        return 0
+    else
+        log_warn "$1 not found"
+        return 1
+    fi
+}
+
+# =============================================================================
+# Main execution
+# =============================================================================
+# Everything below runs only when the script is executed directly.
+# When sourced (e.g. by BATS tests), only the function definitions above
+# are loaded. No indentation change inside main() -- at 700+ lines, an
+# extra nesting level would hurt readability and produce noisy diffs.
+# =============================================================================
+main() {
+
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -194,16 +215,6 @@ echo ""
 # 1. Check dependencies
 # -----------------------------------------------------------------------------
 log_info "Checking dependencies..."
-
-check_command() {
-    if command -v "$1" &> /dev/null; then
-        log_ok "$1 found"
-        return 0
-    else
-        log_warn "$1 not found"
-        return 1
-    fi
-}
 
 MISSING_DEPS=()
 
@@ -877,3 +888,10 @@ echo "View logs:"
 echo "  plsec-logs"
 echo ""
 echo "Documentation: ${PLSEC_DIR}/README.md"
+
+} # end main
+
+# Source guard: execute main only when run directly, not when sourced
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
