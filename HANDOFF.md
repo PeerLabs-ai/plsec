@@ -120,16 +120,16 @@ plsec --help
 
 ## Implemented Commands
 
-| Command | Status | Notes |
-|---------|--------|-------|
-| `plsec create` | **New** | Create new secure project with wizard |
-| `plsec secure` | **New** | Retrofit security onto existing project |
-| `plsec doctor` | Complete | Checks dependencies, directories, configs |
-| `plsec init` | Complete | Generates CLAUDE.md, opencode.json, plsec.yaml |
-| `plsec scan` | Complete | Wraps Trivy, Bandit, Semgrep |
-| `plsec validate` | Complete | Validates config files |
-| `plsec proxy` | Complete | Start/stop/status/logs for Pipelock |
-| `plsec integrity` | Complete | Init/check/update workspace manifests |
+| Command           | Status   | Notes                                          |
+|-------------------|----------|------------------------------------------------|
+| `plsec create`    | **New**  | Create new secure project with wizard          |
+| `plsec secure`    | **New**  | Retrofit security onto existing project        |
+| `plsec doctor`    | Complete | Checks dependencies, directories, configs      |
+| `plsec init`      | Complete | Generates CLAUDE.md, opencode.json, plsec.yaml |
+| `plsec scan`      | Complete | Wraps Trivy, Bandit, Semgrep                   |
+| `plsec validate`  | Complete | Validates config files                         |
+| `plsec proxy`     | Complete | Start/stop/status/logs for Pipelock            |
+| `plsec integrity` | Complete | Init/check/update workspace manifests          |
 
 ## Dependencies
 
@@ -155,20 +155,20 @@ plsec --help
 
 ## Key Design Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| CLI framework | Typer | Modern, type hints, auto-help |
-| Build system | Hatch | Modern, PEP 621 compliant |
-| Config format | YAML | Consistency with existing configs |
-| Config validation | Pydantic | Type safety, validation |
-| Output | Rich | Consistent, colorful terminal UI |
+| Decision          | Choice   | Rationale                         |
+|-------------------|----------|-----------------------------------|
+| CLI framework     | Typer    | Modern, type hints, auto-help     |
+| Build system      | Hatch    | Modern, PEP 621 compliant         |
+| Config format     | YAML     | Consistency with existing configs |
+| Config validation | Pydantic | Type safety, validation           |
+| Output            | Rich     | Consistent, colorful terminal UI  |
 
 ## Next Steps
 
 1. **Test locally**: Install with `uv pip install -e .` and run commands
 2. **Run tests**: `uv run pytest`
 3. **Validate Pipelock**: Work through PIPELOCK-VALIDATION.md
-4. **Create Homebrew tap**: 
+4. **Create Homebrew tap**:
    - Create `github.com/peerlabs/homebrew-tap` repository
    - Copy `homebrew/plsec.rb` to `Formula/`
    - Update SHA256 hashes after first release
@@ -198,8 +198,3 @@ plsec searches for config in this order:
 2. Parent directories up to home
 3. `~/.plsec/plsec.yaml` (global)
 
-## Related Files
-
-- `../ai-coding-assistant-configs/DESIGN.md` - Architecture document
-- `../ai-coding-assistant-configs/PIPELOCK-VALIDATION.md` - Validation checklist
-- `../ai-coding-assistant-configs/bootstrap.sh` - Quick setup script
