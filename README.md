@@ -82,16 +82,16 @@ plsec validate
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `plsec create` | Create a new project with security built-in |
-| `plsec secure` | Add security to an existing project |
-| `plsec doctor` | Check system dependencies and configuration |
-| `plsec init` | Initialize security configuration (low-level) |
-| `plsec scan` | Run security scanners (Trivy, Bandit, Semgrep) |
-| `plsec validate` | Validate configuration files |
-| `plsec proxy` | Manage Pipelock runtime proxy |
-| `plsec integrity` | Workspace integrity monitoring |
+| Command           | Description                                    |
+|-------------------|------------------------------------------------|
+| `plsec create`    | Create a new project with security built-in    |
+| `plsec secure`    | Add security to an existing project            |
+| `plsec doctor`    | Check system dependencies and configuration    |
+| `plsec init`      | Initialize security configuration (low-level)  |
+| `plsec scan`      | Run security scanners (Trivy, Bandit, Semgrep) |
+| `plsec validate`  | Validate configuration files                   |
+| `plsec proxy`     | Manage Pipelock runtime proxy                  |
+| `plsec integrity` | Workspace integrity monitoring                 |
 
 ## Security Layers
 
@@ -107,12 +107,12 @@ Layer 5: AUDIT       - Structured logging, integrity monitoring
 
 ## Presets
 
-| Preset | Description |
-|--------|-------------|
-| `minimal` | Secret scanning only |
-| `balanced` | Full static analysis, audit logging |
-| `strict` | Add container isolation and Pipelock proxy |
-| `paranoid` | Strict mode with network isolation |
+| Preset     | Description                                |
+|------------|--------------------------------------------|
+| `minimal`  | Secret scanning only                       |
+| `balanced` | Full static analysis, audit logging        |
+| `strict`   | Add container isolation and Pipelock proxy |
+| `paranoid` | Strict mode with network isolation         |
 
 ## Configuration
 

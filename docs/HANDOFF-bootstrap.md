@@ -113,6 +113,50 @@ at runtime.
 **Consequence:** To change the base path, edit line 22 only. Re-running bootstrap
 regenerates all scripts and aliases with the new path.
 
+### 6. Added `instructions` field to opencode.json
+
+Both strict and balanced opencode.json configs now include:
+
+```json
+"instructions": ["CLAUDE.md"]
+```
+
+This ensures OpenCode loads CLAUDE.md security constraints as an explicit
+instruction file, combined with any project-level AGENTS.md. Without this,
+CLAUDE.md is only loaded as a fallback -- silently ignored when AGENTS.md
+exists in the project.
+
+Source: https://opencode.ai/docs/rules/ -- "All instruction files are
+combined with your AGENTS.md files."
+
+### 7. Template extraction and build process [COMPLETED]
+
+Extracted bootstrap.sh into a template-based build system:
+
+**Layout:**
+- `templates/bootstrap/skeleton.bash` -- orchestration logic with markers
+- `templates/bootstrap/*.{md,json,yaml,sh}` -- 11 standalone templates
+- `scripts/assemble-bootstrap.sh` -- reads skeleton, substitutes markers
+- `Makefile` -- build, test, lint, promote, verify, ci targets
+- `build/bootstrap.sh` -- assembled output (checked in, curl target)
+- `bin/bootstrap.default.sh` -- promoted known-good reference
+
+**Marker types:**
+- `@@INCLUDE:file@@` -- content templates (single-quoted strings)
+- `@@INCLUDE_SCRIPT:file@@` -- script templates (unquoted heredocs)
+- `@@PLSEC_DIR@@` -- resolved at bootstrap runtime (content) or generation time (scripts)
+- `@@PLSEC_VERSION@@` -- replaced at build time
+
+**Key fix during implementation:** `awk -v` interprets C escape sequences
+(`\b` -> backspace, `\n` -> newline). Trivy's regex patterns use `\b` for
+word boundaries. Fixed by using `ENVIRON` to pass values to awk instead
+of `-v` assignments. Also replaced all `echo "$content"` with
+`printf '%s\n' "$content"` in write paths to avoid similar interpretation.
+
+**Validation:** 892-line assembled output passes `bash -n`. All generated
+files validate (JSON, YAML, bash syntax). `\b` regex patterns preserved
+as literal backslash-b (hex 5c 62, not 08).
+
 ## In-Progress / Not Yet Done
 
 ### 5. main() function guard for testability
@@ -165,6 +209,27 @@ See `docs/bootstrap-testing.md` for the full design document. Key decisions:
   from templates/bootstrap/ (next significant refactor)
 - GitHub Actions CI with matrix: os x mode x agent
 - shasum -a 256 for all checksum operations (no md5sum)
+
+### Container isolation (future -- not in bootstrap.sh scope)
+
+Both Claude Code and OpenCode traverse the filesystem beyond the project
+directory by default (e.g., walking up to find rule files). The permission
+systems (opencode.json `external_directory`, CLAUDE.md constraints) are
+advisory -- enforced by the agent's compliance, not by the runtime.
+
+This is a fundamental security gap. There is no situation where these tools
+should access files outside the project directory without explicit user
+permission. The plsec roadmap addresses this through container isolation:
+
+- **Hard filesystem boundary**: Mount only the project directory into the container
+- **Network policy**: Enforced at the container runtime, not by agent compliance
+- **OS-level permissions**: Independent of the tool's own permission model
+- **Guarded host access**: Explicit volume mounts for anything outside the project
+
+The current bootstrap.sh provides layers 1 (advisory constraints) and 2
+(scanning, hooks, audit logging). Container isolation is layer 3 -- where
+the actual security guarantee lives. Layers 1-2 remain valuable inside the
+container for defense-in-depth and audit trails.
 
 ### `detect_os` integration
 

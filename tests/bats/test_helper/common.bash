@@ -7,16 +7,20 @@
 
 # Resolve path to bootstrap.sh relative to test file location.
 # Works from both unit/ and integration/ subdirectories.
-BOOTSTRAP="${BATS_TEST_DIRNAME}/../../bin/bootstrap.sh"
+# Primary: build/bootstrap.sh (assembled output)
+# Fallback: bin/bootstrap.default.sh (promoted reference)
+BOOTSTRAP="${BATS_TEST_DIRNAME}/../../build/bootstrap.sh"
 
-# Verify bootstrap exists at the expected path
 if [[ ! -f "${BOOTSTRAP}" ]]; then
-    # Try one level up (in case test is run from tests/bats/ directly)
-    BOOTSTRAP="${BATS_TEST_DIRNAME}/../bin/bootstrap.sh"
+    BOOTSTRAP="${BATS_TEST_DIRNAME}/../build/bootstrap.sh"
 fi
 
 if [[ ! -f "${BOOTSTRAP}" ]]; then
-    echo "ERROR: Cannot find bootstrap.sh (looked relative to ${BATS_TEST_DIRNAME})" >&2
+    BOOTSTRAP="${BATS_TEST_DIRNAME}/../../bin/bootstrap.default.sh"
+fi
+
+if [[ ! -f "${BOOTSTRAP}" ]]; then
+    echo "ERROR: Cannot find bootstrap.sh (looked in build/ and bin/ relative to ${BATS_TEST_DIRNAME})" >&2
     return 1
 fi
 

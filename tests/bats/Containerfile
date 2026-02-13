@@ -24,11 +24,12 @@ RUN useradd -m -s /bin/bash testuser
 WORKDIR /workspace
 
 # Copy project files
-COPY bin/bootstrap.sh /workspace/bin/bootstrap.sh
+COPY build/bootstrap.sh /workspace/build/bootstrap.sh
+COPY bin/bootstrap.default.sh /workspace/bin/bootstrap.default.sh
 COPY tests/bats/ /workspace/tests/bats/
 
 # Ensure bootstrap is executable
-RUN chmod +x /workspace/bin/bootstrap.sh
+RUN chmod +x /workspace/build/bootstrap.sh /workspace/bin/bootstrap.default.sh
 
 USER testuser
 
