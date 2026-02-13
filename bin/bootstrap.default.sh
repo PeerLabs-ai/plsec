@@ -45,19 +45,19 @@ fi
 # ---------------------------------------------------------------------------
 
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $*"
+    echo -e "${BLUE}[INFO]${NC} $*" 1>&2
 }
 
 log_ok() {
-    echo -e "${GREEN}[OK]${NC} $*"
+    echo -e "${GREEN}[OK]${NC} $*" 1>&2
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $*"
+    echo -e "${YELLOW}[WARN]${NC} $*" 1>&2
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $*"
+    echo -e "${RED}[ERROR]${NC} $*" 1>&2
 }
 
 # Dry-run-aware helpers
@@ -247,7 +247,7 @@ You are operating with security monitoring enabled.
 
 - Read/write within project directory
 - Run tests and linters
-- Git operations (add, commit, status, diff)
+- Git operations (status, diff)
 - Package manager commands (pip, npm) with review
 
 ### Logging
@@ -330,7 +330,7 @@ OPENCODE_JSON_BALANCED='{
     },
     "bash": {
       "*": "ask",
-      "git *": "allow",
+      "git *": "ask",
       "rm -rf *": "deny",
       "sudo *": "deny",
       "chmod 777 *": "deny",

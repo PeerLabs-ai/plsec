@@ -36,4 +36,4 @@ You are operating with security monitoring enabled.
 
 ### Logging
 
-Commands are logged to @@PLSEC_DIR@@/logs/
+Commands are logged to /Users/grahamtoppin/.peerlabs/plsec/logs/

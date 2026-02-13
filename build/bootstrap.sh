@@ -23,7 +23,7 @@ set -euo pipefail
 
 # Configuration (overridable via environment for testing)
 PLSEC_DIR="${PLSEC_DIR:-${HOME}/.peerlabs/plsec}"
-PLSEC_VERSION="${PLSEC_VERSION:-0.1.1-bootstrap}"
+PLSEC_VERSION="${PLSEC_VERSION:-0.1.0}"
 WITH_PIPELOCK="${WITH_PIPELOCK:-false}"
 STRICT_MODE="${STRICT_MODE:-false}"
 DRY_RUN="${DRY_RUN:-false}"
@@ -247,7 +247,7 @@ You are operating with security monitoring enabled.
 
 - Read/write within project directory
 - Run tests and linters
-- Git operations (add, commit, status, diff)
+- Git operations (status, diff)
 - Package manager commands (pip, npm) with review
 
 ### Logging
@@ -330,7 +330,7 @@ OPENCODE_JSON_BALANCED='{
     },
     "bash": {
       "*": "ask",
-      "git *": "allow",
+      "git *": "ask",
       "rm -rf *": "deny",
       "sudo *": "deny",
       "chmod 777 *": "deny",
