@@ -5,24 +5,26 @@
 #   setup_fake_home / teardown_fake_home - isolated HOME directory
 #   PLSEC_DIR   - points into fake HOME
 
-# Resolve path to bootstrap.sh relative to test file location.
-# Works from both unit/ and integration/ subdirectories.
+# Resolve path to bootstrap.sh relative to this helper file.
+# Uses BASH_SOURCE[0] so the path is stable regardless of which
+# test file loads us (safe here — BATS always runs under bash).
 # Primary: build/bootstrap.sh (assembled output)
 # Fallback: bin/bootstrap.default.sh (promoted reference)
-BOOTSTRAP="${BATS_TEST_DIRNAME}/../../build/bootstrap.sh"
+_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_PROJECT_ROOT="${_HELPER_DIR}/../../.."
+
+BOOTSTRAP="${_PROJECT_ROOT}/build/bootstrap.sh"
 
 if [[ ! -f "${BOOTSTRAP}" ]]; then
-    BOOTSTRAP="${BATS_TEST_DIRNAME}/../build/bootstrap.sh"
+    BOOTSTRAP="${_PROJECT_ROOT}/bin/bootstrap.default.sh"
 fi
 
 if [[ ! -f "${BOOTSTRAP}" ]]; then
-    BOOTSTRAP="${BATS_TEST_DIRNAME}/../../bin/bootstrap.default.sh"
-fi
-
-if [[ ! -f "${BOOTSTRAP}" ]]; then
-    echo "ERROR: Cannot find bootstrap.sh (looked in build/ and bin/ relative to ${BATS_TEST_DIRNAME})" >&2
+    echo "ERROR: Cannot find bootstrap.sh (looked in build/ and bin/ relative to ${_PROJECT_ROOT})" >&2
     return 1
 fi
+
+unset _HELPER_DIR _PROJECT_ROOT
 
 # Create an isolated HOME directory for testing.
 # All bootstrap output lands here instead of the real HOME.

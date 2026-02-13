@@ -68,7 +68,7 @@ teardown() {
 
 @test "write_file dry-run reports intent" {
     DRY_RUN=true
-    run bash -c "echo 'hello' | DRY_RUN=true source '${BOOTSTRAP}' 2>/dev/null; echo 'x' | write_file '/tmp/test' 2>&1"
+    run bash -c "source '${BOOTSTRAP}' 2>/dev/null; DRY_RUN=true; echo 'x' | write_file '/tmp/test'"
     assert_output --partial "Would write"
 }
 
