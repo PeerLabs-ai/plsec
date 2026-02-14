@@ -180,7 +180,7 @@ uv run pytest
 uv run ruff check .
 
 # Run type checker
-uv run mypy src/
+uv run ty check src/
 
 # Run single command without install
 uvx --from . plsec doctor
@@ -199,7 +199,7 @@ pytest
 ruff check .
 
 # Run type checker
-mypy src/
+ty check src/
 ```
 
 ### Project Scripts

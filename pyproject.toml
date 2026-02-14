@@ -46,8 +46,7 @@ dev = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
     "ruff>=0.4",
-    "mypy>=1.10",
-    "types-PyYAML",
+    "ty",
 ]
 
 [project.scripts]
@@ -91,12 +90,6 @@ ignore = [
     "S607",  # partial path (we use shutil.which)
 ]
 
-[tool.mypy]
-python_version = "3.12"
-strict = true
-warn_return_any = true
-warn_unused_configs = true
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --cov=plsec --cov-report=term-missing"
@@ -106,8 +99,7 @@ dev-dependencies = [
     "pytest>=8.0",
     "pytest-cov>=4.0",
     "ruff>=0.4",
-    "mypy>=1.10",
-    "types-PyYAML",
+    "ty",
 ]
 
 [tool.uv.sources]
