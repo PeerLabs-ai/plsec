@@ -1,3 +1,94 @@
+# ----------------------------
+# Emacs general
+# ----------------------------
+
+# Backup files (filename~)
+*~
+
+# Autosave files (#filename#)
+\#*\#
+.#*
+
+# Compiled elisp
+*.elc
+
+# Directory-local variables cache
+.dir-locals.el~
+
+# Eshell / Tramp history
+.eshell/
+.tramp
+
+# Org mode
+.org-id-locations
+.org-roam.db
+.org-roam.db-journal
+
+# Projectile
+.projectile
+
+# LSP (eg. lsp-mode)
+.lsp/
+
+# Eglot (if using)
+.eglot/
+
+# Flycheck
+.flycheck_*
+
+# Transient (Magit popups)
+.transient/
+
+# Magit
+.magit/
+
+# Undo tree history (if enabled globally)
+.undo-tree-history/
+
+# Server file (rare in repo but safe)
+.emacs.desktop
+.desktop
+.desktop.lock
+
+# ----------------------------
+# Neovim / Vim general
+# ----------------------------
+
+# Swap files
+*.swp
+*.swo
+*.swn
+
+# Backup files
+*.bak
+
+# Persistent undo
+*.un~
+
+# Session files
+Session.vim
+
+# Shada (shared data)
+.shada/
+shada/
+
+# NetRW
+.netrwhist
+
+# LSP logs
+.nvimlog
+.lsp.log
+
+# Neovim state
+.nvim/
+
+# Tree-sitter (if local)
+parser/
+
+# Lazy.nvim or local plugin cache (if not vendored intentionally)
+.lazy/
+
+
 # Python
 __pycache__/
 *.py[cod]
