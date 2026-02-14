@@ -23,7 +23,7 @@ set -euo pipefail
 
 # Configuration (overridable via environment for testing)
 PLSEC_DIR="${PLSEC_DIR:-${HOME}/.peerlabs/plsec}"
-PLSEC_VERSION="${PLSEC_VERSION:-0.1.1-bootstrap}"
+PLSEC_VERSION="${PLSEC_VERSION:-0.1.0}"
 WITH_PIPELOCK="${WITH_PIPELOCK:-false}"
 STRICT_MODE="${STRICT_MODE:-false}"
 DRY_RUN="${DRY_RUN:-false}"
@@ -45,19 +45,19 @@ fi
 # ---------------------------------------------------------------------------
 
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $*" 1>&2
+    echo -e "${BLUE}[INFO]${NC} $*"
 }
 
 log_ok() {
-    echo -e "${GREEN}[OK]${NC} $*" 1>&2
+    echo -e "${GREEN}[OK]${NC} $*"
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $*" 1>&2
+    echo -e "${YELLOW}[WARN]${NC} $*"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $*" 1>&2
+    echo -e "${RED}[ERROR]${NC} $*"
 }
 
 # Dry-run-aware helpers
