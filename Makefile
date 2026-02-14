@@ -28,6 +28,9 @@ BUILD_OUTPUT  := build/bootstrap.sh
 DEFAULT_REF   := bin/bootstrap.default.sh
 GOLDEN_DIR    := tests/bats/golden
 
+VENV          := .venv.make
+PYTHON        := $(VENV)/bin/python3
+
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
@@ -43,6 +46,7 @@ $(BUILD_OUTPUT): $(SKELETON) $(TEMPLATES) $(ASSEMBLER)
 
 clean:
 	rm -f $(BUILD_OUTPUT)
+	rm -rf $(VENV)
 
 # ---------------------------------------------------------------------------
 # Promote: copy build artifact to known-good reference
@@ -68,8 +72,8 @@ test: test-unit test-integration
 test-unit:
 	bats tests/bats/unit/
 
-test-integration: build
-	bats tests/bats/integration/
+test-integration: build $(VENV)
+	PYTHON="$(PYTHON)" bats tests/bats/integration/
 
 test-container: build
 	tests/bats/run-in-container.sh tests/bats/integration/
@@ -88,15 +92,15 @@ test-assembler:
 
 lint: lint-templates lint-skeleton lint-bootstrap
 
-lint-templates:
+lint-templates: $(VENV)
 	@echo "Checking JSON templates..."
 	@for f in $(TEMPLATE_DIR)/*.json; do \
-		python3 -m json.tool "$$f" > /dev/null || exit 1; \
+		$(PYTHON) -m json.tool "$$f" > /dev/null || exit 1; \
 		echo "  OK: $$f"; \
 	done
 	@echo "Checking YAML templates..."
 	@for f in $(TEMPLATE_DIR)/*.yaml; do \
-		python3 -c "import yaml; yaml.safe_load(open('$$f'))" || exit 1; \
+		$(PYTHON) -c "import yaml; yaml.safe_load(open('$$f'))" || exit 1; \
 		echo "  OK: $$f"; \
 	done
 	@echo "Checking shell templates..."
@@ -177,6 +181,12 @@ verify: build
 # ---------------------------------------------------------------------------
 
 .PHONY: setup-bats
+
+$(VENV): pyproject.toml
+	@echo "Creating $(VENV) with PyYAML..."
+	@python3 -m venv $(VENV)
+	@$(PYTHON) -m pip install --quiet pyyaml
+	@touch $(VENV)
 
 setup-bats:
 	scripts/setup-bats.sh

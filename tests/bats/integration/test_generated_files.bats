@@ -104,13 +104,13 @@ teardown() {
 
 @test "generated opencode.json is valid JSON" {
     "${BOOTSTRAP}" --agent opencode
-    run python3 -m json.tool "${PLSEC_DIR}/configs/opencode.json"
+    run ${PYTHON} -m json.tool "${PLSEC_DIR}/configs/opencode.json"
     assert_success
 }
 
 @test "strict opencode.json denies .env read access" {
     "${BOOTSTRAP}" --agent opencode --strict
-    run python3 -c "
+    run ${PYTHON} -c "
 import json
 with open('${PLSEC_DIR}/configs/opencode.json') as f:
     cfg = json.load(f)
@@ -121,7 +121,7 @@ assert cfg['permission']['read']['.env'] == 'deny', 'Expected .env read deny'
 
 @test "strict opencode.json denies .env edit access" {
     "${BOOTSTRAP}" --agent opencode --strict
-    run python3 -c "
+    run ${PYTHON} -c "
 import json
 with open('${PLSEC_DIR}/configs/opencode.json') as f:
     cfg = json.load(f)
@@ -142,7 +142,7 @@ assert cfg['permission']['edit']['.env'] == 'deny', 'Expected .env edit deny'
 
 @test "trivy-secret.yaml is valid YAML" {
     "${BOOTSTRAP}" --agent claude
-    run python3 -c "
+    run ${PYTHON} -c "
 import yaml
 with open('${PLSEC_DIR}/trivy/trivy-secret.yaml') as f:
     yaml.safe_load(f)

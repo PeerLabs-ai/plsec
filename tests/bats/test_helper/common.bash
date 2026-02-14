@@ -24,6 +24,13 @@ if [[ ! -f "${BOOTSTRAP}" ]]; then
     return 1
 fi
 
+# Python interpreter: prefer PYTHON from the Makefile (points to .venv.make),
+# fall back to system python3.
+PYTHON="${PYTHON:-${_PROJECT_ROOT}/.venv.make/bin/python3}"
+if [[ ! -x "${PYTHON}" ]]; then
+    PYTHON="python3"
+fi
+
 unset _HELPER_DIR _PROJECT_ROOT
 
 # Create an isolated HOME directory for testing.
