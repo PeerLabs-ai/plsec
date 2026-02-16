@@ -14,13 +14,13 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 
 ## 5-Layer Security Model
 
-| Layer | Name | Tools/Techniques |
-|-------|------|------------------|
-| 1 | STATIC | Trivy, Bandit, Semgrep, detect-secrets |
-| 2 | CONFIG | CLAUDE.md constraints, opencode.json permissions, deny patterns |
-| 3 | ISOLATION | Podman/Docker containers, macOS sandbox |
-| 4 | RUNTIME | Pipelock egress proxy, DLP, response scanning |
-| 5 | AUDIT | Structured logging, integrity monitoring |
+| Layer | Name      | Tools/Techniques                                                |
+|-------|-----------|-----------------------------------------------------------------|
+| 1     | STATIC    | Trivy, Bandit, Semgrep, detect-secrets                          |
+| 2     | CONFIG    | CLAUDE.md constraints, opencode.json permissions, deny patterns |
+| 3     | ISOLATION | Podman/Docker containers, macOS sandbox                         |
+| 4     | RUNTIME   | Pipelock egress proxy, DLP, response scanning                   |
+| 5     | AUDIT     | Structured logging, integrity monitoring                        |
 
 ## Architecture
 
@@ -31,12 +31,12 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 
 ### Security Presets
 
-| Preset | Description |
-|--------|-------------|
-| `minimal` | Secret scanning only |
-| `balanced` | Full static analysis, audit logging |
-| `strict` | Add container isolation and Pipelock proxy |
-| `paranoid` | Strict mode with network isolation |
+| Preset     | Description                                |
+|------------|--------------------------------------------|
+| `minimal`  | Secret scanning only                       |
+| `balanced` | Full static analysis, audit logging        |
+| `strict`   | Add container isolation and Pipelock proxy |
+| `paranoid` | Strict mode with network isolation         |
 
 ### Design Principles
 
