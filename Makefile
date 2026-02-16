@@ -185,6 +185,7 @@ verify: build
 $(VENV): pyproject.toml
 	@echo "Creating $(VENV) with PyYAML..."
 	@python3 -m venv $(VENV)
+	@$(PYTHON) -m pip install --quiet --upgrade pip
 	@$(PYTHON) -m pip install --quiet pyyaml
 	@touch $(VENV)
 
