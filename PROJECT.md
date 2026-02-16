@@ -27,7 +27,8 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 ### Two Components
 
 1. **Python CLI (`plsec`)** - User-facing tool for setup, scanning, validation
-2. **Bootstrap shell script (`bootstrap.sh`)** - Standalone installer/configurator, assembled from templates, tested with BATS
+2. **Bootstrap shell script (`bootstrap.sh`)** - Standalone
+   installer/configurator, assembled from templates, tested with BATS
 
 ### Security Presets
 
@@ -43,8 +44,10 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 - **Layered architecture**: Each security layer is independent and composable
 - **Preset-driven**: Progressive security levels from minimal to paranoid
 - **Configuration-first**: `plsec.yaml` drives behavior, integrates with agent configs
-- **Deep modules**: Core logic in `core/` (config, tools, output), thin command wrappers in `commands/`
-- **Template-based bootstrap**: Shell script assembled from modular templates for maintainability
+- **Deep modules**: Core logic in `core/` (config, tools, output), thin command
+  wrappers in `commands/`
+- **Template-based bootstrap**: Shell script assembled from modular templates
+  for maintainability
 - **Dual test strategy**: pytest for Python, BATS for shell scripts
 
 ## TODOs
@@ -109,27 +112,27 @@ Currently there are two entry points: Make (bootstrap side) and pytest/uv
 
 ### Proposed target map
 
-| Target | What | Side |
-|--------|------|------|
-| `make all` | lint + check + test + build + verify | Both |
-| `make ci` | Full CI pipeline (non-interactive) | Both |
-| `make setup` | `uv pip install -e ".[dev]"` | Python |
-| `make lint` | All linting (Python + templates) | Both |
-| `make lint-python` | `ruff check .` + `ruff format . --check` | Python |
-| `make lint-templates` | JSON/YAML/shell template validation | Bootstrap |
-| `make check` | `ty check src/` | Python |
-| `make format` | `ruff format .` (mutating, not in CI) | Python |
-| `make test` | All tests (Python + BATS) | Both |
-| `make test-python` | `pytest tests/ --ignore=tests/bats` | Python |
-| `make test-unit` | BATS unit tests | Bootstrap |
-| `make test-integration` | BATS integration tests | Bootstrap |
-| `make build` | Assemble bootstrap.sh | Bootstrap |
-| `make verify` | Build matches promoted reference | Bootstrap |
-| `make promote` | Copy build to bin/ | Bootstrap |
-| `make golden` | Regenerate golden fixtures | Bootstrap |
-| `make clean` | Remove all artifacts + venvs | Both |
-| `make docs` | `mkdocs serve` (local preview) | Docs |
-| `make docs-build` | `mkdocs build` (static site) | Docs |
+| Target                  | What                                     | Side      |
+|-------------------------|------------------------------------------|-----------|
+| `make all`              | lint + check + test + build + verify     | Both      |
+| `make ci`               | Full CI pipeline (non-interactive)       | Both      |
+| `make setup`            | `uv pip install -e ".[dev]"`             | Python    |
+| `make lint`             | All linting (Python + templates)         | Both      |
+| `make lint-python`      | `ruff check .` + `ruff format . --check` | Python    |
+| `make lint-templates`   | JSON/YAML/shell template validation      | Bootstrap |
+| `make check`            | `ty check src/`                          | Python    |
+| `make format`           | `ruff format .` (mutating, not in CI)    | Python    |
+| `make test`             | All tests (Python + BATS)                | Both      |
+| `make test-python`      | `pytest tests/ --ignore=tests/bats`      | Python    |
+| `make test-unit`        | BATS unit tests                          | Bootstrap |
+| `make test-integration` | BATS integration tests                   | Bootstrap |
+| `make build`            | Assemble bootstrap.sh                    | Bootstrap |
+| `make verify`           | Build matches promoted reference         | Bootstrap |
+| `make promote`          | Copy build to bin/                       | Bootstrap |
+| `make golden`           | Regenerate golden fixtures               | Bootstrap |
+| `make clean`            | Remove all artifacts + venvs             | Both      |
+| `make docs`             | `mkdocs serve` (local preview)           | Docs      |
+| `make docs-build`       | `mkdocs build` (static site)             | Docs      |
 
 ### Design notes
 
