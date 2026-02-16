@@ -144,7 +144,7 @@ plsec --help
 - pytest >= 8.0
 - pytest-cov >= 4.0
 - ruff >= 0.4
-- mypy >= 1.10
+- ty
 
 ### External Tools (checked by `plsec doctor`)
 - trivy (required)
@@ -181,13 +181,13 @@ plsec --help
 # Using uv (recommended)
 uv run pytest
 uv run pytest --cov=plsec --cov-report=html
-uv run mypy src/
+uv run ty check src/
 uv run ruff check .
 
 # Using pip
 pytest
 pytest --cov=plsec --cov-report=html
-mypy src/
+ty check src/
 ruff check .
 ```
 

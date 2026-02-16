@@ -294,6 +294,7 @@ OPENCODE_JSON_STRICT='{
       "python -m pytest *": "allow",
       "python -m ruff *": "allow",
       "python -m mypy *": "allow",
+      "python -m ty *": "allow",
       "python manage.py *": "ask"
     },
     "external_directory": "deny",

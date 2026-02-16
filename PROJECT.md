@@ -68,6 +68,9 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 _(Items requiring decisions or external input)_
 
 - Bootstrap.sh component coverage - to be discussed
+- User selection of equivalent tools (linters, type checkers, etc.) should be
+  considered for a future release. Currently plsec ships opinionated defaults
+  (ruff for linting/formatting, ty for type checking).
 
 ## References
 
