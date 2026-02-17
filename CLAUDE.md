@@ -1,5 +1,9 @@
 # CLAUDE.md - Balanced Security Configuration
 
+## Documentation
+
+Make sure to create a HANDOFF.md after creating any major piece of work
+
 ## Security Constraints
 
 You are operating with security monitoring enabled.

@@ -186,6 +186,15 @@ docs/
 Start with skeleton: `mkdocs.yml`, `docs/index.md`, wire existing docs into
 nav. User-facing command docs added incrementally as CLI stabilizes.
 
+## Roadmap
+
+See [docs/roadmap.md](docs/roadmap.md) for future milestones:
+
+- **v0.2** - JS/TS ecosystem support (multiple package managers, postinstall
+  script risks, npm audit integration)
+- **v0.3** - TUI status/monitor (`plsec status`, `plsec monitor`) with
+  project dashboard, log viewer, container status, proxy monitoring
+
 ## Outstanding Items
 
 _(Items requiring decisions or external input)_
