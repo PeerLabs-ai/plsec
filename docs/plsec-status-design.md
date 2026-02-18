@@ -92,22 +92,23 @@ thresholds for each verdict.
 
 #### Installation Checks
 
-Note: the installation checks are similar to the checks done in ```plsec doctor```
+Note: the installation checks are similar to the checks done in ```plsec
+doctor```. It isn't clear yet to what degree we will keep these two separate.
 
 
-| ID   | Check                | OK                                                                              | WARN                                       | FAIL                        |
-|------|----------------------|---------------------------------------------------------------------------------|--------------------------------------------|-----------------------------|
-| I-1  | plsec directory      | `$PLSEC_DIR` exists with expected subdirectories                                | Partial structure (e.g., missing `trivy/`) | `$PLSEC_DIR` does not exist |
-| I-2  | CLAUDE.md config     | `$PLSEC_DIR/configs/CLAUDE.md` exists                                           | File exists but is empty or zero-length    | File missing                |
-| I-3  | opencode.json config | `$PLSEC_DIR/configs/opencode.json` exists and parses as valid JSON              | File exists but is not valid JSON          | File missing                |
-| I-4  | trivy binary         | `command -v trivy` succeeds                                                     | --                                         | trivy not found on PATH     |
-| I-5  | trivy config         | `$PLSEC_DIR/trivy/trivy-secret.yaml` exists                                     | --                                         | File missing                |
-| I-6  | pre-commit template  | `$PLSEC_DIR/configs/pre-commit` exists and is executable                        | Exists but not executable                  | Missing                     |
-| I-7  | wrapper scripts      | claude-wrapper.sh / opencode-wrapper.sh present and executable (per agent type) | Present but not executable                 | Missing                     |
-| I-8  | trivy binary         | `command -v trivy` succeeds                                                     | --                                         | trivy not found on PATH     |
-| I-9  | bandit binary        | `command -v bandit` succeeds                                                    | --                                         | bandit not found on PATH    |
-| I-10 | git binary           | `command -v git` succeeds                                                       | --                                         | git not found on PATH       |
-| I-11 | semgrep binary       | `command -v semgrep` succeeds                                                   | --                                         | semgrep  not found on PATH  |
+| ID   | Check                 | OK                                                                              | WARN                                       | FAIL                             |
+|------|-----------------------|---------------------------------------------------------------------------------|--------------------------------------------|----------------------------------|
+| I-1  | plsec directory       | `$PLSEC_DIR` exists with expected subdirectories                                | Partial structure (e.g., missing `trivy/`) | `$PLSEC_DIR` does not exist      |
+| I-2  | CLAUDE.md config      | `$PLSEC_DIR/configs/CLAUDE.md` exists                                           | File exists but is empty or zero-length    | File missing                     |
+| I-3  | opencode.json config  | `$PLSEC_DIR/configs/opencode.json` exists and parses as valid JSON              | File exists but is not valid JSON          | File missing                     |
+| I-4  | trivy binary          | `command -v trivy` succeeds                                                     | --                                         | trivy not found on PATH          |
+| I-5  | trivy config          | `$PLSEC_DIR/trivy/trivy-secret.yaml` exists                                     | --                                         | File missing                     |
+| I-6  | pre-commit template   | `$PLSEC_DIR/configs/pre-commit` exists and is executable                        | Exists but not executable                  | Missing                          |
+| I-7  | wrapper scripts       | claude-wrapper.sh / opencode-wrapper.sh present and executable (per agent type) | Present but not executable                 | Missing                          |
+| I-8  | detect-secrets binary | `command -v detect-secrets` succeeds                                            | --                                         | detect-secrets not found on PATH |
+| I-9  | bandit binary         | `command -v bandit` succeeds                                                    | --                                         | bandit not found on PATH         |
+| I-10 | git binary            | `command -v git` succeeds                                                       | --                                         | git not found on PATH            |
+| I-11 | semgrep binary        | `command -v semgrep` succeeds                                                   | --                                         | semgrep  not found on PATH       |
 
 
 #### Configuration Checks

@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plsec"
-version = "0.1.0"
-description = "Security tooling for AI coding assistants"
+dynamic = ["version"]
+description = "Tools to help with mititgating AI coding assistant security risks."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
@@ -57,6 +57,10 @@ Homepage = "https://github.com/peerlabs/plsec"
 Documentation = "https://github.com/peerlabs/plsec#readme"
 Repository = "https://github.com/peerlabs/plsec"
 Issues = "https://github.com/peerlabs/plsec/issues"
+
+[tool.hatch.version]
+path = "VERSION"
+pattern = "(?P<version>.+)"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/plsec"]

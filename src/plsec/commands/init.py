@@ -4,6 +4,8 @@ plsec init - Initialize security configuration for a project.
 Sets up CLAUDE.md, opencode.json, plsec.yaml, and related configs.
 """
 
+__version__ = "0.1.0"
+
 from pathlib import Path
 from typing import Literal
 

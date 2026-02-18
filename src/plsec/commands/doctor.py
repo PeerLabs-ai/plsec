@@ -4,6 +4,8 @@ plsec doctor - Check system dependencies and configuration.
 Verifies that all required tools are installed and properly configured.
 """
 
+__version__ = "0.1.0"
+
 import sys
 from pathlib import Path
 
@@ -179,9 +181,7 @@ def doctor(
         print_ok(f"Python {py_version.major}.{py_version.minor}.{py_version.micro}")
         ok_count += 1
     else:
-        print_error(
-            f"Python {py_version.major}.{py_version.minor} (requires 3.12+)"
-        )
+        print_error(f"Python {py_version.major}.{py_version.minor} (requires 3.12+)")
         error_count += 1
 
     # Summary

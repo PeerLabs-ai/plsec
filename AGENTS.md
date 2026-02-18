@@ -17,8 +17,9 @@
 
 ```
 plsec/
+├── VERSION                 # Single source of truth for version (semver)
 ├── src/plsec/              # Main package
-│   ├── __init__.py         # Version, exports
+│   ├── __init__.py         # Version (via importlib.metadata), exports
 │   ├── cli.py              # Entry point, typer app
 │   ├── commands/           # Subcommands (doctor, init, scan, etc.)
 │   ├── core/               # Business logic

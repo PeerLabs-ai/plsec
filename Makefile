@@ -14,7 +14,7 @@
 # Configuration
 # ---------------------------------------------------------------------------
 
-VERSION ?= $(shell grep '^version' pyproject.toml 2>/dev/null | head -1 | cut -d'"' -f2 || echo "0.1.1-bootstrap")
+VERSION := $(shell cat VERSION 2>/dev/null || echo "0.0.0-dev")
 
 TEMPLATE_DIR  := templates/bootstrap
 SKELETON      := $(TEMPLATE_DIR)/skeleton.bash
@@ -41,8 +41,8 @@ all: build
 
 build: $(BUILD_OUTPUT)
 
-$(BUILD_OUTPUT): $(SKELETON) $(TEMPLATES) $(ASSEMBLER)
-	@bash $(ASSEMBLER) "$(VERSION)" "$(BUILD_OUTPUT)"
+$(BUILD_OUTPUT): $(SKELETON) $(TEMPLATES) $(ASSEMBLER) VERSION
+	@bash $(ASSEMBLER) "$(VERSION)+bootstrap" "$(BUILD_OUTPUT)"
 
 clean:
 	rm -f $(BUILD_OUTPUT)

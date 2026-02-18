@@ -2,9 +2,40 @@
 
 ## Current Release (v0.1.x)
 
-Focus: Python CLI foundation, bootstrap script, core security layers.
+Focus: Python CLI foundation, bootstrap script, core security layers,
+`plsec-status` health checks.
 
 See [PROJECT.md](../PROJECT.md) for active TODOs and in-progress work.
+
+### plsec-status Phase 1: Bash Health Checks
+
+Design: [plsec-status-design.md](plsec-status-design.md)
+
+Single command, one-shot execution, colored terminal output. Ships inside
+`bootstrap.sh` with zero additional dependencies. Answers: "Is plsec
+installed, configured, and active in this environment?"
+
+**Health check categories:**
+- **Installation** - plsec directory, configs, tool binaries, wrapper scripts
+- **Configuration** - security mode, agent type, pre-commit hooks, project configs
+- **Activity** - wrapper logs, session counts, last scan
+- **Findings** - secrets detected, hook blocks
+
+**Output modes:**
+- Default: colored terminal with graduated disclosure (quick glance + details)
+- `--json`: machine-readable for future TUI and CI integration
+- `--quiet`: exit code only (0=OK, 1=WARN, 2=FAIL)
+
+**Deliverables:**
+- `templates/bootstrap/plsec-status.sh` template
+- Skeleton integration and shell alias
+- BATS unit + integration tests
+
+### plsec-status Phase 2: Watch Mode
+
+`plsec-status --watch [--interval N]` for continuous refresh. Same check
+functions as Phase 1, adds timestamp, delta indicators, and log tail.
+Minimal extension over Phase 1.
 
 ## v0.2 - JS/TS Ecosystem Support
 
@@ -48,10 +79,16 @@ vectors for compromise.
   Express middleware chains) may warrant sub-presets
 - Monorepo support (Turborepo, Nx) adds additional complexity
 
-## v0.3 - TUI Status and Monitoring
+## v0.3 - TUI Dashboard (plsec-status Phase 3)
 
-Add `plsec status` and/or `plsec monitor` commands providing a terminal UI
-for real-time visibility into security posture across projects.
+Interactive terminal dashboard built on the data contracts established in
+Phases 1-2. See [plsec-status-design.md](plsec-status-design.md) Appendix A
+for initial sketch.
+
+The `--json` output from `plsec-status` serves as the data contract between
+the bash layer and the Python TUI. If structured logs (JSON lines) are
+implemented before the TUI, it can stream logs directly rather than parsing
+text.
 
 ### Proposed capabilities
 
@@ -82,10 +119,13 @@ for real-time visibility into security posture across projects.
 - Use textual.pilot for testing (per AGENTS.md guidelines)
 - Structured log format must be defined and stabilized before this work begins
   (depends on audit layer maturity)
+- Community contribution target: good candidate for community ownership once
+  Phase 1-2 data contracts are stable
 
 ### Prerequisites
 
-- Audit logging layer (Layer 5) must be stable with a defined log schema
+- `plsec-status` Phases 1-2 complete with stable `--json` schema
+- Audit logging layer (Layer 5) stable with defined log schema
 - Container isolation layer (Layer 3) must support status queries
 - Pipelock proxy integration must expose status/metrics
 

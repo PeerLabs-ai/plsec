@@ -4,6 +4,8 @@ plsec proxy - Manage Pipelock runtime proxy.
 Start, stop, and monitor the Pipelock security proxy.
 """
 
+__version__ = "0.1.0"
+
 import os
 import signal
 import subprocess
@@ -132,8 +134,10 @@ def start(
     cmd = [
         str(pipelock),
         "run",
-        "--config", str(config),
-        "--listen", f"127.0.0.1:{port}",
+        "--config",
+        str(config),
+        "--listen",
+        f"127.0.0.1:{port}",
     ]
 
     print_info(f"Starting Pipelock in {mode} mode on port {port}...")

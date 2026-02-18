@@ -23,7 +23,7 @@ set -euo pipefail
 
 # Configuration (overridable via environment for testing)
 PLSEC_DIR="${PLSEC_DIR:-${HOME}/.peerlabs/plsec}"
-PLSEC_VERSION="${PLSEC_VERSION:-0.1.0}"
+PLSEC_VERSION="${PLSEC_VERSION:-0.1.0+bootstrap}"
 WITH_PIPELOCK="${WITH_PIPELOCK:-false}"
 STRICT_MODE="${STRICT_MODE:-false}"
 DRY_RUN="${DRY_RUN:-false}"

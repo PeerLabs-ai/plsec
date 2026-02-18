@@ -4,6 +4,8 @@ plsec scan - Run security scanners.
 Wraps Trivy, Bandit, Semgrep, and other scanners with consistent output.
 """
 
+__version__ = "0.1.0"
+
 import subprocess
 import shutil
 from pathlib import Path
@@ -60,8 +62,10 @@ def run_trivy_secrets(path: Path) -> tuple[bool, str]:
 def run_trivy_misconfig(path: Path) -> tuple[bool, str]:
     """Run Trivy misconfiguration scanning."""
     cmd = [
-        "trivy", "config",
-        "--exit-code", "1",
+        "trivy",
+        "config",
+        "--exit-code",
+        "1",
         str(path),
     ]
 
@@ -90,9 +94,10 @@ def run_bandit(path: Path) -> tuple[bool, str]:
         return True, "No Python files found"
 
     cmd = [
-        "bandit", "-r",
+        "bandit",
+        "-r",
         "-ll",  # Only medium and high severity
-        "-q",   # Quiet mode
+        "-q",  # Quiet mode
         str(path),
     ]
 
@@ -118,7 +123,8 @@ def run_semgrep(path: Path) -> tuple[bool, str]:
 
     cmd = [
         "semgrep",
-        "--config", "auto",
+        "--config",
+        "auto",
         "--quiet",
         "--error",  # Exit 1 if findings
         str(path),

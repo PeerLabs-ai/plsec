@@ -4,6 +4,8 @@ plsec validate - Validate configuration files.
 Checks syntax and schema of plsec.yaml, CLAUDE.md, opencode.json, etc.
 """
 
+__version__ = "0.1.0"
+
 from pathlib import Path
 
 import typer

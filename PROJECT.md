@@ -58,12 +58,19 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 - [ ] Build pytest test cases for Python CLI component (see TESTING.md)
 - [ ] Verify ty type checker integration works correctly
 - [ ] **Unify build system through Make** (see below)
+- [ ] **`plsec-status` Phase 1**: Bash status script in bootstrap
+  (see [docs/plsec-status-design.md](docs/plsec-status-design.md))
 
 ### Medium Priority
 
 - [ ] **mkdocs setup**: Wire up documentation site (see below)
 - [ ] Document bootstrap.sh component and template system
 - [ ] Add integration tests for plsec commands
+- [ ] **Agent support**: Gemini CLI
+- [ ] **Agent support**: Codex (OpenAI)
+- [ ] **Agent support**: CoPilot (GitHub)
+- [ ] **Agent support**: ollama (local models)
+- [ ] Determine what other AI coding tools to support
 
 ### Low Priority
 
@@ -104,6 +111,29 @@ The Python CLI still uses the old `~/.plsec` path. These must be unified.
 - All bootstrap templates, shell scripts, BATS tests use `~/.peerlabs/plsec`
 - `CLAUDE.md` already uses `~/.peerlabs/plsec`
 - `.plsec-manifest.json` is a per-workspace filename, not a home directory path
+
+## Versioning
+
+**Decision**: 2-level versioning with `VERSION` file as single source of truth.
+
+- **Top-level**: `VERSION` file at project root (plain text, e.g., `0.1.0`).
+  All consumers read from this: pyproject.toml (hatchling dynamic version),
+  `__init__.py` (`importlib.metadata`), Makefile (`cat VERSION`).
+- **Bootstrap**: Stamped at build time with `+bootstrap` suffix per semver
+  build metadata convention (e.g., `0.1.0+bootstrap`).
+- **Per-command versioning**: Deferred. Each command module has a `__version__`
+  attribute for future use but it is not yet exposed in CLI output.
+- **Component-level VERSIONS.toml**: Deferred. One unified version is
+  sufficient until components release independently.
+
+### Version sources
+
+| Consumer          | Source                                           | Value             |
+|-------------------|--------------------------------------------------|-------------------|
+| PyPI / pip        | `pyproject.toml` dynamic from `VERSION`          | `0.1.0`           |
+| `plsec --version` | `importlib.metadata.version("plsec")`            | `0.1.0`           |
+| Bootstrap script  | Makefile passes `VERSION+bootstrap` to assembler | `0.1.0+bootstrap` |
+| Uninstalled dev   | Fallback in `__init__.py`                        | `0.0.0-dev`       |
 
 ## Makefile Unification
 
@@ -190,10 +220,12 @@ nav. User-facing command docs added incrementally as CLI stabilizes.
 
 See [docs/roadmap.md](docs/roadmap.md) for future milestones:
 
+- **v0.1.x** - `plsec-status` Phases 1-2: bash health checks (one-shot +
+  watch mode). Design: [docs/plsec-status-design.md](docs/plsec-status-design.md)
 - **v0.2** - JS/TS ecosystem support (multiple package managers, postinstall
   script risks, npm audit integration)
-- **v0.3** - TUI status/monitor (`plsec status`, `plsec monitor`) with
-  project dashboard, log viewer, container status, proxy monitoring
+- **v0.3** - TUI dashboard (`plsec-status` Phase 3): project dashboard,
+  log viewer, container status, proxy monitoring
 
 ## Outstanding Items
 

@@ -4,6 +4,8 @@ plsec create - Create a new secure project.
 Scaffolds a new project with security built-in from day one.
 """
 
+__version__ = "0.1.0"
+
 import subprocess
 import shutil
 from pathlib import Path

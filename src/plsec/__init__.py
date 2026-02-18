@@ -6,7 +6,13 @@ AI coding assistants through static analysis, configuration management,
 runtime monitoring, and audit logging.
 """
 
-__version__ = "0.1.0"
+try:
+    from importlib.metadata import version
+
+    __version__ = version("plsec")
+except Exception:
+    __version__ = "0.0.0-dev"
+
 __author__ = "Peerlabs"
 
 from plsec.core.config import PlsecConfig, load_config

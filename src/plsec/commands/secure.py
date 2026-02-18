@@ -4,6 +4,8 @@ plsec secure - Add security to an existing project.
 Analyzes project, identifies gaps, and applies security configuration.
 """
 
+__version__ = "0.1.0"
+
 import shutil
 import subprocess
 from pathlib import Path

@@ -4,6 +4,8 @@ plsec integrity - Workspace integrity monitoring.
 Create and verify SHA256 manifests of workspace files.
 """
 
+__version__ = "0.1.0"
+
 import hashlib
 import json
 from datetime import datetime
