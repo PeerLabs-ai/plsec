@@ -196,5 +196,5 @@ ruff check .
 plsec searches for config in this order:
 1. `./plsec.yaml` (current directory)
 2. Parent directories up to home
-3. `~/.plsec/plsec.yaml` (global)
+3. `~/.peerlabs/plsec/plsec.yaml` (global)
 

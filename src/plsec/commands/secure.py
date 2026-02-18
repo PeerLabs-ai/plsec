@@ -221,7 +221,7 @@ layers:
 
   audit:
     enabled: true
-    log_dir: ~/.plsec/logs
+    log_dir: ~/.peerlabs/plsec/logs
     integrity: {str(state.preset in ("strict", "paranoid")).lower()}
 """
 
@@ -295,10 +295,13 @@ layers:
         gitignore_content = (project_path / ".gitignore").read_text()
         if "plsec security patterns" not in gitignore_content:
             # Count new patterns
-            new_patterns = len([
-                p for p in GITIGNORE_SECURITY_PATTERNS.strip().split("\n")
-                if p and not p.startswith("#")
-            ])
+            new_patterns = len(
+                [
+                    p
+                    for p in GITIGNORE_SECURITY_PATTERNS.strip().split("\n")
+                    if p and not p.startswith("#")
+                ]
+            )
             changes.modifies.append(
                 Change(
                     action="modify",

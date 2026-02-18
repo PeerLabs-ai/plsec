@@ -5,8 +5,8 @@ Usage:
     plsec <command> [options]
 
 Commands:
-    create      Create a new secure project
-    secure      Add security to an existing project
+    create      Create a new project with security configuration
+    secure      Add security configuration to an existing project
     doctor      Check system dependencies and configuration
     init        Initialize security configuration for a project
     scan        Run security scanners
@@ -24,7 +24,7 @@ from plsec.commands import doctor, init, scan, validate, proxy, integrity, creat
 # Create main app
 app = typer.Typer(
     name="plsec",
-    help="Security tooling for AI coding assistants.",
+    help="Tools to help with mitigating AI coding assistant security risks.",
     no_args_is_help=True,
     rich_markup_mode="rich",
 )
@@ -80,7 +80,7 @@ def main(
     ),
 ) -> None:
     """
-    plsec - Security tooling for AI coding assistants.
+    plsec - Tools to help with mititgating AI coding assistant security risks.
 
     Provides defense-in-depth security for Claude Code, Opencode, and other
     AI coding assistants through static analysis, configuration management,

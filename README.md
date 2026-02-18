@@ -149,7 +149,7 @@ layers:
 
   audit:
     enabled: true
-    log_dir: ~/.plsec/logs
+    log_dir: ~/.peerlabs/plsec/logs
     integrity: true
 ```
 

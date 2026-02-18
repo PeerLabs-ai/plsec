@@ -199,7 +199,7 @@ def validate(
         ok_count += 1
     else:
         print_warning("Pre-commit hook not installed")
-        console.print("      Run: cp ~/.plsec/configs/pre-commit .git/hooks/", style="dim")
+        console.print("      Run: cp ~/.peerlabs/plsec/configs/pre-commit .git/hooks/", style="dim")
         warn_count += 1
 
     # Summary

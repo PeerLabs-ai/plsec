@@ -117,7 +117,7 @@ def init(
         False,
         "--global",
         "-g",
-        help="Only set up global configs in ~/.plsec.",
+        help="Only set up global configs in ~/.peerlabs/plsec.",
     ),
     with_pipelock: bool = typer.Option(
         False,
@@ -129,7 +129,7 @@ def init(
     Initialize security configuration for a project.
 
     Creates CLAUDE.md, opencode.json, plsec.yaml, and sets up
-    the ~/.plsec directory structure.
+    the ~/.peerlabs/plsec directory structure.
 
     Presets:
     - minimal: Secret scanning only
@@ -148,7 +148,7 @@ def init(
     opencode_json = OPENCODE_JSON_STRICT if is_strict else OPENCODE_JSON_BALANCED
 
     # Set up global configs
-    print_header("Global Configuration (~/.plsec)")
+    print_header("Global Configuration (~/.peerlabs/plsec)")
 
     # Create directory structure
     for subdir in ["configs", "logs", "manifests", "trivy", "trivy/policies"]:

@@ -54,7 +54,7 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 
 ### High Priority
 
-- [ ] **Path migration**: Unify Python CLI to use `~/.peerlabs/plsec` (see below)
+- [x] **Path migration**: Unify Python CLI to use `~/.peerlabs/plsec` (see below)
 - [ ] Build pytest test cases for Python CLI component (see TESTING.md)
 - [ ] Verify ty type checker integration works correctly
 - [ ] **Unify build system through Make** (see below)

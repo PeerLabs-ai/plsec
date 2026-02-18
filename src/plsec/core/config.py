@@ -46,7 +46,7 @@ class AuditLayerConfig(BaseModel):
     """Audit logging layer configuration."""
 
     enabled: bool = True
-    log_dir: str = "~/.plsec/logs"
+    log_dir: str = "~/.peerlabs/plsec/logs"
     integrity: bool = True
 
 
@@ -94,7 +94,7 @@ class PlsecSettings(BaseSettings):
     """Environment-based settings."""
 
     plsec_config: Path = Path("./plsec.yaml")
-    plsec_home: Path = Path.home() / ".plsec"
+    plsec_home: Path = Path.home() / ".peerlabs" / "plsec"
     plsec_verbose: bool = False
     plsec_quiet: bool = False
 
@@ -110,7 +110,7 @@ def find_config_file() -> Path | None:
     Search order:
     1. ./plsec.yaml
     2. Parent directories up to home
-    3. ~/.plsec/plsec.yaml
+    3. ~/.peerlabs/plsec/plsec.yaml
     """
     cwd = Path.cwd()
 
@@ -124,7 +124,7 @@ def find_config_file() -> Path | None:
             break
 
     # Check global config
-    global_config = Path.home() / ".plsec" / "plsec.yaml"
+    global_config = Path.home() / ".peerlabs" / "plsec" / "plsec.yaml"
     if global_config.exists():
         return global_config
 
@@ -184,6 +184,6 @@ def save_config(config: PlsecConfig, path: Path | str) -> None:
 
 def get_plsec_home() -> Path:
     """Get plsec home directory, creating if needed."""
-    home = Path.home() / ".plsec"
+    home = Path.home() / ".peerlabs" / "plsec"
     home.mkdir(parents=True, exist_ok=True)
     return home

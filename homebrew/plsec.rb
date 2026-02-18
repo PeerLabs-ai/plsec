@@ -78,7 +78,7 @@ class Plsec < Formula
         pip install semgrep     # Multi-language scanner
 
       Configuration is stored in:
-        ~/.plsec/
+        ~/.peerlabs/plsec/
 
       For more information:
         plsec --help

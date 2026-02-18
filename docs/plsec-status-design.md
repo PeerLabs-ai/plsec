@@ -78,12 +78,12 @@ Each check belongs to one of four categories:
 
 ### Verdicts
 
-| Verdict  | Display  | Meaning |
-|----------|----------|---------|
-| OK       | green    | Component is present, configured, and recently active with no findings |
-| WARN     | yellow   | Component is present but degraded, stale, or has non-blocking findings |
-| FAIL     | red      | Component is missing, misconfigured, or has blocking findings |
-| SKIP     | dim/grey | Component is not applicable (e.g., opencode checks when `--agent claude`) |
+| Verdict | Display  | Meaning                                                                   |
+|---------|----------|---------------------------------------------------------------------------|
+| OK      | green    | Component is present, configured, and recently active with no findings    |
+| WARN    | yellow   | Component is present but degraded, stale, or has non-blocking findings    |
+| FAIL    | red      | Component is missing, misconfigured, or has blocking findings             |
+| SKIP    | dim/grey | Component is not applicable (e.g., opencode checks when `--agent claude`) |
 
 ### Check Inventory
 
@@ -92,42 +92,50 @@ thresholds for each verdict.
 
 #### Installation Checks
 
-| ID | Check | OK | WARN | FAIL |
-|----|-------|----|------|------|
-| I-1 | plsec directory | `$PLSEC_DIR` exists with expected subdirectories | Partial structure (e.g., missing `trivy/`) | `$PLSEC_DIR` does not exist |
-| I-2 | CLAUDE.md config | `$PLSEC_DIR/configs/CLAUDE.md` exists | File exists but is empty or zero-length | File missing |
-| I-3 | opencode.json config | `$PLSEC_DIR/configs/opencode.json` exists and parses as valid JSON | File exists but is not valid JSON | File missing |
-| I-4 | trivy binary | `command -v trivy` succeeds | -- | trivy not found on PATH |
-| I-5 | trivy config | `$PLSEC_DIR/trivy/trivy-secret.yaml` exists | -- | File missing |
-| I-6 | pre-commit template | `$PLSEC_DIR/configs/pre-commit` exists and is executable | Exists but not executable | Missing |
-| I-7 | wrapper scripts | claude-wrapper.sh / opencode-wrapper.sh present and executable (per agent type) | Present but not executable | Missing |
+Note: the installation checks are similar to the checks done in ```plsec doctor```
+
+
+| ID   | Check                | OK                                                                              | WARN                                       | FAIL                        |
+|------|----------------------|---------------------------------------------------------------------------------|--------------------------------------------|-----------------------------|
+| I-1  | plsec directory      | `$PLSEC_DIR` exists with expected subdirectories                                | Partial structure (e.g., missing `trivy/`) | `$PLSEC_DIR` does not exist |
+| I-2  | CLAUDE.md config     | `$PLSEC_DIR/configs/CLAUDE.md` exists                                           | File exists but is empty or zero-length    | File missing                |
+| I-3  | opencode.json config | `$PLSEC_DIR/configs/opencode.json` exists and parses as valid JSON              | File exists but is not valid JSON          | File missing                |
+| I-4  | trivy binary         | `command -v trivy` succeeds                                                     | --                                         | trivy not found on PATH     |
+| I-5  | trivy config         | `$PLSEC_DIR/trivy/trivy-secret.yaml` exists                                     | --                                         | File missing                |
+| I-6  | pre-commit template  | `$PLSEC_DIR/configs/pre-commit` exists and is executable                        | Exists but not executable                  | Missing                     |
+| I-7  | wrapper scripts      | claude-wrapper.sh / opencode-wrapper.sh present and executable (per agent type) | Present but not executable                 | Missing                     |
+| I-8  | trivy binary         | `command -v trivy` succeeds                                                     | --                                         | trivy not found on PATH     |
+| I-9  | bandit binary        | `command -v bandit` succeeds                                                    | --                                         | bandit not found on PATH    |
+| I-10 | git binary           | `command -v git` succeeds                                                       | --                                         | git not found on PATH       |
+| I-11 | semgrep binary       | `command -v semgrep` succeeds                                                   | --                                         | semgrep  not found on PATH  |
+
 
 #### Configuration Checks
 
-| ID | Check | OK | WARN | FAIL |
-|----|-------|----|------|------|
-| C-1 | security mode | Detects strict vs balanced from CLAUDE.md content | -- | Cannot determine mode (file corrupt or unrecognized format) |
-| C-2 | agent type | Detects which agents are configured (claude/opencode/both) based on presence of config files and wrappers | -- | No agent configs found despite `$PLSEC_DIR` existing |
-| C-3 | pre-commit hook (project) | `.git/hooks/pre-commit` exists, is executable, and contains plsec reference | Hook exists but does not reference plsec | No hook or not in a git repo |
-| C-4 | CLAUDE.md (project) | `./CLAUDE.md` exists in current working directory | Present but differs from `$PLSEC_DIR/configs/CLAUDE.md` | Not present |
-| C-5 | opencode.json (project) | `./opencode.json` exists in current working directory | Present but differs from `$PLSEC_DIR/configs/opencode.json` | Not present |
-| C-6 | global opencode config | `~/.config/opencode/opencode.json` exists | Exists but differs from plsec version | Missing |
-| C-7 | version check | Running version matches installed version in `$PLSEC_DIR` | Version mismatch (stale install) | Cannot determine version |
+| ID  | Check                     | OK                                                                                                        | WARN                                                        | FAIL                                                        |
+|-----|---------------------------|-----------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|-------------------------------------------------------------|
+| C-1 | security mode             | Detects strict vs balanced from CLAUDE.md content                                                         | --                                                          | Cannot determine mode (file corrupt or unrecognized format) |
+| C-2 | agent type                | Detects which agents are configured (claude/opencode/both) based on presence of config files and wrappers | --                                                          | No agent configs found despite `$PLSEC_DIR` existing        |
+| C-3 | pre-commit hook (project) | `.git/hooks/pre-commit` exists, is executable, and contains plsec reference                               | Hook exists but does not reference plsec                    | No hook or not in a git repo                                |
+| C-4 | CLAUDE.md (project)       | `./CLAUDE.md` exists in current working directory                                                         | Present but differs from `$PLSEC_DIR/configs/CLAUDE.md`     | Not present                                                 |
+| C-5 | opencode.json (project)   | `./opencode.json` exists in current working directory                                                     | Present but differs from `$PLSEC_DIR/configs/opencode.json` | Not present                                                 |
+| C-6 | global opencode config    | `~/.config/opencode/opencode.json` exists                                                                 | Exists but differs from plsec version                       | Missing                                                     |
+| C-7 | version check             | Running version matches installed version in `$PLSEC_DIR`                                                 | Version mismatch (stale install)                            | Cannot determine version                                    |
 
 #### Activity Checks
 
-| ID | Check | OK | WARN | FAIL |
-|----|-------|----|------|------|
-| A-1 | wrapper logs | Log files in `$PLSEC_DIR/logs/` modified within 24h | Log files exist but stale (>24h, <7d) | No log files, or all logs older than 7d |
-| A-2 | session count | Parse log files for session count today | Zero sessions today but sessions this week | No sessions found in any logs |
-| A-3 | last scan | Parse scan.sh output or trivy invocation from logs | Last scan >24h ago | No scan evidence in logs |
+| ID  | Check         | OK                                                  | WARN                                       | FAIL                                    |
+|-----|---------------|-----------------------------------------------------|--------------------------------------------|-----------------------------------------|
+| A-1 | wrapper logs  | Log files in `$PLSEC_DIR/logs/` modified within 24h | Log files exist but stale (>24h, <7d)      | No log files, or all logs older than 7d |
+| A-2 | session count | Parse log files for session count today             | Zero sessions today but sessions this week | No sessions found in any logs           |
+| A-3 | last scan     | Parse scan.sh output or trivy invocation from logs  | Last scan >24h ago                         | No scan evidence in logs                |
 
 #### Findings Checks
 
-| ID | Check | OK | WARN | FAIL |
-|----|-------|----|------|------|
-| F-1 | secrets detected | Last trivy scan exited 0 (no findings) | Cannot determine last scan result | Last scan exited non-zero (secrets found) |
-| F-2 | hook blocks | No commit rejections in recent logs | -- | Pre-commit hook blocked a commit (informational, not necessarily bad) |
+| ID  | Check            | OK                                     | WARN                              | FAIL                                                                  |
+|-----|------------------|----------------------------------------|-----------------------------------|-----------------------------------------------------------------------|
+| F-1 | secrets detected | Last trivy scan exited 0 (no findings) | Cannot determine last scan result | Last scan exited non-zero (secrets found)                             |
+| F-2 | hook blocks      | No commit rejections in recent logs    | --                                | Pre-commit hook blocked a commit (informational, not necessarily bad) |
 
 ### Check-to-Category Mapping Notes
 

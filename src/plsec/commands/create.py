@@ -51,7 +51,7 @@ def create_python_template(project_path: Path, name: str) -> None:
 
     # Create __init__.py
     (project_path / "src" / pkg_name / "__init__.py").write_text(
-        f'"""{ name} package."""\n\n__version__ = "0.1.0"\n'
+        f'"""{name} package."""\n\n__version__ = "0.1.0"\n'
     )
     (project_path / "tests" / "__init__.py").write_text('"""Tests for the package."""\n')
 
@@ -121,14 +121,14 @@ go 1.22
     (project_path / "go.mod").write_text(go_mod)
 
     # Create main.go
-    main_go = '''package main
+    main_go = """package main
 
 import "fmt"
 
 func main() {
 	fmt.Println("Hello")
 }
-'''
+"""
     (project_path / "main.go").write_text(main_go)
 
 
@@ -529,7 +529,7 @@ layers:
 
   audit:
     enabled: true
-    log_dir: ~/.plsec/logs
+    log_dir: ~/.peerlabs/plsec/logs
     integrity: {str(state.preset in ("strict", "paranoid")).lower()}
 """
     (project_path / "plsec.yaml").write_text(plsec_yaml)
