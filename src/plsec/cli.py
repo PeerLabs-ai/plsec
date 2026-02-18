@@ -79,12 +79,12 @@ def main(
         help="Path to plsec.yaml config file.",
     ),
 ) -> None:
-    """
-    plsec - Tools to help with mititgating AI coding assistant security risks.
+    """plsec - Tools to help with mititgating AI coding assistant security risks.
 
-    Provides defense-in-depth security for Claude Code, Opencode, and other
-    AI coding assistants through static analysis, configuration management,
+    Provides defense-in-depth security for Claude Code, Opencode, and other AI
+    coding assistants through static analysis, configuration management,
     runtime monitoring, and audit logging.
+
     """
     # Store global options in context for subcommands
     ctx = typer.Context
