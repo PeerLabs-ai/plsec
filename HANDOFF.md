@@ -1,200 +1,89 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-02-10
-**Status:** Skeleton complete, ready for development
+**Last Updated:** 2026-02-19
+**Status:** `make ci` green, all quality gates passing
 
 ---
 
-## Summary
+## Goal
 
-This is the skeleton for `plsec`, a Python CLI providing turnkey security setup for AI coding assistants (Claude Code, Opencode).
+Get `make ci` passing end-to-end after the infrastructure work from the previous session (Makefile rewrite, uv migration, versioning, path migration, ty integration).
 
-## Package Structure
+## Instructions
 
-```
-plsec/
-  pyproject.toml           # Package config (hatch build, uv compatible)
-  README.md                # Package documentation
-  src/plsec/
-    __init__.py            # Version, exports
-    cli.py                 # Typer app entry point
-    commands/
-      __init__.py
-      create.py            # plsec create - new secure project
-      secure.py            # plsec secure - retrofit existing project
-      doctor.py            # plsec doctor - check dependencies
-      init.py              # plsec init - setup project
-      scan.py              # plsec scan - run scanners
-      validate.py          # plsec validate - check configs
-      proxy.py             # plsec proxy - Pipelock management
-      integrity.py         # plsec integrity - workspace monitoring
-    core/
-      __init__.py
-      config.py            # Pydantic config models
-      tools.py             # Tool checking utilities
-      output.py            # Rich console output
-      wizard.py            # Interactive wizard prompts
-      detector.py          # Project analysis and detection
-    configs/
-      __init__.py
-      templates.py         # Embedded CLAUDE.md, opencode.json
-  homebrew/
-    plsec.rb               # Homebrew formula
-    README.md              # Tap setup instructions
-  docs/
-    DESIGN-CREATE-SECURE.md # Design doc for create/secure
-  tests/
-    __init__.py
-    test_plsec.py          # Basic tests
-```
+- **Read AGENTS.md** for coding standards, build commands, and project conventions
+- **Read PROJECT.md** for TODOs, architecture decisions, and outstanding items
+- **Read TESTING.md** for the full pytest test plan (3 tiers, 14 test files)
+- **Use uv** for all Python toolchain operations (not pip/venv directly)
+- **Use Make** as the unified entry point for all build/test/lint operations
+- **Follow semver** conventions - `VERSION` file is single source of truth
+- The user prefers to review plans before execution - present proposals, get approval, then build
+- Keep PROJECT.md updated with completed TODOs (mark with `[x]`)
 
-## Installation
+## Accomplished (this session)
 
-### Using uv (Recommended)
+### `make ci` brought to green
+All quality gates now pass: ruff check, ruff format, ty check, template lint, bootstrap syntax, assembler escaping tests (44/44), BATS tests, and pytest.
 
-```bash
-# Install globally
-uv tool install plsec
+### Ruff lint fixes (60 errors -> 0)
+- **Auto-fixed 35 errors** via `ruff check . --fix`: unsorted imports (I001), unused imports (F401), f-string without placeholders (F541), `collections.abc` imports (UP035), whitespace (W293)
+- **B008 suppressed** in `pyproject.toml` for `src/plsec/commands/*.py` - typer requires `Option()`/`Argument()` in function defaults; this is standard practice
+- **S105 + E501 suppressed** for `src/plsec/configs/templates.py` - false positive on YAML template variable name, long YAML lines in embedded templates
+- **B904 fixed** in `proxy.py` - `raise typer.Exit(1) from err` (2 occurrences)
+- **S110 annotated** with `# noqa: S110` comments in `detector.py` (3) and `proxy.py` (1) - intentional best-effort file scanning where ignoring errors is correct
+- **F841 fixed** in `cli.py` (removed dead `ctx = typer.Context` assignment) and `validate.py` (removed unused `config` variable)
 
-# Or run without installing
-uvx plsec doctor
+### Ruff format fix
+- **tools.py** reformatted (1 file)
 
-# Development install
-cd plsec
-uv pip install -e ".[dev]"
-```
+### ty type checker fixes (4 diagnostics -> 0)
+- **init.py:222** - `detect_project_type()` return type changed from `str` to `Literal["python", "node", "go", "mixed"]`; also fixed a bug where Rust projects returned `"rust"` which wasn't in `ProjectConfig.type`'s Literal (now falls back to `"mixed"`)
+- **integrity.py:89** - replaced deprecated `datetime.utcnow()` with `datetime.now(UTC)` using `from datetime import UTC`
+- **proxy.py:192** - added `assert pid is not None` before `os.kill(pid, ...)` to narrow `int | None` type
+- **detector.py:213** - removed unused `# type: ignore` comment
 
-### Using pip/pipx
+### Assembler escaping test fix (43/44 -> 44/44)
+- **trivy-secret.yaml test** was a pre-existing failure - the test's `eval`-based escaping simulation didn't match the real assembler's single-quote embedding. `eval` interprets `\\s` as `\s`, but the real assembler embeds content in single-quoted strings where backslashes are literal. Fixed by generating a helper script that mirrors the actual bootstrap assembly process.
+- Also changed `python3` -> `uv run python` in the test for `pyyaml` availability
 
-```bash
-# With pipx (isolated)
-pipx install plsec
+## Discoveries
 
-# Development install
-cd plsec
-pip install -e ".[dev]"
-```
+1. **Ruff B008 is universal in typer projects** - every typer CLI will trigger this rule; per-file-ignores in pyproject.toml is the standard solution
+2. **`detect_project_type()` had a Literal mismatch** - it could return `"rust"` but `ProjectConfig.type` only accepts `["python", "node", "go", "mixed"]`
+3. **`datetime.utcnow()` is deprecated since Python 3.12** - must use `datetime.now(UTC)` with `from datetime import UTC`
+4. **The assembler escaping test didn't match the real assembler** - using `eval` for testing single-quote embedding loses backslashes; the real assembler writes content into a `.sh` file with single-quoted strings where backslashes are literal
+5. **`.venv.make` warning** - user's shell has `VIRTUAL_ENV=.venv.make` set from the old stale venv; `uv` ignores it but prints a warning. Running `deactivate` or deleting `.venv.make` eliminates the warning
 
-### Using Homebrew
+## Relevant files modified (this session)
 
-```bash
-# Add tap and install
-brew tap peerlabs/tap
-brew install plsec
+### Configuration
+- `pyproject.toml` - Added `[tool.ruff.lint.per-file-ignores]` for B008, S105, E501
 
-# With optional dependencies
-brew install plsec pipelock podman
-```
+### Python source
+- `src/plsec/cli.py` - Removed dead `ctx = typer.Context` assignment
+- `src/plsec/commands/init.py` - Added `ProjectType` Literal alias; fixed `detect_project_type()` return type; Rust fallback to "mixed"
+- `src/plsec/commands/integrity.py` - `datetime.utcnow()` -> `datetime.now(UTC)`
+- `src/plsec/commands/proxy.py` - `raise from err` (B904); `assert pid is not None` (ty); `# noqa: S110`
+- `src/plsec/commands/validate.py` - Removed unused `config` variable
+- `src/plsec/commands/create.py` - Import cleanup (ruff auto-fix)
+- `src/plsec/commands/doctor.py` - Import cleanup, removed `f""` prefix (ruff auto-fix)
+- `src/plsec/commands/scan.py` - Import cleanup (ruff auto-fix)
+- `src/plsec/commands/secure.py` - Import cleanup (ruff auto-fix)
+- `src/plsec/commands/__init__.py` - Import sort (ruff auto-fix)
+- `src/plsec/configs/__init__.py` - Import sort (ruff auto-fix)
+- `src/plsec/core/__init__.py` - Import sort (ruff auto-fix)
+- `src/plsec/core/detector.py` - `# noqa: S110` annotations; removed `# type: ignore`
+- `src/plsec/core/output.py` - Import cleanup (ruff auto-fix)
+- `src/plsec/core/tools.py` - Import cleanup (ruff auto-fix); reformatted
+- `src/plsec/core/wizard.py` - Import cleanup, whitespace (ruff auto-fix)
+- `tests/test_plsec.py` - Import sort (ruff auto-fix)
 
-### Verify Installation
-
-```bash
-plsec --version
-plsec --help
-```
-
-## Known Issues / Fixes Applied
-
-### OpenCode Configuration Fix (2026-02-12)
-
-**Problem:** Initial implementation used hallucinated `.opencode.toml` format with invented schema sections (`[ai]`, `[security]`, `[shell]`, `[filesystem]`).
-
-**Actual Format:** OpenCode uses `opencode.json` with a specific schema:
-- Schema: `https://opencode.ai/config.json`
-- Key field: `permission` with tool-level controls
-- Permission values: `"allow"`, `"ask"`, `"deny"`
-- Tools: `bash`, `edit`, `read`, `webfetch`, `external_directory`, etc.
-
-**Files Updated:**
-- `src/plsec/configs/templates.py` - Replaced TOML templates with JSON
-- `src/plsec/commands/init.py` - Changed file creation to opencode.json
-- `src/plsec/commands/create.py` - Changed file creation to opencode.json
-- `src/plsec/commands/secure.py` - Changed detection and creation
-- `src/plsec/commands/validate.py` - Changed validation to JSON
-- `src/plsec/commands/doctor.py` - Changed template checking
-- `src/plsec/core/detector.py` - Changed detection field
-- `tests/test_plsec.py` - Updated template tests
-- Documentation (README.md, HANDOFF.md, DESIGN-CREATE-SECURE.md)
-
----
-
-## Implemented Commands
-
-| Command           | Status   | Notes                                          |
-|-------------------|----------|------------------------------------------------|
-| `plsec create`    | **New**  | Create new secure project with wizard          |
-| `plsec secure`    | **New**  | Retrofit security onto existing project        |
-| `plsec doctor`    | Complete | Checks dependencies, directories, configs      |
-| `plsec init`      | Complete | Generates CLAUDE.md, opencode.json, plsec.yaml |
-| `plsec scan`      | Complete | Wraps Trivy, Bandit, Semgrep                   |
-| `plsec validate`  | Complete | Validates config files                         |
-| `plsec proxy`     | Complete | Start/stop/status/logs for Pipelock            |
-| `plsec integrity` | Complete | Init/check/update workspace manifests          |
-
-## Dependencies
-
-### Runtime
-- typer >= 0.12.0 (CLI framework)
-- rich >= 13.0.0 (Terminal output)
-- pyyaml >= 6.0 (YAML parsing)
-- pydantic >= 2.0 (Config validation)
-- pydantic-settings >= 2.0 (Environment settings)
-
-### Development
-- pytest >= 8.0
-- pytest-cov >= 4.0
-- ruff >= 0.4
-- ty
-
-### External Tools (checked by `plsec doctor`)
-- trivy (required)
-- bandit (optional)
-- semgrep (optional)
-- pipelock (optional)
-- podman/docker (optional)
-
-## Key Design Decisions
-
-| Decision          | Choice   | Rationale                         |
-|-------------------|----------|-----------------------------------|
-| CLI framework     | Typer    | Modern, type hints, auto-help     |
-| Build system      | Hatch    | Modern, PEP 621 compliant         |
-| Config format     | YAML     | Consistency with existing configs |
-| Config validation | Pydantic | Type safety, validation           |
-| Output            | Rich     | Consistent, colorful terminal UI  |
+### Test/scripts
+- `scripts/test-assembler-escaping.sh` - Fixed YAML escaping test to match real assembler behavior
 
 ## Next Steps
 
-1. **Test locally**: Install with `uv pip install -e .` and run commands
-2. **Run tests**: `uv run pytest`
-3. **Validate Pipelock**: Work through PIPELOCK-VALIDATION.md
-4. **Create Homebrew tap**:
-   - Create `github.com/peerlabs/homebrew-tap` repository
-   - Copy `homebrew/plsec.rb` to `Formula/`
-   - Update SHA256 hashes after first release
-5. **Publish to PyPI**: `uv build && uv publish`
-6. **CI/CD**: Add GitHub Actions for testing and releases
-
-## Testing
-
-```bash
-# Using uv (recommended)
-uv run pytest
-uv run pytest --cov=plsec --cov-report=html
-uv run ty check src/
-uv run ruff check .
-
-# Using pip
-pytest
-pytest --cov=plsec --cov-report=html
-ty check src/
-ruff check .
-```
-
-## Configuration File Location
-
-plsec searches for config in this order:
-1. `./plsec.yaml` (current directory)
-2. Parent directories up to home
-3. `~/.peerlabs/plsec/plsec.yaml` (global)
-
+1. **Build pytest test cases** for Python CLI (plan in TESTING.md, 14 test files across 3 tiers)
+2. **`plsec-status` Phase 1** implementation (design doc at `docs/plsec-status-design.md`)
+3. **Delete `.venv.make`** - stale venv from before uv migration; causes harmless but noisy warnings
+4. **Consider golden file regeneration** - the opencode-json-strict template was modified in the previous session (added ty permission); verify golden files are current
