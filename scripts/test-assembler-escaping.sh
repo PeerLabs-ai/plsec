@@ -424,6 +424,9 @@ echo "=== Edge Cases ==="
 echo ""
 
 # --- 3a: YAML with no shell-like content ---
+# Simulate the real assembler: content is embedded in a single-quoted string
+# in bootstrap.sh (VAR='content'), so we build a small script that assigns
+# the escaped content and prints it, matching the actual round-trip.
 
 cat > "${TMPDIR}/trivy-secret.yaml" << 'RAWEOF'
 rules:
@@ -437,10 +440,11 @@ rules:
 RAWEOF
 
 template=$(cat "${TMPDIR}/trivy-secret.yaml")
-escaped=$(echo "$template" | sed "s/'/'\\\\''/g")
-eval "YAML_CONTENT='${escaped}'"
-echo "$YAML_CONTENT" > "${TMPDIR}/trivy-out.yaml"
-assert_success "trivy-secret.yaml: valid YAML after escaping" python3 -c "import yaml; yaml.safe_load(open('${TMPDIR}/trivy-out.yaml'))"
+escaped=$(printf '%s\n' "$template" | sed "s/'/'\\\\''/g")
+# Build a helper script that mirrors how bootstrap.sh embeds content
+printf "#!/bin/bash\nYAML_CONTENT='%s'\nprintf '%%s\\\\n' \"\$YAML_CONTENT\"\n" "$escaped" > "${TMPDIR}/yaml-helper.sh"
+bash "${TMPDIR}/yaml-helper.sh" > "${TMPDIR}/trivy-out.yaml"
+assert_success "trivy-secret.yaml: valid YAML after escaping" uv run python -c "import yaml; yaml.safe_load(open('${TMPDIR}/trivy-out.yaml'))"
 
 
 # --- 3b: Content with backticks (e.g., markdown code spans) ---

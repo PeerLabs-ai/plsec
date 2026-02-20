@@ -1,0 +1,49 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["CLAUDE.md"],
+  "permission": {
+    "*": "ask",
+    "read": {
+      "*": "allow",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.ssh/*": "deny",
+      "**/.aws/*": "deny",
+      "**/.config/*": "deny",
+      "**/secrets*": "deny",
+      "**/credentials*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "edit": {
+      "*": "ask",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.git/config": "deny",
+      "**/.ssh/*": "deny",
+      "**/.aws/*": "deny",
+      "**/.config/*": "deny",
+      "**/secrets*": "deny",
+      "**/credentials*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "bash": {
+      "*": "deny",
+      "git status *": "allow",
+      "git diff *": "allow",
+      "git log *": "allow",
+      "git add *": "ask",
+      "git commit *": "ask",
+      "python -m pytest *": "allow",
+      "python -m ruff *": "allow",
+      "python -m mypy *": "allow",
+      "python -m ty *": "allow",
+      "python manage.py *": "ask"
+    },
+    "external_directory": "deny",
+    "webfetch": "deny",
+    "websearch": "deny",
+    "doom_loop": "deny"
+  }
+}

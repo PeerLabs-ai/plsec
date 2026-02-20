@@ -6,22 +6,22 @@ Wraps Trivy, Bandit, Semgrep, and other scanners with consistent output.
 
 __version__ = "0.1.0"
 
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Literal
 
 import typer
 
-from plsec.core.config import load_config, get_plsec_home
+from plsec.core.config import get_plsec_home
 from plsec.core.output import (
     console,
-    print_ok,
     print_error,
-    print_warning,
-    print_info,
     print_header,
+    print_info,
+    print_ok,
     print_summary,
+    print_warning,
 )
 
 app = typer.Typer(

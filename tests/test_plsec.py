@@ -1,14 +1,14 @@
 """Basic tests for plsec package."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 from typer.testing import CliRunner
 
 from plsec import __version__
 from plsec.cli import app
 from plsec.core.config import PlsecConfig, load_config, save_config
-from plsec.core.tools import ToolChecker, Tool, ToolStatus
-
+from plsec.core.tools import Tool, ToolChecker, ToolStatus
 
 runner = CliRunner()
 
@@ -108,10 +108,10 @@ class TestTemplates:
     def test_templates_exist(self):
         """Templates should be importable."""
         from plsec.configs.templates import (
-            CLAUDE_MD_STRICT,
             CLAUDE_MD_BALANCED,
-            OPENCODE_JSON_STRICT,
+            CLAUDE_MD_STRICT,
             OPENCODE_JSON_BALANCED,
+            OPENCODE_JSON_STRICT,
         )
 
         assert "NEVER" in CLAUDE_MD_STRICT
@@ -124,8 +124,8 @@ class TestTemplates:
     def test_strict_more_restrictive(self):
         """Strict templates should be more restrictive."""
         from plsec.configs.templates import (
-            CLAUDE_MD_STRICT,
             CLAUDE_MD_BALANCED,
+            CLAUDE_MD_STRICT,
         )
 
         # Strict should have more restrictions

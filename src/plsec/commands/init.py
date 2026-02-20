@@ -11,30 +11,30 @@ from typing import Literal
 
 import typer
 
+from plsec.configs.templates import (
+    CLAUDE_MD_BALANCED,
+    CLAUDE_MD_STRICT,
+    OPENCODE_JSON_BALANCED,
+    OPENCODE_JSON_STRICT,
+)
 from plsec.core.config import (
+    AgentConfig,
+    AuditLayerConfig,
+    IsolationLayerConfig,
+    LayersConfig,
     PlsecConfig,
     ProjectConfig,
-    AgentConfig,
-    LayersConfig,
-    StaticLayerConfig,
-    IsolationLayerConfig,
     ProxyLayerConfig,
-    AuditLayerConfig,
-    save_config,
+    StaticLayerConfig,
     get_plsec_home,
+    save_config,
 )
 from plsec.core.output import (
     console,
+    print_header,
+    print_info,
     print_ok,
     print_warning,
-    print_info,
-    print_header,
-)
-from plsec.configs.templates import (
-    CLAUDE_MD_STRICT,
-    CLAUDE_MD_BALANCED,
-    OPENCODE_JSON_STRICT,
-    OPENCODE_JSON_BALANCED,
 )
 
 app = typer.Typer(
@@ -47,7 +47,10 @@ Preset = Literal["minimal", "balanced", "strict", "paranoid"]
 AgentType = Literal["claude", "opencode", "both"]
 
 
-def detect_project_type(path: Path) -> str:
+ProjectType = Literal["python", "node", "go", "mixed"]
+
+
+def detect_project_type(path: Path) -> ProjectType:
     """Detect project type from files present."""
     if (path / "pyproject.toml").exists() or (path / "setup.py").exists():
         return "python"
@@ -55,8 +58,7 @@ def detect_project_type(path: Path) -> str:
         return "node"
     if (path / "go.mod").exists():
         return "go"
-    if (path / "Cargo.toml").exists():
-        return "rust"
+    # Rust and other types fall back to "mixed" for now
     return "mixed"
 
 

@@ -1,13 +1,13 @@
 """Embedded configuration templates."""
 
 from plsec.configs.templates import (
-    CLAUDE_MD_STRICT,
     CLAUDE_MD_BALANCED,
-    OPENCODE_JSON_STRICT,
+    CLAUDE_MD_STRICT,
     OPENCODE_JSON_BALANCED,
+    OPENCODE_JSON_STRICT,
     PLSEC_YAML_TEMPLATE,
-    TRIVY_SECRET_YAML,
     PRE_COMMIT_HOOK,
+    TRIVY_SECRET_YAML,
 )
 
 __all__ = [

@@ -1,14 +1,20 @@
 # Makefile - plsec build and test targets
 #
 # Primary targets:
-#   make build     - Assemble build/bootstrap.sh from templates
-#   make test      - Run BATS unit + integration tests
-#   make lint      - Validate templates and assembled output
-#   make promote   - Copy build artifact to bin/bootstrap.default.sh
+#   make all       - Lint, check, test, build, and verify everything
 #   make ci        - Full CI pipeline
+#   make setup     - Install Python dev dependencies via uv
+#   make lint      - All linting (Python + templates)
+#   make check     - Type check Python with ty
+#   make format    - Format Python with ruff (mutating)
+#   make test      - Run all tests (BATS + pytest)
+#   make build     - Assemble build/bootstrap.sh from templates
+#   make promote   - Copy build artifact to bin/bootstrap.default.sh
+#   make clean     - Remove build artifacts and caches
 #
 # The build/ directory contains assembled output (checked in as curl target).
 # The bin/bootstrap.default.sh is the promoted known-good reference.
+# Uses uv for Python toolchain management throughout.
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -28,16 +34,35 @@ BUILD_OUTPUT  := build/bootstrap.sh
 DEFAULT_REF   := bin/bootstrap.default.sh
 GOLDEN_DIR    := tests/bats/golden
 
-VENV          := .venv.make
-PYTHON        := $(VENV)/bin/python3
+# ---------------------------------------------------------------------------
+# Top-level targets
+# ---------------------------------------------------------------------------
+
+.PHONY: all ci
+
+all: lint check test build verify
+
+ci: lint check build test-assembler test verify golden-check
+	@echo ""
+	@echo "CI passed."
+
+# ---------------------------------------------------------------------------
+# Setup
+# ---------------------------------------------------------------------------
+
+.PHONY: setup setup-bats
+
+setup:
+	uv sync --dev
+
+setup-bats:
+	scripts/setup-bats.sh
 
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
 
-.PHONY: all build clean
-
-all: build
+.PHONY: build clean
 
 build: $(BUILD_OUTPUT)
 
@@ -46,7 +71,7 @@ $(BUILD_OUTPUT): $(SKELETON) $(TEMPLATES) $(ASSEMBLER) VERSION
 
 clean:
 	rm -f $(BUILD_OUTPUT)
-	rm -rf $(VENV)
+	rm -rf .venv.make .ruff_cache
 
 # ---------------------------------------------------------------------------
 # Promote: copy build artifact to known-good reference
@@ -67,40 +92,56 @@ promote: $(BUILD_OUTPUT)
 
 .PHONY: test test-unit test-integration test-container test-python test-assembler
 
-test: test-unit test-integration
+test: test-python test-unit test-integration
 
 test-unit:
 	bats tests/bats/unit/
 
-test-integration: build $(VENV)
-	PYTHON="$(PYTHON)" bats tests/bats/integration/
+test-integration: build
+	bats tests/bats/integration/
 
 test-container: build
 	tests/bats/run-in-container.sh tests/bats/integration/
 
 test-python:
-	pytest tests/ --ignore=tests/bats
+	uv run pytest tests/ --ignore=tests/bats
 
 test-assembler:
 	bash scripts/test-assembler-escaping.sh
 
 # ---------------------------------------------------------------------------
-# Lint
+# Python quality
+# ---------------------------------------------------------------------------
+
+.PHONY: lint-python check format
+
+lint-python:
+	uv run ruff check .
+	uv run ruff format . --check
+
+check:
+	uv run ty check src/
+
+format:
+	uv run ruff format .
+
+# ---------------------------------------------------------------------------
+# Template and bootstrap linting
 # ---------------------------------------------------------------------------
 
 .PHONY: lint lint-templates lint-bootstrap lint-skeleton
 
-lint: lint-templates lint-skeleton lint-bootstrap
+lint: lint-python lint-templates lint-skeleton lint-bootstrap
 
-lint-templates: $(VENV)
+lint-templates:
 	@echo "Checking JSON templates..."
 	@for f in $(TEMPLATE_DIR)/*.json; do \
-		$(PYTHON) -m json.tool "$$f" > /dev/null || exit 1; \
+		uv run python -m json.tool "$$f" > /dev/null || exit 1; \
 		echo "  OK: $$f"; \
 	done
 	@echo "Checking YAML templates..."
 	@for f in $(TEMPLATE_DIR)/*.yaml; do \
-		$(PYTHON) -c "import yaml; yaml.safe_load(open('$$f'))" || exit 1; \
+		uv run python -c "import yaml; yaml.safe_load(open('$$f'))" || exit 1; \
 		echo "  OK: $$f"; \
 	done
 	@echo "Checking shell templates..."
@@ -175,29 +216,3 @@ verify: build
 		echo "  Run 'make promote' after reviewing changes, or fix templates."; \
 		exit 1; \
 	fi
-
-# ---------------------------------------------------------------------------
-# Setup
-# ---------------------------------------------------------------------------
-
-.PHONY: setup-bats
-
-$(VENV): pyproject.toml
-	@echo "Creating $(VENV) with PyYAML..."
-	@python3 -m venv $(VENV)
-	@$(PYTHON) -m pip install --quiet --upgrade pip
-	@$(PYTHON) -m pip install --quiet pyyaml
-	@touch $(VENV)
-
-setup-bats:
-	scripts/setup-bats.sh
-
-# ---------------------------------------------------------------------------
-# CI convenience
-# ---------------------------------------------------------------------------
-
-.PHONY: ci
-
-ci: lint build test-assembler test verify golden-check test-python
-	@echo ""
-	@echo "CI passed."

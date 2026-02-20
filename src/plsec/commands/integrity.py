@@ -8,21 +8,19 @@ __version__ = "0.1.0"
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
 
 import typer
 
-from plsec.core.config import get_plsec_home
 from plsec.core.output import (
     console,
-    print_ok,
     print_error,
-    print_warning,
-    print_info,
     print_header,
+    print_info,
+    print_ok,
     print_summary,
+    print_warning,
 )
 
 app = typer.Typer(
@@ -88,7 +86,7 @@ def create_manifest(workspace: Path, excludes: list[str] | None = None) -> dict:
 
     manifest = {
         "version": 1,
-        "created": datetime.utcnow().isoformat() + "Z",
+        "created": datetime.now(UTC).isoformat() + "Z",
         "workspace": str(workspace.resolve()),
         "files": {},
     }

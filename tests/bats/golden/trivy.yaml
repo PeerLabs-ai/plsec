@@ -1,0 +1,16 @@
+scan:
+  scanners:
+    - vuln
+    - secret
+    - misconfig
+
+secret:
+  config: trivy-secret.yaml
+
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+
+format: table
+exit-code: 1

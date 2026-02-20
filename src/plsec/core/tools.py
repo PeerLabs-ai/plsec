@@ -7,9 +7,9 @@ and functional.
 
 import shutil
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable
 
 
 class ToolStatus(Enum):
@@ -179,9 +179,7 @@ class ToolChecker:
 
     def get_missing(self) -> list[Tool]:
         """Get list of missing required tools."""
-        return [
-            t for t in self.tools if t.required and t.status == ToolStatus.MISSING
-        ]
+        return [t for t in self.tools if t.required and t.status == ToolStatus.MISSING]
 
     def get_outdated(self) -> list[Tool]:
         """Get list of outdated tools."""
@@ -189,9 +187,7 @@ class ToolChecker:
 
     def all_required_ok(self) -> bool:
         """Check if all required tools are OK."""
-        return all(
-            t.status == ToolStatus.OK for t in self.tools if t.required
-        )
+        return all(t.status == ToolStatus.OK for t in self.tools if t.required)
 
     @staticmethod
     def _version_gte(version: str, minimum: str) -> bool:

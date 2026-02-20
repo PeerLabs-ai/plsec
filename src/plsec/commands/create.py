@@ -6,29 +6,29 @@ Scaffolds a new project with security built-in from day one.
 
 __version__ = "0.1.0"
 
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Literal
 
 import typer
 
-from plsec.core.config import PlsecConfig, save_config, get_plsec_home
-from plsec.core.output import console, print_ok, print_error, print_warning, print_info
+from plsec.configs.templates import (
+    CLAUDE_MD_BALANCED,
+    CLAUDE_MD_STRICT,
+    OPENCODE_JSON_BALANCED,
+    OPENCODE_JSON_STRICT,
+)
+from plsec.core.config import get_plsec_home
+from plsec.core.output import console, print_error, print_ok, print_warning
 from plsec.core.wizard import (
+    AGENT_CHOICES,
+    CLOUD_PROVIDER_CHOICES,
+    PRESET_CHOICES,
+    PROJECT_TYPE_CHOICES,
+    SENSITIVE_DATA_CHOICES,
     Wizard,
     WizardState,
-    PROJECT_TYPE_CHOICES,
-    AGENT_CHOICES,
-    PRESET_CHOICES,
-    SENSITIVE_DATA_CHOICES,
-    CLOUD_PROVIDER_CHOICES,
-)
-from plsec.configs.templates import (
-    CLAUDE_MD_STRICT,
-    CLAUDE_MD_BALANCED,
-    OPENCODE_JSON_STRICT,
-    OPENCODE_JSON_BALANCED,
 )
 
 app = typer.Typer(

@@ -191,7 +191,7 @@ class ProjectDetector:
                     content = file_path.read_text(errors="ignore")
                     file_issues = self._scan_file(file_path, content)
                     issues.extend(file_issues)
-                except Exception:
+                except Exception:  # noqa: S110 - skip unreadable files during scan
                     pass
 
         info.issues = issues
@@ -210,7 +210,7 @@ class ProjectDetector:
         if len(detected) == 0:
             return "unknown"
         if len(detected) == 1:
-            return detected[0]  # type: ignore
+            return detected[0]
         return "mixed"
 
     def _detect_package_manager(self, proj_type: str) -> str | None:
@@ -234,7 +234,7 @@ class ProjectDetector:
                     content = (self.path / "pyproject.toml").read_text()
                     if "pytest" in content:
                         return "pytest"
-                except Exception:
+                except Exception:  # noqa: S110 - skip unreadable config files
                     pass
         elif proj_type == "node":
             if (self.path / "jest.config.js").exists():
@@ -293,7 +293,7 @@ class ProjectDetector:
                             if re.search(pattern, content, re.IGNORECASE):
                                 providers.add(provider)
                                 break
-                except Exception:
+                except Exception:  # noqa: S110 - skip unreadable dependency files
                     pass
 
         return list(providers)
@@ -307,8 +307,7 @@ class ProjectDetector:
                 # Skip common non-code directories
                 parts = file_path.parts
                 if any(
-                    p in parts
-                    for p in [".git", "node_modules", "__pycache__", ".venv", "venv"]
+                    p in parts for p in [".git", "node_modules", "__pycache__", ".venv", "venv"]
                 ):
                     continue
 

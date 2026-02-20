@@ -11,14 +11,14 @@ from pathlib import Path
 import typer
 import yaml
 
-from plsec.core.config import load_config, find_config_file, PlsecConfig
+from plsec.core.config import find_config_file, load_config
 from plsec.core.output import (
     console,
-    print_ok,
     print_error,
-    print_warning,
     print_header,
+    print_ok,
     print_summary,
+    print_warning,
 )
 
 app = typer.Typer(
@@ -42,7 +42,7 @@ def validate_yaml_syntax(path: Path) -> tuple[bool, str | None]:
 def validate_plsec_config(path: Path) -> tuple[bool, str | None]:
     """Validate plsec.yaml against schema."""
     try:
-        config = load_config(path)
+        load_config(path)
         return True, None
     except Exception as e:
         return False, str(e)

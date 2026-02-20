@@ -8,26 +8,25 @@ __version__ = "0.1.0"
 
 import shutil
 import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
-from dataclasses import dataclass, field
 
 import typer
 
-from plsec.core.config import get_plsec_home
-from plsec.core.output import console, print_ok, print_error, print_warning, print_info
+from plsec.configs.templates import (
+    CLAUDE_MD_BALANCED,
+    CLAUDE_MD_STRICT,
+    OPENCODE_JSON_BALANCED,
+    OPENCODE_JSON_STRICT,
+)
 from plsec.core.detector import ProjectDetector, ProjectInfo, SecurityIssue
+from plsec.core.output import console, print_error, print_ok, print_warning
 from plsec.core.wizard import (
-    Wizard,
-    WizardState,
     AGENT_CHOICES,
     PRESET_CHOICES,
-)
-from plsec.configs.templates import (
-    CLAUDE_MD_STRICT,
-    CLAUDE_MD_BALANCED,
-    OPENCODE_JSON_STRICT,
-    OPENCODE_JSON_BALANCED,
+    Wizard,
+    WizardState,
 )
 
 app = typer.Typer(

@@ -7,26 +7,24 @@ Verifies that all required tools are installed and properly configured.
 __version__ = "0.1.0"
 
 import sys
-from pathlib import Path
 
 import typer
-from rich.table import Table
 
-from plsec.core.config import get_plsec_home, find_config_file
-from plsec.core.tools import (
-    ToolChecker,
-    ToolStatus,
-    REQUIRED_TOOLS,
-    OPTIONAL_TOOLS,
-)
+from plsec.core.config import find_config_file, get_plsec_home
 from plsec.core.output import (
     console,
-    print_status,
-    print_header,
-    print_summary,
-    print_ok,
     print_error,
+    print_header,
+    print_ok,
+    print_status,
+    print_summary,
     print_warning,
+)
+from plsec.core.tools import (
+    OPTIONAL_TOOLS,
+    REQUIRED_TOOLS,
+    ToolChecker,
+    ToolStatus,
 )
 
 app = typer.Typer(
@@ -95,7 +93,7 @@ def doctor(
                 print_ok(f"  {subdir}/ (created)", details=str(path))
                 ok_count += 1
             else:
-                print_warning(f"  {subdir}/ missing", details=f"Run with --fix to create")
+                print_warning(f"  {subdir}/ missing", details="Run with --fix to create")
                 warn_count += 1
 
     # Check for configuration file

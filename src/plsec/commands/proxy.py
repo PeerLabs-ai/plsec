@@ -7,9 +7,9 @@ Start, stop, and monitor the Pipelock security proxy.
 __version__ = "0.1.0"
 
 import os
+import shutil
 import signal
 import subprocess
-import shutil
 from pathlib import Path
 from typing import Literal
 
@@ -18,10 +18,10 @@ import typer
 from plsec.core.config import get_plsec_home
 from plsec.core.output import (
     console,
-    print_ok,
     print_error,
-    print_warning,
     print_info,
+    print_ok,
+    print_warning,
 )
 
 app = typer.Typer(
@@ -188,6 +188,7 @@ def stop() -> None:
         print_info("Pipelock is not running")
         raise typer.Exit(0)
 
+    assert pid is not None  # guaranteed by is_pipelock_running() when running=True
     try:
         os.kill(pid, signal.SIGTERM)
         print_ok(f"Stopped Pipelock (PID: {pid})")
@@ -197,7 +198,7 @@ def stop() -> None:
 
     except Exception as e:
         print_error(f"Failed to stop Pipelock: {e}")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
     raise typer.Exit(0)
 
@@ -225,7 +226,7 @@ def status() -> None:
                     console.print("\nRecent log entries:")
                     for line in lines:
                         console.print(f"  {line}", style="dim")
-            except Exception:
+            except Exception:  # noqa: S110 - best-effort log display
                 pass
     else:
         print_info("Pipelock is not running")
@@ -274,6 +275,6 @@ def logs(
             console.print(result.stdout)
         except Exception as e:
             print_error(f"Failed to read logs: {e}")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
     raise typer.Exit(0)

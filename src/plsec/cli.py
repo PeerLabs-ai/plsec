@@ -19,7 +19,7 @@ import typer
 from rich.console import Console
 
 from plsec import __version__
-from plsec.commands import doctor, init, scan, validate, proxy, integrity, create, secure
+from plsec.commands import create, doctor, init, integrity, proxy, scan, secure, validate
 
 # Create main app
 app = typer.Typer(
@@ -86,9 +86,8 @@ def main(
     runtime monitoring, and audit logging.
 
     """
-    # Store global options in context for subcommands
-    ctx = typer.Context
-    # These will be accessed by subcommands via state
+    # Global options stored for subcommands via typer state
+    _ = verbose, quiet, config  # consumed by subcommands via typer context
 
 
 if __name__ == "__main__":

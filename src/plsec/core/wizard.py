@@ -4,14 +4,15 @@ Interactive wizard for plsec commands.
 Provides consistent prompts for create and secure workflows.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TypeVar, Callable
+from typing import TypeVar
 
-from rich.console import Console
-from rich.prompt import Prompt, Confirm
-from rich.panel import Panel
-from rich.table import Table
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Confirm, Prompt
+from rich.table import Table
 
 console = Console()
 
@@ -38,7 +39,7 @@ class WizardState:
     preset: str = "balanced"
     sensitive_data: list[str] = field(default_factory=list)
     cloud_providers: list[str] = field(default_factory=list)
-    
+
     # Detected values (for secure command)
     detected_type: str | None = None
     detected_providers: list[str] = field(default_factory=list)

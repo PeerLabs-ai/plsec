@@ -1,0 +1,38 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": ["CLAUDE.md"],
+  "permission": {
+    "*": "allow",
+    "read": {
+      "*": "allow",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.ssh/*": "deny",
+      "**/.aws/*": "deny",
+      "**/secrets*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "edit": {
+      "*": "allow",
+      ".env": "deny",
+      ".env.*": "deny",
+      "**/.ssh/*": "deny",
+      "**/.aws/*": "deny",
+      "**/secrets*": "deny",
+      "**/*.pem": "deny",
+      "**/*.key": "deny"
+    },
+    "bash": {
+      "*": "ask",
+      "git *": "ask",
+      "rm -rf *": "deny",
+      "sudo *": "deny",
+      "chmod 777 *": "deny",
+      "curl *": "ask",
+      "wget *": "ask"
+    },
+    "external_directory": "ask",
+    "doom_loop": "ask"
+  }
+}
