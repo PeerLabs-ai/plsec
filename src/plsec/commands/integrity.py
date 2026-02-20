@@ -51,19 +51,36 @@ def get_manifest_path(workspace: Path) -> Path:
 
 
 def should_include(path: Path, excludes: list[str]) -> bool:
-    """Check if a path should be included in the manifest."""
+    """Check if a path should be included in the manifest.
+
+    Supports three pattern styles:
+    - Exact match against any path component (e.g. ".git", "__pycache__")
+    - Glob patterns with fnmatch (e.g. "*.pyc")
+    - **/ prefix patterns that match any path component (e.g. "**/__pycache__")
+    - /** suffix patterns that match directory prefixes (e.g. ".git/**")
+    """
+    import fnmatch
+
     path_str = str(path)
+    parts = path.parts
 
     for exclude in excludes:
-        if exclude in path_str:
-            return False
-        # Simple glob matching
         if exclude.startswith("**/"):
-            if exclude[3:] in path_str:
+            # Match the sub-pattern against any component or trailing subpath
+            sub = exclude[3:]
+            if any(fnmatch.fnmatch(part, sub) for part in parts):
                 return False
-        if exclude.endswith("/**"):
-            if path_str.startswith(exclude[:-3]):
+        elif exclude.endswith("/**"):
+            # Match if path starts under this directory
+            prefix = exclude[:-3]
+            if parts and fnmatch.fnmatch(parts[0], prefix):
                 return False
+        elif fnmatch.fnmatch(path_str, exclude):
+            # Full-path glob match (e.g. "*.pyc")
+            return False
+        elif any(fnmatch.fnmatch(part, exclude) for part in parts):
+            # Match against any individual path component (e.g. ".git", ".env")
+            return False
 
     return True
 
