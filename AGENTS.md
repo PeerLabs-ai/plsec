@@ -4,7 +4,7 @@
 
 - **Language**: Python 3.12+
 - **CLI Framework**: typer + rich
-- **Data Validation**: pydantic, pydantic-settings
+- **Data Validation**: dataclasses, typing.Literal
 - **Configuration**: pyyaml
 - **Build System**: hatchling, make
 - **Package Manager**: uv (recommended), pip, homebrew (macOS), apt (linux)
@@ -166,9 +166,9 @@ When coding, use the following rules:
 
 ### Data Models
 
-- Use **pydantic.BaseModel** for configuration and API models
-- Use **@dataclass** for internal data structures
-- Use `Field(default_factory=...)` for mutable defaults
+- Use **@dataclass** for all data structures (configuration and internal)
+- Use `field(default_factory=...)` for mutable defaults
+- Validate external data at load boundaries with explicit checks, not framework magic
 
 ### Naming Conventions
 

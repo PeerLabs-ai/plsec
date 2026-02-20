@@ -90,12 +90,12 @@ To get SHA256 hashes for Python dependencies:
 
 ```bash
 # Using pip
-pip download typer rich pyyaml pydantic pydantic-settings --no-deps -d /tmp/deps
+pip download typer rich pyyaml --no-deps -d /tmp/deps
 shasum -a 256 /tmp/deps/*.tar.gz
 
 # Or use poet (Homebrew tool)
 brew install poet
-poet typer rich pyyaml pydantic pydantic-settings
+poet typer rich pyyaml
 ```
 
 ## CI/CD Integration

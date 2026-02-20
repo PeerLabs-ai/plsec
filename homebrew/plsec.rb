@@ -42,16 +42,6 @@ class Plsec < Formula
     sha256 "PLACEHOLDER"
   end
 
-  resource "pydantic" do
-    url "https://files.pythonhosted.org/packages/pydantic/pydantic-2.6.0.tar.gz"
-    sha256 "PLACEHOLDER"
-  end
-
-  resource "pydantic-settings" do
-    url "https://files.pythonhosted.org/packages/pydantic-settings/pydantic_settings-2.2.0.tar.gz"
-    sha256 "PLACEHOLDER"
-  end
-
   def install
     virtualenv_install_with_resources
   end

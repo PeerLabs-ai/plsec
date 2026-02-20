@@ -2,21 +2,52 @@
 Configuration management for plsec.
 
 Handles loading, validating, and accessing plsec.yaml configuration.
+Uses plain dataclasses - Pydantic is not needed for this use case.
 """
 
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field
-from pydantic_settings import BaseSettings
+
+# ---------------------------------------------------------------------------
+# Literal types for constrained fields
+# ---------------------------------------------------------------------------
+
+RuntimeType = Literal["podman", "docker", "sandbox"]
+ProxyMode = Literal["audit", "balanced", "strict"]
+AgentType = Literal["claude-code", "opencode", "codex"]
+ProjectType = Literal["python", "node", "go", "mixed"]
+StorageType = Literal["keychain", "env", "file"]
+
+_LITERAL_CONSTRAINTS: dict[str, set[str]] = {
+    "runtime": {"podman", "docker", "sandbox"},
+    "mode": {"audit", "balanced", "strict"},
+    "agent_type": {"claude-code", "opencode", "codex"},
+    "project_type": {"python", "node", "go", "mixed"},
+    "storage": {"keychain", "env", "file"},
+}
 
 
-class StaticLayerConfig(BaseModel):
+def _validate_literal(value: str, field_name: str, allowed: set[str]) -> str:
+    """Validate a string value against allowed Literal values at load boundary."""
+    if value not in allowed:
+        raise ValueError(f"Invalid {field_name}: {value!r} (allowed: {sorted(allowed)})")
+    return value
+
+
+# ---------------------------------------------------------------------------
+# Configuration dataclasses
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class StaticLayerConfig:
     """Static analysis layer configuration."""
 
     enabled: bool = True
-    scanners: list[str] = Field(
+    scanners: list[str] = field(
         default_factory=lambda: [
             "trivy-secrets",
             "trivy-misconfig",
@@ -26,23 +57,26 @@ class StaticLayerConfig(BaseModel):
     )
 
 
-class IsolationLayerConfig(BaseModel):
+@dataclass
+class IsolationLayerConfig:
     """Container/sandbox isolation layer configuration."""
 
     enabled: bool = False
-    runtime: Literal["podman", "docker", "sandbox"] = "podman"
+    runtime: RuntimeType = "podman"
 
 
-class ProxyLayerConfig(BaseModel):
+@dataclass
+class ProxyLayerConfig:
     """Runtime proxy layer configuration."""
 
     enabled: bool = False
     binary: str = "pipelock"
-    mode: Literal["audit", "balanced", "strict"] = "balanced"
+    mode: ProxyMode = "balanced"
     config: str = "./pipelock.yaml"
 
 
-class AuditLayerConfig(BaseModel):
+@dataclass
+class AuditLayerConfig:
     """Audit logging layer configuration."""
 
     enabled: bool = True
@@ -50,57 +84,128 @@ class AuditLayerConfig(BaseModel):
     integrity: bool = True
 
 
-class LayersConfig(BaseModel):
+@dataclass
+class LayersConfig:
     """All security layers configuration."""
 
-    static: StaticLayerConfig = Field(default_factory=StaticLayerConfig)
-    isolation: IsolationLayerConfig = Field(default_factory=IsolationLayerConfig)
-    proxy: ProxyLayerConfig = Field(default_factory=ProxyLayerConfig)
-    audit: AuditLayerConfig = Field(default_factory=AuditLayerConfig)
+    static: StaticLayerConfig = field(default_factory=StaticLayerConfig)
+    isolation: IsolationLayerConfig = field(default_factory=IsolationLayerConfig)
+    proxy: ProxyLayerConfig = field(default_factory=ProxyLayerConfig)
+    audit: AuditLayerConfig = field(default_factory=AuditLayerConfig)
 
 
-class AgentConfig(BaseModel):
+@dataclass
+class AgentConfig:
     """AI agent configuration."""
 
-    type: Literal["claude-code", "opencode", "codex"] = "claude-code"
+    type: AgentType = "claude-code"
     config_path: str = "./CLAUDE.md"
 
 
-class ProjectConfig(BaseModel):
+@dataclass
+class ProjectConfig:
     """Project metadata configuration."""
 
     name: str = "unknown"
-    type: Literal["python", "node", "go", "mixed"] = "python"
+    type: ProjectType = "python"
 
 
-class CredentialsConfig(BaseModel):
+@dataclass
+class CredentialsConfig:
     """Credentials storage configuration."""
 
-    storage: Literal["keychain", "env", "file"] = "keychain"
-    keys: list[str] = Field(default_factory=list)
+    storage: StorageType = "keychain"
+    keys: list[str] = field(default_factory=list)
 
 
-class PlsecConfig(BaseModel):
+@dataclass
+class PlsecConfig:
     """Main plsec configuration model."""
 
     version: int = 1
-    project: ProjectConfig = Field(default_factory=ProjectConfig)
-    agent: AgentConfig = Field(default_factory=AgentConfig)
-    layers: LayersConfig = Field(default_factory=LayersConfig)
-    credentials: CredentialsConfig = Field(default_factory=CredentialsConfig)
+    project: ProjectConfig = field(default_factory=ProjectConfig)
+    agent: AgentConfig = field(default_factory=AgentConfig)
+    layers: LayersConfig = field(default_factory=LayersConfig)
+    credentials: CredentialsConfig = field(default_factory=CredentialsConfig)
 
 
-class PlsecSettings(BaseSettings):
-    """Environment-based settings."""
+# ---------------------------------------------------------------------------
+# Serialization: dataclass <-> dict
+# ---------------------------------------------------------------------------
 
-    plsec_config: Path = Path("./plsec.yaml")
-    plsec_home: Path = Path.home() / ".peerlabs" / "plsec"
-    plsec_verbose: bool = False
-    plsec_quiet: bool = False
+# Maps top-level dict keys to (dataclass, nested_fields) for reconstruction.
+# nested_fields maps field names to their dataclass type for recursive loading.
+_NESTED_FIELDS: dict[type, dict[str, type]] = {
+    PlsecConfig: {
+        "project": ProjectConfig,
+        "agent": AgentConfig,
+        "layers": LayersConfig,
+        "credentials": CredentialsConfig,
+    },
+    LayersConfig: {
+        "static": StaticLayerConfig,
+        "isolation": IsolationLayerConfig,
+        "proxy": ProxyLayerConfig,
+        "audit": AuditLayerConfig,
+    },
+}
 
-    class Config:
-        env_prefix = ""
-        case_sensitive = False
+
+def _from_dict(cls: type, data: dict) -> Any:
+    """Recursively construct a dataclass from a dict, using defaults for missing keys."""
+    nested = _NESTED_FIELDS.get(cls, {})
+    kwargs = {}
+    for k, v in data.items():
+        if k in nested and isinstance(v, dict):
+            kwargs[k] = _from_dict(nested[k], v)
+        else:
+            kwargs[k] = v
+    return cls(**kwargs)
+
+
+def _to_dict(config: PlsecConfig) -> dict[str, Any]:
+    """Convert a PlsecConfig to a plain dict for YAML serialization."""
+    return asdict(config)
+
+
+def _validate_config(data: dict) -> None:
+    """Validate constrained fields at load boundary.
+
+    Raises ValueError for invalid Literal values.
+    """
+    # Project type
+    if "project" in data and "type" in data["project"]:
+        _validate_literal(
+            data["project"]["type"], "project.type", _LITERAL_CONSTRAINTS["project_type"]
+        )
+
+    # Agent type
+    if "agent" in data and "type" in data["agent"]:
+        _validate_literal(data["agent"]["type"], "agent.type", _LITERAL_CONSTRAINTS["agent_type"])
+
+    # Layers
+    layers = data.get("layers", {})
+    if "isolation" in layers and "runtime" in layers["isolation"]:
+        _validate_literal(
+            layers["isolation"]["runtime"],
+            "layers.isolation.runtime",
+            _LITERAL_CONSTRAINTS["runtime"],
+        )
+    if "proxy" in layers and "mode" in layers["proxy"]:
+        _validate_literal(
+            layers["proxy"]["mode"], "layers.proxy.mode", _LITERAL_CONSTRAINTS["mode"]
+        )
+
+    # Credentials
+    if "credentials" in data and "storage" in data["credentials"]:
+        _validate_literal(
+            data["credentials"]["storage"], "credentials.storage", _LITERAL_CONSTRAINTS["storage"]
+        )
+
+
+# ---------------------------------------------------------------------------
+# Public API: find, load, save, home
+# ---------------------------------------------------------------------------
 
 
 def find_config_file() -> Path | None:
@@ -162,7 +267,8 @@ def load_config(config_path: Path | str | None = None) -> PlsecConfig:
     if data is None:
         return PlsecConfig()
 
-    return PlsecConfig.model_validate(data)
+    _validate_config(data)
+    return _from_dict(PlsecConfig, data)
 
 
 def save_config(config: PlsecConfig, path: Path | str) -> None:
@@ -176,7 +282,7 @@ def save_config(config: PlsecConfig, path: Path | str) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    data = config.model_dump()
+    data = _to_dict(config)
 
     with open(path, "w") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False)
