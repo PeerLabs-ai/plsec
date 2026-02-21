@@ -5,9 +5,9 @@ build-backend = "hatchling.build"
 [project]
 name = "plsec"
 dynamic = ["version"]
-description = "Tools to help with mititgating AI coding assistant security risks."
+description = "Tools to help with mitigating AI coding assistant security risks."
 readme = "README.md"
-license = "Apache-2.0"
+license = "MIT"
 requires-python = ">=3.12"
 authors = [
     { name = "Peerlabs", email = "security@peerlabs.io" }
@@ -24,7 +24,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: MIT License",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",

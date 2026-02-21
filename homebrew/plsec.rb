@@ -17,7 +17,7 @@ class Plsec < Formula
   homepage "https://github.com/peerlabs/plsec"
   url "https://github.com/peerlabs/plsec/archive/refs/tags/v0.1.0.tar.gz"
   sha256 "PLACEHOLDER_SHA256"  # Update with actual sha256
-  license "Apache-2.0"
+  license "MIT"
   head "https://github.com/peerlabs/plsec.git", branch: "main"
 
   depends_on "python@3.12"

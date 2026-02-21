@@ -1,6 +1,13 @@
 # plsec - Security Tooling for AI Coding Assistants
 
-A defense-in-depth security framework for Claude Code, Opencode, and other AI coding assistants.
+A defense-in-depth security framework for AI coding assistants
+(Claude Code, OpenCode, Gemini CLI, and others).
+
+plsec wraps Trivy, Bandit, Semgrep, and other scanners into a unified
+CLI with progressive security presets, agent-specific configuration
+management, and runtime monitoring via Pipelock.  Agents and scanners
+are declared in registries so new tools can be added in one place
+without modifying command logic.
 
 ## Installation
 
@@ -167,54 +174,61 @@ layers:
 
 ## Development
 
-### Using uv (Recommended)
+Make is the unified entry point for all build, test, and lint operations.
 
 ```bash
-# Install dev dependencies
-uv pip install -e ".[dev]"
+# Setup
+uv pip install -e ".[dev]"    # or: pip install -e ".[dev]"
 
-# Run tests
-uv run pytest
+# Full CI pipeline (lint + type check + build + all tests)
+make ci
 
-# Run linter
-uv run ruff check .
-
-# Run type checker
-uv run ty check src/
-
-# Run single command without install
-uvx --from . plsec doctor
+# Individual targets
+make lint                      # ruff check + ruff format --check
+make check                     # ty type checker
+make test-python               # pytest (216 tests)
+make test-unit                 # BATS unit tests (34 tests)
+make test-integration          # BATS integration tests (53 tests)
+make test                      # All BATS tests
+make build                     # Assemble bootstrap.sh from templates
+make verify                    # Ensure build matches promoted reference
 ```
 
-### Using pip
+### Testing
+
+The test suite has two layers:
+
+- **pytest** (216 tests) -- Python CLI: config loading, tool checking,
+  template validation, integrity monitoring, project detection, output
+  formatting, and project scaffolding.
+- **BATS** (87 tests) -- Bootstrap shell script: directory structure
+  creation, agent config generation, wrapper script assembly, dry-run
+  mode, idempotency, and template escaping.
 
 ```bash
-# Install dev dependencies
-pip install -e ".[dev]"
+# Run Python tests with coverage
+uv run pytest --cov=plsec --cov-report=html
 
-# Run tests
-pytest
+# Run a single test file
+uv run pytest tests/test_config.py -v
 
-# Run linter
-ruff check .
-
-# Run type checker
-ty check src/
+# Run BATS tests
+make test-unit
+make test-integration
 ```
 
-### Project Scripts
+### Quality Tools
 
-```bash
-# These work with both uv and pip once installed
-plsec doctor --all      # Full dependency check
-plsec init --preset strict
-plsec scan --secrets
-plsec validate
-```
+| Tool | Purpose | Command |
+|------|---------|---------|
+| ruff | Lint + format | `uv run ruff check .` / `uv run ruff format .` |
+| ty | Type checking | `uv run ty check src/` |
+| pytest | Python tests | `uv run pytest tests/ -v` |
+| BATS | Shell tests | `make test-unit` / `make test-integration` |
 
 ## License
 
-Apache-2.0
+MIT License. See [LICENSE](LICENSE) for details.
 
 ## References
 
