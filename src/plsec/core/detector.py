@@ -255,7 +255,7 @@ class ProjectDetector:
                 timeout=5,
             )
             return bool(result.stdout.strip())
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return False
 
     def _parse_gitignore(self) -> list[str]:
@@ -268,7 +268,7 @@ class ProjectDetector:
                 if line and not line.startswith("#"):
                     patterns.append(line)
             return patterns
-        except Exception:
+        except OSError:
             return []
 
     def _detect_cloud_providers(self) -> list[str]:

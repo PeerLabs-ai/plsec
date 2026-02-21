@@ -58,7 +58,16 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 - [ ] Build pytest test cases for Python CLI component (see TESTING.md)
 - [ ] Verify ty type checker integration works correctly
 - [ ] **Unify build system through Make** (see below)
-- [ ] **`plsec-status` Phase 1**: Bash status script in bootstrap
+- [ ] **Registry refactoring**: Extract agent, scanner, and process registries
+  from command files into `core/agents.py`, `core/scanners.py`,
+  `core/processes.py`. Decompose `doctor.py` into reusable health check
+  functions in `core/health.py`.
+  (see [docs/DESIGN-PLSEC-REFACTOR.md](docs/DESIGN-PLSEC-REFACTOR.md))
+- [ ] **`plsec-status` Phase 1**: Bash status script in bootstrap.
+  **Note:** The status design doc (`docs/plsec-status-design.md`) predates
+  the registry refactoring and should be updated to reflect registry-driven
+  check generation before implementation begins. See the "Future Directions"
+  section of `docs/DESIGN-PLSEC-REFACTOR.md` for specifics.
   (see [docs/plsec-status-design.md](docs/plsec-status-design.md))
 
 ### Medium Priority
@@ -66,6 +75,11 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 - [ ] **mkdocs setup**: Wire up documentation site (see below)
 - [ ] Document bootstrap.sh component and template system
 - [ ] Add integration tests for plsec commands
+- [ ] **Multi-project support**: Add a PROJECTS registry
+  (`~/.peerlabs/plsec/projects.yaml`), per-project log directories,
+  `plsec project list/remove` commands. Enabled by the registry
+  refactoring. (see "Future Directions" in
+  [docs/DESIGN-PLSEC-REFACTOR.md](docs/DESIGN-PLSEC-REFACTOR.md))
 - [ ] **Agent support**: Gemini CLI
 - [ ] **Agent support**: Codex (OpenAI)
 - [ ] **Agent support**: CoPilot (GitHub)
