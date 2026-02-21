@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import typer
 
@@ -435,43 +435,28 @@ def run_analysis_wizard(info: ProjectInfo) -> WizardState:
 
 @app.callback(invoke_without_command=True)
 def secure(
-    path: Path = typer.Argument(
-        Path("."),
-        help="Project path (default: current directory)",
+    path: Annotated[Path, typer.Argument(help="Project path (default: current directory)")] = Path(
+        "."
     ),
-    preset: Preset = typer.Option(
-        "balanced",
-        "--preset",
-        "-p",
-        help="Security preset: minimal, balanced, strict, paranoid",
-    ),
-    agent: AgentType = typer.Option(
-        "both",
-        "--agent",
-        "-a",
-        help="AI agent: claude, opencode, both",
-    ),
-    no_wizard: bool = typer.Option(
-        False,
-        "--no-wizard",
-        help="Skip wizard, use detected/default values",
-    ),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        help="Show what would change without applying",
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        "-f",
-        help="Overwrite existing config files",
-    ),
-    no_scan: bool = typer.Option(
-        False,
-        "--no-scan",
-        help="Skip security scan after setup",
-    ),
+    preset: Annotated[
+        Preset,
+        typer.Option("--preset", "-p", help="Security preset: minimal, balanced, strict, paranoid"),
+    ] = "balanced",
+    agent: Annotated[
+        AgentType, typer.Option("--agent", "-a", help="AI agent: claude, opencode, both")
+    ] = "both",
+    no_wizard: Annotated[
+        bool, typer.Option("--no-wizard", help="Skip wizard, use detected/default values")
+    ] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Show what would change without applying")
+    ] = False,
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Overwrite existing config files")
+    ] = False,
+    no_scan: Annotated[
+        bool, typer.Option("--no-scan", help="Skip security scan after setup")
+    ] = False,
 ) -> None:
     """
     Add security configuration to an existing project.

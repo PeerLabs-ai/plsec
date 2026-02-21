@@ -92,9 +92,6 @@ ignore = [
     "S607",  # partial path (we use shutil.which)
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"src/plsec/commands/*.py" = ["B008"]  # typer requires Option/Argument in defaults
-"src/plsec/configs/templates.py" = ["S105", "E501"]  # template strings, not real secrets; long YAML lines
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

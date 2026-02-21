@@ -191,8 +191,8 @@ class ProjectDetector:
                     content = file_path.read_text(errors="ignore")
                     file_issues = self._scan_file(file_path, content)
                     issues.extend(file_issues)
-                except Exception:  # noqa: S110 - skip unreadable files during scan
-                    pass
+                except OSError:
+                    continue
 
         info.issues = issues
         return issues
@@ -234,7 +234,7 @@ class ProjectDetector:
                     content = (self.path / "pyproject.toml").read_text()
                     if "pytest" in content:
                         return "pytest"
-                except Exception:  # noqa: S110 - skip unreadable config files
+                except OSError:
                     pass
         elif proj_type == "node":
             if (self.path / "jest.config.js").exists():
@@ -293,7 +293,7 @@ class ProjectDetector:
                             if re.search(pattern, content, re.IGNORECASE):
                                 providers.add(provider)
                                 break
-                except Exception:  # noqa: S110 - skip unreadable dependency files
+                except OSError:
                     pass
 
         return list(providers)

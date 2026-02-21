@@ -231,7 +231,7 @@ credentials:
   keys: []
 """
 
-TRIVY_SECRET_YAML = """# trivy-secret.yaml - LLM-tuned secret detection
+TRIVY_SCAN_RULES_YAML = """# trivy-secret.yaml - LLM-tuned secret detection
 # Disable allow-rules: LLMs put secrets in unexpected places
 
 disable-allow-rules:
@@ -259,7 +259,11 @@ rules:
     category: generic
     title: Private Key
     severity: CRITICAL
-    keywords: ["BEGIN RSA PRIVATE KEY", "BEGIN EC PRIVATE KEY", "BEGIN OPENSSH PRIVATE KEY", "BEGIN PRIVATE KEY"]
+    keywords:
+      - "BEGIN RSA PRIVATE KEY"
+      - "BEGIN EC PRIVATE KEY"
+      - "BEGIN OPENSSH PRIVATE KEY"
+      - "BEGIN PRIVATE KEY"
     regex: "-----BEGIN (RSA |EC |OPENSSH |PGP )?PRIVATE KEY( BLOCK)?-----"
 
   # Provider-specific

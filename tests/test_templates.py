@@ -15,7 +15,7 @@ from plsec.configs.templates import (
     OPENCODE_JSON_STRICT,
     PLSEC_YAML_TEMPLATE,
     PRE_COMMIT_HOOK,
-    TRIVY_SECRET_YAML,
+    TRIVY_SCAN_RULES_YAML,
 )
 
 
@@ -38,7 +38,7 @@ class TestAllTemplatesNonEmpty:
         assert isinstance(PLSEC_YAML_TEMPLATE, str) and len(PLSEC_YAML_TEMPLATE) > 0
 
     def test_trivy_secret_yaml(self):
-        assert isinstance(TRIVY_SECRET_YAML, str) and len(TRIVY_SECRET_YAML) > 0
+        assert isinstance(TRIVY_SCAN_RULES_YAML, str) and len(TRIVY_SCAN_RULES_YAML) > 0
 
     def test_pre_commit_hook(self):
         assert isinstance(PRE_COMMIT_HOOK, str) and len(PRE_COMMIT_HOOK) > 0
@@ -129,17 +129,17 @@ class TestTrivySecretYaml:
     """Verify trivy-secret.yaml template is valid YAML with expected rules."""
 
     def test_is_valid_yaml(self):
-        data = yaml.safe_load(TRIVY_SECRET_YAML)
+        data = yaml.safe_load(TRIVY_SCAN_RULES_YAML)
         assert isinstance(data, dict)
 
     def test_has_rules(self):
-        data = yaml.safe_load(TRIVY_SECRET_YAML)
+        data = yaml.safe_load(TRIVY_SCAN_RULES_YAML)
         assert "rules" in data
         assert len(data["rules"]) > 0
 
     def test_has_expected_rule_ids(self):
         """Should include rules for common secret types."""
-        data = yaml.safe_load(TRIVY_SECRET_YAML)
+        data = yaml.safe_load(TRIVY_SCAN_RULES_YAML)
         rule_ids = {rule["id"] for rule in data["rules"]}
         assert "generic-api-key" in rule_ids
         assert "anthropic-api-key" in rule_ids

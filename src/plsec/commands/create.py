@@ -9,7 +9,7 @@ __version__ = "0.1.0"
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import typer
 
@@ -385,41 +385,29 @@ def run_wizard() -> WizardState:
 
 @app.callback(invoke_without_command=True)
 def create(
-    name: str = typer.Argument(..., help="Project name (creates directory)"),
-    template: ProjectType = typer.Option(
-        "python",
-        "--template",
-        "-t",
-        help="Project template: python, node, go, rust, mixed, other",
-    ),
-    preset: Preset = typer.Option(
-        "balanced",
-        "--preset",
-        "-p",
-        help="Security preset: minimal, balanced, strict, paranoid",
-    ),
-    agent: AgentType = typer.Option(
-        "both",
-        "--agent",
-        "-a",
-        help="AI agent: claude, opencode, both",
-    ),
-    no_wizard: bool = typer.Option(
-        False,
-        "--no-wizard",
-        help="Skip wizard, use defaults/flags only",
-    ),
-    no_git: bool = typer.Option(
-        False,
-        "--no-git",
-        help="Don't initialize git repository",
-    ),
-    output: Path = typer.Option(
-        Path("."),
-        "--output",
-        "-o",
-        help="Parent directory for the project",
-    ),
+    name: Annotated[str, typer.Argument(help="Project name (creates directory)")],
+    template: Annotated[
+        ProjectType,
+        typer.Option(
+            "--template", "-t", help="Project template: python, node, go, rust, mixed, other"
+        ),
+    ] = "python",
+    preset: Annotated[
+        Preset,
+        typer.Option("--preset", "-p", help="Security preset: minimal, balanced, strict, paranoid"),
+    ] = "balanced",
+    agent: Annotated[
+        AgentType, typer.Option("--agent", "-a", help="AI agent: claude, opencode, both")
+    ] = "both",
+    no_wizard: Annotated[
+        bool, typer.Option("--no-wizard", help="Skip wizard, use defaults/flags only")
+    ] = False,
+    no_git: Annotated[
+        bool, typer.Option("--no-git", help="Don't initialize git repository")
+    ] = False,
+    output: Annotated[
+        Path, typer.Option("--output", "-o", help="Parent directory for the project")
+    ] = Path("."),
 ) -> None:
     """
     Create a new project with security built-in.

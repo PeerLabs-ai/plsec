@@ -7,7 +7,7 @@ Sets up CLAUDE.md, opencode.json, plsec.yaml, and related configs.
 __version__ = "0.1.0"
 
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import typer
 
@@ -99,35 +99,25 @@ def get_preset_config(preset: Preset) -> LayersConfig:
 
 @app.callback(invoke_without_command=True)
 def init(
-    preset: Preset = typer.Option(
-        "balanced",
-        "--preset",
-        "-p",
-        help="Security preset: minimal, balanced, strict, paranoid.",
-    ),
-    agent: AgentType = typer.Option(
-        "both",
-        "--agent",
-        "-a",
-        help="Agent type: claude, opencode, both.",
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        "-f",
-        help="Overwrite existing configuration files.",
-    ),
-    global_only: bool = typer.Option(
-        False,
-        "--global",
-        "-g",
-        help="Only set up global configs in ~/.peerlabs/plsec.",
-    ),
-    with_pipelock: bool = typer.Option(
-        False,
-        "--with-pipelock",
-        help="Include Pipelock proxy configuration.",
-    ),
+    preset: Annotated[
+        Preset,
+        typer.Option(
+            "--preset", "-p", help="Security preset: minimal, balanced, strict, paranoid."
+        ),
+    ] = "balanced",
+    agent: Annotated[
+        AgentType, typer.Option("--agent", "-a", help="Agent type: claude, opencode, both.")
+    ] = "both",
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Overwrite existing configuration files.")
+    ] = False,
+    global_only: Annotated[
+        bool,
+        typer.Option("--global", "-g", help="Only set up global configs in ~/.peerlabs/plsec."),
+    ] = False,
+    with_pipelock: Annotated[
+        bool, typer.Option("--with-pipelock", help="Include Pipelock proxy configuration.")
+    ] = False,
 ) -> None:
     """
     Initialize security configuration for a project.

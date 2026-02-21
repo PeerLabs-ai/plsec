@@ -9,7 +9,7 @@ __version__ = "0.1.0"
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import typer
 
@@ -146,45 +146,24 @@ def run_semgrep(path: Path) -> tuple[bool, str]:
 
 @app.callback(invoke_without_command=True)
 def scan(
-    path: Path = typer.Argument(
-        Path("."),
-        help="Path to scan (default: current directory).",
+    path: Annotated[Path, typer.Argument(help="Path to scan (default: current directory).")] = Path(
+        "."
     ),
-    scan_type: ScanType = typer.Option(
-        "all",
-        "--type",
-        "-t",
-        help="Type of scan: secrets, code, deps, misconfig, all.",
-    ),
-    secrets: bool = typer.Option(
-        False,
-        "--secrets",
-        "-s",
-        help="Run secret scanning only.",
-    ),
-    code: bool = typer.Option(
-        False,
-        "--code",
-        "-c",
-        help="Run code analysis only (Bandit, Semgrep).",
-    ),
-    deps: bool = typer.Option(
-        False,
-        "--deps",
-        "-d",
-        help="Run dependency audit only.",
-    ),
-    misconfig: bool = typer.Option(
-        False,
-        "--misconfig",
-        "-m",
-        help="Run misconfiguration scanning only.",
-    ),
-    json_output: bool = typer.Option(
-        False,
-        "--json",
-        help="Output results as JSON.",
-    ),
+    scan_type: Annotated[
+        ScanType,
+        typer.Option("--type", "-t", help="Type of scan: secrets, code, deps, misconfig, all."),
+    ] = "all",
+    secrets: Annotated[
+        bool, typer.Option("--secrets", "-s", help="Run secret scanning only.")
+    ] = False,
+    code: Annotated[
+        bool, typer.Option("--code", "-c", help="Run code analysis only (Bandit, Semgrep).")
+    ] = False,
+    deps: Annotated[bool, typer.Option("--deps", "-d", help="Run dependency audit only.")] = False,
+    misconfig: Annotated[
+        bool, typer.Option("--misconfig", "-m", help="Run misconfiguration scanning only.")
+    ] = False,
+    json_output: Annotated[bool, typer.Option("--json", help="Output results as JSON.")] = False,
 ) -> None:
     """
     Run security scanners on the specified path.

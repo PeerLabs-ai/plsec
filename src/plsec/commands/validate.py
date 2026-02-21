@@ -7,6 +7,7 @@ Checks syntax and schema of plsec.yaml, CLAUDE.md, opencode.json, etc.
 __version__ = "0.1.0"
 
 from pathlib import Path
+from typing import Annotated
 
 import typer
 import yaml
@@ -101,16 +102,10 @@ def validate_opencode_json(path: Path) -> tuple[bool, list[str]]:
 
 @app.callback(invoke_without_command=True)
 def validate(
-    path: Path = typer.Argument(
-        Path("."),
-        help="Path to validate (default: current directory).",
-    ),
-    fix: bool = typer.Option(
-        False,
-        "--fix",
-        "-f",
-        help="Attempt to fix issues.",
-    ),
+    path: Annotated[
+        Path, typer.Argument(help="Path to validate (default: current directory).")
+    ] = Path("."),
+    fix: Annotated[bool, typer.Option("--fix", "-f", help="Attempt to fix issues.")] = False,
 ) -> None:
     """
     Validate configuration files.

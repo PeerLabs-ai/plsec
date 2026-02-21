@@ -7,7 +7,7 @@ from plsec.configs.templates import (
     OPENCODE_JSON_STRICT,
     PLSEC_YAML_TEMPLATE,
     PRE_COMMIT_HOOK,
-    TRIVY_SECRET_YAML,
+    TRIVY_SCAN_RULES_YAML,
 )
 
 __all__ = [
@@ -16,6 +16,6 @@ __all__ = [
     "OPENCODE_JSON_STRICT",
     "OPENCODE_JSON_BALANCED",
     "PLSEC_YAML_TEMPLATE",
-    "TRIVY_SECRET_YAML",
+    "TRIVY_SCAN_RULES_YAML",
     "PRE_COMMIT_HOOK",
 ]

@@ -11,7 +11,7 @@ import shutil
 import signal
 import subprocess
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import typer
 
@@ -64,30 +64,16 @@ def find_pipelock() -> Path | None:
 
 @app.command()
 def start(
-    mode: ProxyMode = typer.Option(
-        "balanced",
-        "--mode",
-        "-m",
-        help="Proxy mode: audit, balanced, strict.",
-    ),
-    port: int = typer.Option(
-        8888,
-        "--port",
-        "-p",
-        help="Port to listen on.",
-    ),
-    background: bool = typer.Option(
-        True,
-        "--background/--foreground",
-        "-b/-f",
-        help="Run in background.",
-    ),
-    config: Path | None = typer.Option(
-        None,
-        "--config",
-        "-c",
-        help="Path to Pipelock config file.",
-    ),
+    mode: Annotated[
+        ProxyMode, typer.Option("--mode", "-m", help="Proxy mode: audit, balanced, strict.")
+    ] = "balanced",
+    port: Annotated[int, typer.Option("--port", "-p", help="Port to listen on.")] = 8888,
+    background: Annotated[
+        bool, typer.Option("--background/--foreground", "-b/-f", help="Run in background.")
+    ] = True,
+    config: Annotated[
+        Path | None, typer.Option("--config", "-c", help="Path to Pipelock config file.")
+    ] = None,
 ) -> None:
     """Start the Pipelock proxy."""
     console.print("[bold]plsec proxy start[/bold]\n")
@@ -226,7 +212,7 @@ def status() -> None:
                     console.print("\nRecent log entries:")
                     for line in lines:
                         console.print(f"  {line}", style="dim")
-            except Exception:  # noqa: S110 - best-effort log display
+            except OSError:
                 pass
     else:
         print_info("Pipelock is not running")

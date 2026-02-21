@@ -10,6 +10,7 @@ import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
@@ -150,16 +151,10 @@ def compare_manifests(old: dict, new: dict) -> dict:
 
 @app.command("init")
 def init_manifest(
-    path: Path = typer.Argument(
-        Path("."),
-        help="Workspace path.",
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        "-f",
-        help="Overwrite existing manifest.",
-    ),
+    path: Annotated[Path, typer.Argument(help="Workspace path.")] = Path("."),
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Overwrite existing manifest.")
+    ] = False,
 ) -> None:
     """Initialize integrity manifest for a workspace."""
     console.print("[bold]plsec integrity init[/bold]\n")
@@ -189,16 +184,10 @@ def init_manifest(
 
 @app.command("check")
 def check_integrity(
-    path: Path = typer.Argument(
-        Path("."),
-        help="Workspace path.",
-    ),
-    quiet: bool = typer.Option(
-        False,
-        "--quiet",
-        "-q",
-        help="Only output if changes detected.",
-    ),
+    path: Annotated[Path, typer.Argument(help="Workspace path.")] = Path("."),
+    quiet: Annotated[
+        bool, typer.Option("--quiet", "-q", help="Only output if changes detected.")
+    ] = False,
 ) -> None:
     """Check workspace integrity against manifest."""
     workspace = path.resolve()
@@ -267,10 +256,7 @@ def check_integrity(
 
 @app.command("update")
 def update_manifest(
-    path: Path = typer.Argument(
-        Path("."),
-        help="Workspace path.",
-    ),
+    path: Annotated[Path, typer.Argument(help="Workspace path.")] = Path("."),
 ) -> None:
     """Update manifest to reflect current state."""
     console.print("[bold]plsec integrity update[/bold]\n")
