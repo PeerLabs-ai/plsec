@@ -145,6 +145,9 @@ Created 4 new registry modules (`core/agents.py`, `core/scanners.py`, `core/proc
 19. **`plsec run` is the convergence point.** It bridges the CLI and bootstrap by providing managed agent execution with container support, replacing the `*-safe` aliases. Warrants a v0.2.0 version bump.
 20. **`log_dir` in `plsec.yaml` is aspirational.** The `AuditLayerConfig.log_dir` field exists but nothing in the Python CLI writes to it. Only bootstrap wrappers write to the logs directory.
 21. **Podman as default container runtime.** User-configurable via `plsec.yaml`, prominently communicated.
+22. **`.venv.make` is dead code.** Referenced only in `make clean` but nothing creates it. The only venv is `.venv/`, managed by `uv sync`. Removed.
+23. **Bandit `.venv` scanning is a symptom of a broader issue.** Any file-walking scanner will scan `.venv/` unless excluded. Need exclusions for `.venv`, `.tox`, `node_modules`, `build`, `dist`.
+24. **Production distribution: pipx/uvx is primary.** `pipx install plsec` or `uvx plsec` creates an isolated venv per tool. Homebrew formula exists but has placeholder SHA256s. apt is future.
 
 ## What Needs to Happen Next
 

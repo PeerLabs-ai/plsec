@@ -111,6 +111,10 @@ of truth).
   alone provides full plsec functionality without running bootstrap.
 - [ ] **Scan result persistence**: Both `plsec scan` and `wrapper-scan.sh`
   must write results to `~/.peerlabs/plsec/logs/` for `plsec-status`.
+- [ ] **Installation testing**: Add `make install-test` (clean install
+  in isolated venv) and `make build-dist` (sdist + wheel) targets.
+  Create `docs/INSTALL.md` covering all installation paths (pipx, uv,
+  homebrew, bootstrap). See docs/INSTALL.md.
 - [ ] **`plsec-status` Phase 1**: Bash status script in bootstrap.
   **Note:** The status design doc (`docs/plsec-status-design.md`) predates
   the registry refactoring and should be updated to reflect registry-driven
@@ -144,6 +148,11 @@ of truth).
   implementation and template.
 - [ ] **Local server security parameters**: Rich set of controls for
   securing local development servers (ports, bindings, TLS, auth).
+- [ ] **PyPI publishing**: Publish to TestPyPI, verify `pipx install
+  plsec`, then publish to PyPI. Prerequisite for Homebrew tap and mise.
+- [ ] **Homebrew tap**: Test formula locally (`brew install
+  --build-from-source`), create `peerlabs/homebrew-tap` repo, update
+  SHA256s, make first real release.
 
 ### Low Priority
 
@@ -160,6 +169,7 @@ of truth).
 - [ ] **Single metadata source**: Converge bootstrap and CLI wrapper
   generation to use same registry metadata. Aspiration -- plan for it
   now, implement when the CLI subsumes bootstrap functionality.
+- [ ] **apt packaging**: Debian/Ubuntu package for server environments.
 
 ## Path Migration: `~/.plsec` to `~/.peerlabs/plsec`
 
