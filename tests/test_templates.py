@@ -15,6 +15,7 @@ from plsec.configs.templates import (
     OPENCODE_JSON_STRICT,
     PLSEC_YAML_TEMPLATE,
     PRE_COMMIT_HOOK,
+    TRIVY_CONFIG_YAML,
     TRIVY_SCAN_RULES_YAML,
 )
 
@@ -148,6 +149,76 @@ class TestTrivySecretYaml:
         assert "generic-api-key" in rule_ids
         assert "anthropic-api-key" in rule_ids
         assert "aws-access-key" in rule_ids
+
+    def test_has_openai_legacy_rule(self):
+        """Must include the openai-legacy rule (was missing from Python template)."""
+        data = yaml.safe_load(TRIVY_SCAN_RULES_YAML)
+        rule_ids = {rule["id"] for rule in data["rules"]}
+        assert "openai-legacy" in rule_ids
+
+    def test_has_aws_secret_key_rule(self):
+        """Must include the aws-secret-key rule (was missing from Python template)."""
+        data = yaml.safe_load(TRIVY_SCAN_RULES_YAML)
+        rule_ids = {rule["id"] for rule in data["rules"]}
+        assert "aws-secret-key" in rule_ids
+
+    def test_no_re2_incompatible_lookahead(self):
+        """Must not contain (?! negative lookahead -- RE2 does not support it."""
+        assert "(?!" not in TRIVY_SCAN_RULES_YAML
+
+    def test_rule_count_matches_bootstrap(self):
+        """Python template should have 9 rules, matching bootstrap template."""
+        data = yaml.safe_load(TRIVY_SCAN_RULES_YAML)
+        assert len(data["rules"]) == 9
+
+
+class TestTrivyConfigYaml:
+    """Verify trivy.yaml template is valid YAML with expected structure."""
+
+    def test_is_valid_yaml(self):
+        data = yaml.safe_load(TRIVY_CONFIG_YAML)
+        assert isinstance(data, dict)
+
+    def test_has_scan_section(self):
+        data = yaml.safe_load(TRIVY_CONFIG_YAML)
+        assert "scan" in data
+
+    def test_has_secret_config_reference(self):
+        data = yaml.safe_load(TRIVY_CONFIG_YAML)
+        assert data["secret"]["config"] == "trivy-secret.yaml"
+
+    def test_has_severity_levels(self):
+        data = yaml.safe_load(TRIVY_CONFIG_YAML)
+        assert "CRITICAL" in data["severity"]
+        assert "HIGH" in data["severity"]
+
+    def test_has_skip_dirs(self):
+        """trivy.yaml must exclude third-party directories."""
+        data = yaml.safe_load(TRIVY_CONFIG_YAML)
+        skip_dirs = data["scan"]["skip-dirs"]
+        assert ".venv" in skip_dirs
+        assert "node_modules" in skip_dirs
+        assert "__pycache__" in skip_dirs
+
+    def test_skip_dirs_matches_scanners(self):
+        """trivy.yaml skip-dirs should match _TRIVY_SKIP_DIRS in scanners.py."""
+        from plsec.core.scanners import _TRIVY_SKIP_DIRS
+
+        data = yaml.safe_load(TRIVY_CONFIG_YAML)
+        assert sorted(data["scan"]["skip-dirs"]) == sorted(_TRIVY_SKIP_DIRS)
+
+    def test_has_skip_files(self):
+        """trivy.yaml must skip compiled bytecode files."""
+        data = yaml.safe_load(TRIVY_CONFIG_YAML)
+        skip_files = data["scan"]["skip-files"]
+        assert "**/*.pyc" in skip_files
+
+    def test_skip_files_matches_scanners(self):
+        """trivy.yaml skip-files should match _TRIVY_SKIP_FILES in scanners.py."""
+        from plsec.core.scanners import _TRIVY_SKIP_FILES
+
+        data = yaml.safe_load(TRIVY_CONFIG_YAML)
+        assert sorted(data["scan"]["skip-files"]) == sorted(_TRIVY_SKIP_FILES)
 
 
 class TestPreCommitHook:

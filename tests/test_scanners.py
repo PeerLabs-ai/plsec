@@ -20,8 +20,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from plsec.core.scanners import (
+    _BANDIT_EXCLUDE_DIRS,
     SCANNERS,
     ScannerSpec,
+    _TRIVY_IGNOREFILE,
+    _TRIVY_SKIP_DIRS,
+    _TRIVY_SKIP_FILES,
     _build_bandit_cmd,
     _build_semgrep_cmd,
     _build_trivy_misconfig_cmd,
@@ -127,17 +131,77 @@ class TestBuildCommands:
         cmd = _build_trivy_secrets_cmd(tmp_path, config)
         assert "--secret-config" not in cmd
 
+    def test_trivy_secrets_skips_venv(self, tmp_path: Path):
+        """Trivy scan must skip .venv and other third-party dirs."""
+        cmd = _build_trivy_secrets_cmd(tmp_path, None)
+        for skip_dir in _TRIVY_SKIP_DIRS:
+            idx = cmd.index("--skip-dirs")
+            assert skip_dir in cmd[idx + 1 :]
+
+    def test_trivy_secrets_skips_pyc(self, tmp_path: Path):
+        """Trivy scan must skip compiled bytecode files."""
+        cmd = _build_trivy_secrets_cmd(tmp_path, None)
+        for skip_file in _TRIVY_SKIP_FILES:
+            idx = cmd.index("--skip-files")
+            assert skip_file in cmd[idx + 1 :]
+
+    def test_trivy_secrets_with_ignorefile(self, tmp_path: Path):
+        """Trivy secret scan should pass --ignorefile when .trivyignore.yaml exists."""
+        ignorefile = tmp_path / _TRIVY_IGNOREFILE
+        ignorefile.write_text("secrets: []\n")
+        cmd = _build_trivy_secrets_cmd(tmp_path, None)
+        assert "--ignorefile" in cmd
+        assert str(ignorefile) in cmd
+
+    def test_trivy_secrets_without_ignorefile(self, tmp_path: Path):
+        """Trivy secret scan should NOT pass --ignorefile when file is absent."""
+        cmd = _build_trivy_secrets_cmd(tmp_path, None)
+        assert "--ignorefile" not in cmd
+
     def test_trivy_misconfig(self, tmp_path: Path):
         cmd = _build_trivy_misconfig_cmd(tmp_path, None)
         assert cmd[0] == "trivy"
         assert "config" in cmd
         assert str(tmp_path) in cmd
 
+    def test_trivy_misconfig_skips_venv(self, tmp_path: Path):
+        """Trivy misconfig must skip .venv and other third-party dirs."""
+        cmd = _build_trivy_misconfig_cmd(tmp_path, None)
+        for skip_dir in _TRIVY_SKIP_DIRS:
+            idx = cmd.index("--skip-dirs")
+            assert skip_dir in cmd[idx + 1 :]
+
+    def test_trivy_misconfig_skips_pyc(self, tmp_path: Path):
+        """Trivy misconfig must skip compiled bytecode files."""
+        cmd = _build_trivy_misconfig_cmd(tmp_path, None)
+        for skip_file in _TRIVY_SKIP_FILES:
+            idx = cmd.index("--skip-files")
+            assert skip_file in cmd[idx + 1 :]
+
+    def test_trivy_misconfig_with_ignorefile(self, tmp_path: Path):
+        """Trivy misconfig scan should pass --ignorefile when .trivyignore.yaml exists."""
+        ignorefile = tmp_path / _TRIVY_IGNOREFILE
+        ignorefile.write_text("misconfigurations: []\n")
+        cmd = _build_trivy_misconfig_cmd(tmp_path, None)
+        assert "--ignorefile" in cmd
+        assert str(ignorefile) in cmd
+
+    def test_trivy_misconfig_without_ignorefile(self, tmp_path: Path):
+        """Trivy misconfig scan should NOT pass --ignorefile when file is absent."""
+        cmd = _build_trivy_misconfig_cmd(tmp_path, None)
+        assert "--ignorefile" not in cmd
+
     def test_bandit(self, tmp_path: Path):
         cmd = _build_bandit_cmd(tmp_path, None)
         assert cmd[0] == "bandit"
         assert "-r" in cmd
-        assert str(tmp_path) in cmd
+        assert "--exclude" in cmd
+        exclude_idx = cmd.index("--exclude")
+        excludes = cmd[exclude_idx + 1]
+        # Exclude paths must be resolved relative to target
+        for dirname in _BANDIT_EXCLUDE_DIRS:
+            assert str(tmp_path / dirname) in excludes
+        assert str(tmp_path) == cmd[-1]
 
     def test_semgrep(self, tmp_path: Path):
         cmd = _build_semgrep_cmd(tmp_path, None)

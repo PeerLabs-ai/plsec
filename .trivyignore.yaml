@@ -1,0 +1,55 @@
+# .trivyignore.yaml -- Suppress known false positives from trivy scanning.
+#
+# plsec is a security scanning tool whose own source code contains
+# scanner config references, detection regex patterns, and test fixtures
+# with intentional dummy credentials.  The generic rules match these
+# contexts, producing false positives.
+#
+# Format: https://trivy.dev/docs/latest/configuration/filtering/#trivyignoreyaml
+
+secrets:
+  # Source code that references trivy config paths, scanner flags,
+  # or contains detection regex patterns.
+  - id: generic-secret
+    paths:
+      - "bin/bootstrap.default.sh"
+      - "build/bootstrap.sh"
+      - "scripts/test-assembler-escaping.sh"
+      - "templates/bootstrap/hook-pre-commit.sh"
+      - "templates/bootstrap/skeleton.bash"
+      - "templates/bootstrap/wrapper-scan.sh"
+      - "src/plsec/commands/create.py"
+      - "src/plsec/commands/secure.py"
+      - "src/plsec/configs/templates.py"
+      - "src/plsec/core/detector.py"
+      - "PROJECT.md"
+      - "docs/DESIGN-CREATE-SECURE.md"
+      - "docs/build-process-design.md"
+      - "docs/roadmap.md"
+      - "homebrew/README.md"
+      - "tests/test_detector.py"
+      - "tests/test_scanners.py"
+      - "tests/test_templates.py"
+      - "tests/bats/test_helper/bats-file/.github/workflows/scorecard.yaml"
+    statement: >-
+      Source code that references scanner configs, detection patterns,
+      or test fixtures.
+
+  # Test fixtures with intentional dummy API keys for detection testing.
+  - id: generic-api-key
+    paths:
+      - "tests/test_detector.py"
+    statement: "Test fixture with intentional dummy API key"
+
+  # Test fixtures with intentional dummy Stripe key for detection testing.
+  - id: stripe-secret-token
+    paths:
+      - "tests/test_detector.py"
+    statement: "Test fixture with intentional dummy Stripe key"
+
+misconfigurations:
+  # Test container -- not production. HEALTHCHECK not needed.
+  - id: DS-0026
+    paths:
+      - "tests/bats/Containerfile"
+    statement: "Test container, not production -- HEALTHCHECK not needed"

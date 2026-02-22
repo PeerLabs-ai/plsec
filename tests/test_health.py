@@ -21,6 +21,7 @@ from unittest.mock import patch
 
 from plsec.core.agents import AGENTS, AgentSpec
 from plsec.core.health import (
+    PLSEC_EXPECTED_FILES,
     PLSEC_SUBDIRS,
     CheckResult,
     check_agent_configs,
@@ -28,6 +29,7 @@ from plsec.core.health import (
     check_directory_structure,
     check_project_configs,
     check_runtime,
+    check_scanner_configs,
     check_tools,
     count_verdicts,
     exit_code_for,
@@ -476,3 +478,58 @@ class TestCheckProjectConfigs:
         assert len(results) == 1
         assert results[0].verdict == "warn"
         assert "custom.toml" in results[0].name
+
+
+# -----------------------------------------------------------------------
+# check_scanner_configs
+# -----------------------------------------------------------------------
+
+
+class TestCheckScannerConfigs:
+    """Contract: check_scanner_configs verifies that trivy-secret.yaml,
+    trivy.yaml, and pre-commit hook exist under plsec_home."""
+
+    def test_all_present(self, tmp_path: Path):
+        """All expected files exist -- all results should be ok."""
+        home = tmp_path / "plsec"
+        for rel_path, _ in PLSEC_EXPECTED_FILES:
+            full = home / rel_path
+            full.parent.mkdir(parents=True, exist_ok=True)
+            full.write_text("content\n")
+        results = check_scanner_configs(home)
+        assert len(results) == len(PLSEC_EXPECTED_FILES)
+        assert all(r.verdict == "ok" for r in results)
+
+    def test_all_missing(self, tmp_path: Path):
+        """No expected files -- all results should be warn."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        results = check_scanner_configs(home)
+        assert len(results) == len(PLSEC_EXPECTED_FILES)
+        assert all(r.verdict == "warn" for r in results)
+
+    def test_fix_hint_references_init(self, tmp_path: Path):
+        """Fix hints should direct to plsec init --force."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        results = check_scanner_configs(home)
+        for r in results:
+            assert "plsec init" in r.fix_hint
+
+    def test_check_ids_start_at_i5(self, tmp_path: Path):
+        """Check IDs should start at I-5 per plsec-status design doc."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        results = check_scanner_configs(home)
+        assert results[0].id == "I-5"
+
+    def test_partial_files(self, tmp_path: Path):
+        """Some files present, others missing -- mixed verdicts."""
+        home = tmp_path / "plsec"
+        trivy_dir = home / "trivy"
+        trivy_dir.mkdir(parents=True)
+        (trivy_dir / "trivy-secret.yaml").write_text("rules:\n")
+        results = check_scanner_configs(home)
+        verdicts = [r.verdict for r in results]
+        assert "ok" in verdicts
+        assert "warn" in verdicts

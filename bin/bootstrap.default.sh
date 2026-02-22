@@ -394,7 +394,11 @@ rules:
     title: OpenAI Legacy Key
     severity: CRITICAL
     keywords: [OPENAI_API_KEY, sk-]
-    regex: \bsk-(?!proj|svcacct|None|ant)[A-Za-z0-9]{40,64}\b
+    # Legacy keys are sk- followed by pure alphanumeric (no hyphens).
+    # Modern formats (sk-proj-, sk-ant-, sk-svcacct-) contain hyphens
+    # and are caught by the openai-api-key and anthropic-api-key rules.
+    # RE2-compatible: no negative lookahead needed.
+    regex: \bsk-[A-Za-z0-9]{40,64}\b
 
   - id: github-token
     category: GitHub

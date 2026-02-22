@@ -95,11 +95,10 @@ of truth).
   functions in `core/health.py`. Phases A-C complete, zero `except Exception`
   remaining.
   (see [docs/DESIGN-PLSEC-REFACTOR.md](docs/DESIGN-PLSEC-REFACTOR.md))
-- [ ] **Fix scan bugs**: Trivy `trivy-secret.yaml` uses RE2-incompatible
-  `(?!)` negative lookahead (FATAL error on all secret scans). Bandit
-  scans `.venv/` producing false positives from dependencies. See Scan
-  Bugs section below.
-- [ ] **Add `make scan` target**: Run `plsec scan .` against own codebase
+- [x] **Fix scan bugs**: Trivy `trivy-secret.yaml` rewritten to use
+  RE2-compatible regex (removed `(?!...)` lookahead). Bandit `--exclude`
+  added for `.venv,.tox,node_modules,build,dist,.eggs`.
+- [x] **Add `make scan` target**: Run `plsec scan .` against own codebase
   as integration/dogfood test for scanner configuration.
 - [ ] **Enhanced wrapper logging**: Upgrade wrapper templates from 3-line
   session bookends to full audit. Tier 1: git info, duration, preset.
@@ -111,10 +110,10 @@ of truth).
   alone provides full plsec functionality without running bootstrap.
 - [ ] **Scan result persistence**: Both `plsec scan` and `wrapper-scan.sh`
   must write results to `~/.peerlabs/plsec/logs/` for `plsec-status`.
-- [ ] **Installation testing**: Add `make install-test` (clean install
+- [x] **Installation testing**: Added `make install-test` (clean install
   in isolated venv) and `make build-dist` (sdist + wheel) targets.
-  Create `docs/INSTALL.md` covering all installation paths (pipx, uv,
-  homebrew, bootstrap). See docs/INSTALL.md.
+  Created `docs/INSTALL.md` covering all installation paths (pipx, uv,
+  homebrew, bootstrap).
 - [ ] **`plsec-status` Phase 1**: Bash status script in bootstrap.
   **Note:** The status design doc (`docs/plsec-status-design.md`) predates
   the registry refactoring and should be updated to reflect registry-driven
@@ -249,6 +248,9 @@ added when mkdocs is set up.
 | `make lint-templates`   | JSON/YAML/shell template validation      | Bootstrap |
 | `make check`            | `ty check src/`                          | Python    |
 | `make format`           | `ruff format .` (mutating, not in CI)    | Python    |
+| `make scan`             | `plsec scan .` (dogfood own codebase)    | Python    |
+| `make build-dist`       | Build sdist + wheel via `uv build`       | Python    |
+| `make install-test`     | Clean install test in isolated venv      | Python    |
 | `make test`             | All tests (Python + BATS)                | Both      |
 | `make test-python`      | `pytest tests/ --ignore=tests/bats`      | Python    |
 | `make test-unit`        | BATS unit tests                          | Bootstrap |
@@ -340,27 +342,26 @@ _(Items requiring decisions or external input)_
 - Signature database architecture: sqlite vs duckdb, embedded vs external,
   update mechanism for pattern distribution.
 
-## Scan Bugs (blocking plsec-status)
+## Scan Bugs (resolved)
 
-### Bug 1: Trivy regex uses RE2-incompatible syntax
+### Bug 1: Trivy regex uses RE2-incompatible syntax (FIXED)
 
-`templates/bootstrap/trivy-secret.yaml` line 52 uses `(?!...)` negative
+`templates/bootstrap/trivy-secret.yaml` line 52 used `(?!...)` negative
 lookahead in the `openai-legacy` rule. Trivy uses Go's regexp package
-(RE2-based) which does not support Perl extensions. This causes a FATAL
-error that prevents ALL secret scanning.
+(RE2-based) which does not support Perl extensions.
 
-**Fix**: Rewrite the regex to avoid negative lookahead, or split into
-two rules that match non-overlapping patterns.
+**Resolution**: Rewrote regex to `\bsk-[A-Za-z0-9]{40,64}\b`. Legacy
+keys are pure alphanumeric after `sk-` (no hyphens). Modern formats
+(`sk-proj-`, `sk-ant-`) contain hyphens and are caught by their own
+rules. No negative lookahead needed.
 
-### Bug 2: Bandit scans `.venv/`
+### Bug 2: Bandit scans `.venv/` (FIXED)
 
-`_build_bandit_cmd()` in `src/plsec/core/scanners.py` line 83 passes
-the target directory without exclusions. Bandit scans all Python files
-including `.venv/lib/python3.12/site-packages/`, producing hundreds of
-false positive findings from third-party packages.
+`_build_bandit_cmd()` in `src/plsec/core/scanners.py` passed the target
+directory without exclusions.
 
-**Fix**: Add `--exclude .venv,.tox,node_modules,build,dist` to the
-bandit command builder.
+**Resolution**: Added `--exclude .venv,.tox,node_modules,build,dist,.eggs`
+to the bandit command builder.
 
 ## `plsec run` Command (v0.2.0)
 

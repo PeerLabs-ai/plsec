@@ -25,6 +25,14 @@ PLSEC_SUBDIRS: list[str] = [
     "trivy/policies",
 ]
 
+# Expected files under ~/.peerlabs/plsec/ (beyond agent configs).
+# Each tuple is (relative_path, human_description).
+PLSEC_EXPECTED_FILES: list[tuple[str, str]] = [
+    ("trivy/trivy-secret.yaml", "Trivy secret scanning rules"),
+    ("trivy/trivy.yaml", "Trivy configuration"),
+    ("configs/pre-commit", "Pre-commit hook template"),
+]
+
 
 @dataclass
 class CheckResult:
@@ -183,6 +191,46 @@ def check_agent_configs(
                     verdict="warn",
                     detail=f"{spec.display_name} template missing",
                     fix_hint="Run 'plsec init' to create",
+                )
+            )
+
+    return results
+
+
+def check_scanner_configs(plsec_home: Path) -> list[CheckResult]:
+    """Check that scanner and tool config files exist in plsec_home.
+
+    Verifies trivy-secret.yaml, trivy.yaml, and pre-commit hook template.
+    These files are deployed by plsec init and are required for plsec scan
+    and pre-commit integration to function correctly.
+
+    Check IDs start at I-5 per the plsec-status design doc.
+    """
+    results: list[CheckResult] = []
+
+    for i, (rel_path, description) in enumerate(PLSEC_EXPECTED_FILES, start=5):
+        check_id = f"I-{i}"
+        full_path = plsec_home / rel_path
+
+        if full_path.exists():
+            results.append(
+                CheckResult(
+                    id=check_id,
+                    name=description,
+                    category="installation",
+                    verdict="ok",
+                    detail=str(full_path),
+                )
+            )
+        else:
+            results.append(
+                CheckResult(
+                    id=check_id,
+                    name=description,
+                    category="installation",
+                    verdict="warn",
+                    detail=f"{rel_path} missing",
+                    fix_hint="Run 'plsec init --force' to deploy",
                 )
             )
 

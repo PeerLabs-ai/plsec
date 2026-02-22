@@ -50,7 +50,7 @@ promote: $(BUILD_OUTPUT)  ## Copy build to bin/bootstrap.default.sh
 
 clean:  ## Remove build artifacts and caches
 	rm -f $(BUILD_OUTPUT)
-	rm -rf .venv.make .ruff_cache
+	rm -rf .ruff_cache
 
 # ---------------------------------------------------------------------------
 # Setup
@@ -62,6 +62,27 @@ setup:  ## Install Python dev dependencies via uv
 
 setup-bats:  ## Install BATS test framework
 	scripts/setup-bats.sh
+
+# ---------------------------------------------------------------------------
+# Install
+# ---------------------------------------------------------------------------
+
+## Install
+build-dist:  ## Build sdist and wheel (output in dist/)
+	uv build
+
+install-test:  ## Test clean install in isolated venv
+	@echo "Testing clean install..."
+	@rm -rf /tmp/plsec-install-test
+	@uv venv /tmp/plsec-install-test
+	@VIRTUAL_ENV=/tmp/plsec-install-test uv pip install dist/plsec-$(VERSION)-*.whl
+	@/tmp/plsec-install-test/bin/plsec --version
+	@/tmp/plsec-install-test/bin/plsec --help > /dev/null
+	@echo "Clean install test passed."
+	@rm -rf /tmp/plsec-install-test
+
+deploy:  ## Deploy/redeploy global configs to ~/.peerlabs/plsec
+	uv run plsec init --force --global
 
 # ---------------------------------------------------------------------------
 # Test
@@ -101,6 +122,9 @@ check:  ## Type check Python with ty
 
 format:  ## Format Python with ruff (mutating)
 	uv run ruff format .
+
+scan:  ## Run plsec scan against own codebase (dogfood)
+	uv run plsec scan .
 
 lint-templates:
 	@echo "Checking JSON templates..."
@@ -196,8 +220,8 @@ help:  ## Show this help
 	@echo ""
 
 .PHONY: all ci build promote clean \
-        setup setup-bats \
+        setup setup-bats build-dist install-test deploy \
         test test-python test-unit test-integration test-container test-assembler \
-        lint lint-python lint-templates lint-skeleton lint-bootstrap check format \
+        lint lint-python lint-templates lint-skeleton lint-bootstrap check format scan \
         golden golden-check verify \
         help

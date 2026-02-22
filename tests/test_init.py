@@ -5,8 +5,13 @@ and the init CLI command via CliRunner with monkeypatched paths.
 """
 
 from pathlib import Path
+from unittest.mock import patch
 
-from plsec.commands.init import detect_project_type, get_preset_config
+from typer.testing import CliRunner
+
+from plsec.commands.init import _deploy_global_file, app, detect_project_type, get_preset_config
+
+runner = CliRunner()
 
 # -----------------------------------------------------------------------
 # detect_project_type
@@ -96,3 +101,81 @@ class TestGetPresetConfig:
         # Strict enables isolation and proxy; balanced does not
         assert strict.isolation.enabled and not balanced.isolation.enabled
         assert strict.proxy.enabled and not balanced.proxy.enabled
+
+
+# -----------------------------------------------------------------------
+# _deploy_global_file
+# -----------------------------------------------------------------------
+
+
+class TestDeployGlobalFile:
+    """Contract: _deploy_global_file writes content to path, respecting
+    force flag and existing files."""
+
+    def test_creates_file_when_missing(self, tmp_path: Path):
+        target = tmp_path / "test.yaml"
+        _deploy_global_file(target, "content\n")
+        assert target.read_text() == "content\n"
+
+    def test_does_not_overwrite_without_force(self, tmp_path: Path):
+        target = tmp_path / "test.yaml"
+        target.write_text("original\n")
+        _deploy_global_file(target, "new content\n")
+        assert target.read_text() == "original\n"
+
+    def test_overwrites_with_force(self, tmp_path: Path):
+        target = tmp_path / "test.yaml"
+        target.write_text("original\n")
+        _deploy_global_file(target, "new content\n", force=True)
+        assert target.read_text() == "new content\n"
+
+
+# -----------------------------------------------------------------------
+# plsec init --global (trivy config deployment)
+# -----------------------------------------------------------------------
+
+
+class TestInitDeploysScannerConfigs:
+    """Contract: plsec init deploys trivy-secret.yaml, trivy.yaml,
+    and pre-commit hook to the plsec home directory."""
+
+    def test_deploys_trivy_secret_yaml(self, tmp_path: Path):
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        with patch("plsec.commands.init.get_plsec_home", return_value=plsec_home):
+            result = runner.invoke(app, ["--global"])
+        assert result.exit_code == 0
+        trivy_config = plsec_home / "trivy" / "trivy-secret.yaml"
+        assert trivy_config.exists()
+        content = trivy_config.read_text()
+        assert "openai-legacy" in content
+        assert "(?!" not in content
+
+    def test_deploys_trivy_yaml(self, tmp_path: Path):
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        with patch("plsec.commands.init.get_plsec_home", return_value=plsec_home):
+            result = runner.invoke(app, ["--global"])
+        assert result.exit_code == 0
+        trivy_yaml = plsec_home / "trivy" / "trivy.yaml"
+        assert trivy_yaml.exists()
+        assert "trivy-secret.yaml" in trivy_yaml.read_text()
+
+    def test_deploys_pre_commit_hook(self, tmp_path: Path):
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        with patch("plsec.commands.init.get_plsec_home", return_value=plsec_home):
+            result = runner.invoke(app, ["--global"])
+        assert result.exit_code == 0
+        hook = plsec_home / "configs" / "pre-commit"
+        assert hook.exists()
+        assert hook.stat().st_mode & 0o111  # executable
+
+    def test_force_overwrites_trivy_config(self, tmp_path: Path):
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        trivy_dir = plsec_home / "trivy"
+        trivy_dir.mkdir(parents=True)
+        stale = trivy_dir / "trivy-secret.yaml"
+        stale.write_text("old content\n")
+        with patch("plsec.commands.init.get_plsec_home", return_value=plsec_home):
+            result = runner.invoke(app, ["--global", "--force"])
+        assert result.exit_code == 0
+        assert "old content" not in stale.read_text()
+        assert "openai-legacy" in stale.read_text()

@@ -63,24 +63,81 @@ def _get_tool(command: str) -> Tool:
 # Command builders
 # ---------------------------------------------------------------------------
 
+# Directories skipped by trivy scans -- third-party, generated, and cache
+# directories that produce hundreds of false positives.  Applied via
+# --skip-dirs flags as a belt-and-suspenders complement to the skip-dirs
+# list in trivy.yaml.
+_TRIVY_SKIP_DIRS: list[str] = [
+    ".venv",
+    ".tox",
+    "node_modules",
+    "build",
+    "dist",
+    ".eggs",
+    "__pycache__",
+]
+
+# File glob patterns skipped by trivy scans -- compiled bytecode and
+# binary artifacts that trigger false positives on embedded strings.
+_TRIVY_SKIP_FILES: list[str] = [
+    "**/*.pyc",
+]
+
+# Name of the YAML-format trivy ignore file.  When present in the target
+# directory it is passed via --ignorefile to suppress known false positives.
+_TRIVY_IGNOREFILE = ".trivyignore.yaml"
+
+
+def _add_trivy_common_flags(cmd: list[str], target: Path) -> None:
+    """Append --skip-dirs, --skip-files, and --ignorefile flags shared by all trivy commands."""
+    for skip_dir in _TRIVY_SKIP_DIRS:
+        cmd.extend(["--skip-dirs", skip_dir])
+    for skip_file in _TRIVY_SKIP_FILES:
+        cmd.extend(["--skip-files", skip_file])
+    ignorefile = target / _TRIVY_IGNOREFILE
+    if ignorefile.is_file():
+        cmd.extend(["--ignorefile", str(ignorefile)])
+
 
 def _build_trivy_secrets_cmd(target: Path, config: Path | None) -> list[str]:
     """Build trivy secret scanning command."""
     cmd = ["trivy", "fs", "--scanners", "secret"]
     if config and config.exists():
         cmd.extend(["--secret-config", str(config)])
+    _add_trivy_common_flags(cmd, target)
     cmd.extend(["--exit-code", "1", str(target)])
     return cmd
 
 
 def _build_trivy_misconfig_cmd(target: Path, config: Path | None) -> list[str]:
     """Build trivy misconfiguration scanning command."""
-    return ["trivy", "config", "--exit-code", "1", str(target)]
+    cmd = ["trivy", "config", "--exit-code", "1"]
+    _add_trivy_common_flags(cmd, target)
+    cmd.append(str(target))
+    return cmd
+
+
+# Directories excluded from bandit scans -- contain third-party or
+# generated code that produces hundreds of false positives.
+_BANDIT_EXCLUDE_DIRS: list[str] = [
+    ".venv",
+    ".tox",
+    "node_modules",
+    "build",
+    "dist",
+    ".eggs",
+]
 
 
 def _build_bandit_cmd(target: Path, config: Path | None) -> list[str]:
-    """Build bandit Python security scanner command."""
-    return ["bandit", "-r", "-ll", "-q", str(target)]
+    """Build bandit Python security scanner command.
+
+    Exclude paths are resolved relative to the target directory because
+    bandit's --exclude matching requires paths that align with its
+    internal file discovery (bare directory names like '.venv' don't match).
+    """
+    excludes = ",".join(str(target / d) for d in _BANDIT_EXCLUDE_DIRS)
+    return ["bandit", "-r", "-ll", "-q", "--exclude", excludes, str(target)]
 
 
 def _build_semgrep_cmd(target: Path, config: Path | None) -> list[str]:

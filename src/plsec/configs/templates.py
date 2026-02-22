@@ -231,6 +231,9 @@ credentials:
   keys: []
 """
 
+# Content must stay in sync with templates/bootstrap/trivy-secret.yaml.
+# The bootstrap template is the authoritative source; this Python string
+# is the CLI-side copy used by plsec init and plsec create.
 TRIVY_SCAN_RULES_YAML = """# trivy-secret.yaml - LLM-tuned secret detection
 # Disable allow-rules: LLMs put secrets in unexpected places
 
@@ -281,6 +284,17 @@ rules:
     keywords: [OPENAI_API_KEY, sk-proj-, sk-]
     regex: \\bsk-(proj|svcacct|None)-[A-Za-z0-9_-]{32,200}\\b
 
+  - id: openai-legacy
+    category: OpenAI
+    title: OpenAI Legacy Key
+    severity: CRITICAL
+    keywords: [OPENAI_API_KEY, sk-]
+    # Legacy keys are sk- followed by pure alphanumeric (no hyphens).
+    # Modern formats (sk-proj-, sk-ant-, sk-svcacct-) contain hyphens
+    # and are caught by the openai-api-key and anthropic-api-key rules.
+    # RE2-compatible: no negative lookahead needed.
+    regex: \\bsk-[A-Za-z0-9]{40,64}\\b
+
   - id: github-token
     category: GitHub
     title: GitHub Token
@@ -294,6 +308,42 @@ rules:
     severity: CRITICAL
     keywords: [AWS_ACCESS_KEY_ID, AKIA, ASIA]
     regex: \\b(AKIA|ASIA)[0-9A-Z]{16}\\b
+
+  - id: aws-secret-key
+    category: AWS
+    title: AWS Secret Key
+    severity: CRITICAL
+    keywords: [AWS_SECRET_ACCESS_KEY, aws_secret_key]
+    regex: (?i)(aws_secret_access_key|aws_secret_key)\\b.{0,40}['"]?[0-9A-Za-z\\/+=]{40}['"]?
+"""
+
+# Content must stay in sync with templates/bootstrap/trivy.yaml.
+TRIVY_CONFIG_YAML = """scan:
+  scanners:
+    - vuln
+    - secret
+    - misconfig
+  skip-dirs:
+    - .venv
+    - .tox
+    - node_modules
+    - build
+    - dist
+    - .eggs
+    - __pycache__
+  skip-files:
+    - "**/*.pyc"
+
+secret:
+  config: trivy-secret.yaml
+
+severity:
+  - CRITICAL
+  - HIGH
+  - MEDIUM
+
+format: table
+exit-code: 1
 """
 
 PRE_COMMIT_HOOK = """#!/bin/bash

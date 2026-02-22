@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
 **Last Updated:** 2026-02-22
-**Status:** `make ci` green, registry refactoring complete (Phases A-F), zero `except Exception`, 426 pytest + 87 BATS tests, 69% coverage, `test_plsec.py` redistributed
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 458 pytest + 87 BATS tests, 71% coverage
 
 ---
 
@@ -148,16 +148,17 @@ Created 4 new registry modules (`core/agents.py`, `core/scanners.py`, `core/proc
 22. **`.venv.make` is dead code.** Referenced only in `make clean` but nothing creates it. The only venv is `.venv/`, managed by `uv sync`. Removed.
 23. **Bandit `.venv` scanning is a symptom of a broader issue.** Any file-walking scanner will scan `.venv/` unless excluded. Need exclusions for `.venv`, `.tox`, `node_modules`, `build`, `dist`.
 24. **Production distribution: pipx/uvx is primary.** `pipx install plsec` or `uvx plsec` creates an isolated venv per tool. Homebrew formula exists but has placeholder SHA256s. apt is future.
+25. **RE2 regex fix: character class exclusion beats lookahead.** Legacy OpenAI keys are `sk-` + pure alphanumeric (no hyphens). Modern keys (`sk-proj-`, `sk-ant-`) have hyphens. `[A-Za-z0-9]{40,64}` excludes hyphens naturally, making the negative lookahead unnecessary.
+26. **Bandit exclusions must cover all generated/vendored paths.** `.venv`, `.tox`, `node_modules`, `build`, `dist`, `.eggs` -- any directory containing third-party or generated Python files.
 
 ## What Needs to Happen Next
 
 ### v0.1.x milestones (in order)
 
-1. **Fix scan bugs** - Trivy RE2-incompatible regex in trivy-secret.yaml
-   (FATAL on all secret scans), Bandit scanning .venv/ (false positives)
-2. **Add `make scan` target** - dogfood plsec scan on own codebase
-3. **Update docs** - roadmap.md (version bumps, milestones),
-   plsec-status-design.md (resolve open questions, registry notes)
+1. ~~**Fix scan bugs**~~ (DONE)
+2. ~~**Add `make scan` target**~~ (DONE)
+3. **Update plsec-status-design.md** - resolve open questions, add
+   registry notes, mark APPROVED
 4. **Enhanced wrapper logging** - Tier 1: git info, duration, preset.
    Tier 2: `CLAUDE_CODE_SHELL_PREFIX` audit logging for Claude Code
 5. **Bridge CLI/bootstrap gap** - `plsec init` generates wrappers +
@@ -174,13 +175,39 @@ Created 4 new registry modules (`core/agents.py`, `core/scanners.py`, `core/proc
 10. **MCP server harness** - `plsec create --mcp-server` generates
     secured sample MCP server project
 
-### Completed this session
+### Completed this session (scan bugs + packaging)
+
+- **Fixed Trivy RE2 regex bug** - rewrote `openai-legacy` rule to use
+  `\bsk-[A-Za-z0-9]{40,64}\b` instead of RE2-incompatible `(?!...)`
+  negative lookahead. Secret scanning no longer produces FATAL errors.
+- **Fixed Bandit `.venv` scanning** - added `--exclude
+  .venv,.tox,node_modules,build,dist,.eggs` to `_build_bandit_cmd()`.
+  Test updated to assert `--exclude` flag presence.
+- **Added `make scan` target** - runs `plsec scan .` against own
+  codebase as dogfood/integration test.
+- **Added `make build-dist` target** - builds sdist + wheel via
+  `uv build`.
+- **Added `make install-test` target** - tests clean install in
+  isolated venv, verifies `plsec --version` and `plsec --help`.
+- **Created `docs/INSTALL.md`** - 6 installation paths (bootstrap,
+  uv, pipx, pip, homebrew, from source), post-install steps, uninstall.
+- **Removed `.venv.make` dead code** from `make clean`.
+- **Promoted build** - `bin/bootstrap.default.sh` updated with fixed
+  trivy-secret.yaml regex.
+- **Updated golden files** - `tests/bats/golden/trivy-secret.yaml`
+  regenerated.
+- **Updated PROJECT.md** - marked scan bugs and installation testing
+  TODOs as complete, added new Makefile targets to target map, updated
+  Scan Bugs section to show resolutions.
+
+### Completed previous session
 
 - Redistributed `test_plsec.py` (7 duplicates deleted, 5 tests moved
   to test_cli.py and test_config.py, 1 new assertion in test_templates.py)
 - Updated PROJECT.md with comprehensive new TODOs, architecture gap
   table, scan bugs, `plsec run` design, MCP integration, version bumps
 - Added `make help` target with grouped output
+- Rewrote `docs/roadmap.md` with milestones and version bumps
 
 ## Relevant files / directories
 
@@ -190,6 +217,7 @@ Created 4 new registry modules (`core/agents.py`, `core/scanners.py`, `core/proc
 - `TESTING.md` - Full 3-tier pytest test plan
 - `docs/DESIGN-PLSEC-REFACTOR.md` - Registry refactoring design (Phases A-E)
 - `docs/plsec-status-design.md` - Health check model (I-1 through F-2)
+- `docs/INSTALL.md` - Installation guide (6 paths)
 
 ### Registry modules (Phase A, tested in Phases E + F)
 - `src/plsec/core/agents.py` - `AgentSpec`, `AGENTS`, `is_strict()`, `security_mode()`, `get_template()`, `resolve_agent_ids()`, validators

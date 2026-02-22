@@ -17,6 +17,7 @@ from plsec.core.health import (
     check_config_file,
     check_directory_structure,
     check_runtime,
+    check_scanner_configs,
     check_tools,
     count_verdicts,
     exit_code_for,
@@ -109,6 +110,11 @@ def doctor(
 
     # Agent configs
     results = check_agent_configs(plsec_home, AGENTS)
+    _render_results(results)
+    all_results.extend(results)
+
+    # Scanner configs (trivy rules, pre-commit hook)
+    results = check_scanner_configs(plsec_home)
     _render_results(results)
     all_results.extend(results)
 

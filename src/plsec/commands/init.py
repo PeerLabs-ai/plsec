@@ -11,6 +11,7 @@ from typing import Annotated, Literal
 
 import typer
 
+from plsec.configs.templates import PRE_COMMIT_HOOK, TRIVY_CONFIG_YAML, TRIVY_SCAN_RULES_YAML
 from plsec.core.agents import AGENTS, get_template, resolve_agent_ids
 from plsec.core.config import (
     AgentConfig,
@@ -90,6 +91,15 @@ def get_preset_config(preset: Preset) -> LayersConfig:
         )
 
 
+def _deploy_global_file(path: Path, content: str, *, force: bool = False) -> None:
+    """Write a global config file if missing or force is set."""
+    if not path.exists() or force:
+        path.write_text(content)
+        print_ok(f"Created {path}")
+    else:
+        print_warning(f"Exists: {path} (use --force to overwrite)")
+
+
 @app.callback(invoke_without_command=True)
 def init(
     preset: Annotated[
@@ -157,6 +167,24 @@ def init(
                 print_ok(f"Created {global_config}")
             else:
                 print_warning(f"Exists: {global_config}")
+
+    # Deploy scanner configs -- these are required by plsec scan
+    _deploy_global_file(
+        plsec_home / "trivy" / "trivy-secret.yaml",
+        TRIVY_SCAN_RULES_YAML.lstrip("\n"),
+        force=force,
+    )
+    _deploy_global_file(
+        plsec_home / "trivy" / "trivy.yaml",
+        TRIVY_CONFIG_YAML.lstrip("\n"),
+        force=force,
+    )
+
+    # Deploy pre-commit hook template
+    pre_commit_path = plsec_home / "configs" / "pre-commit"
+    _deploy_global_file(pre_commit_path, PRE_COMMIT_HOOK.lstrip("\n"), force=force)
+    if pre_commit_path.exists():
+        pre_commit_path.chmod(0o755)
 
     if global_only:
         console.print("\n[green]Global configuration complete.[/green]")
