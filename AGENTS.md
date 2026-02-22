@@ -55,11 +55,11 @@ pip install -e ".[dev]"
 
 ```bash
 # Python tests (pytest)
-pytest                                              # All Python tests
+pytest                                             # All Python tests
 pytest tests/test_plsec.py -v                      # Single file
 pytest tests/test_plsec.py::TestCLI -v             # Single test class
 pytest tests/test_plsec.py::TestCLI::test_help -v  # Single test method
-pytest -k "version"                                 # Tests matching keyword
+pytest -k "version"                                # Tests matching keyword
 pytest --cov=plsec --cov-report=html               # With HTML coverage
 
 # Shell tests (BATS)
