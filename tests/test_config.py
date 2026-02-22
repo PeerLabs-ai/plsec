@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from plsec import __version__
 from plsec.core.config import (
     _LITERAL_CONSTRAINTS,
     PlsecConfig,
@@ -21,6 +22,31 @@ from plsec.core.config import (
     load_config,
     save_config,
 )
+
+# -----------------------------------------------------------------------
+# Version tests
+# -----------------------------------------------------------------------
+
+
+class TestVersion:
+    """Test package version information.
+
+    Contract: __version__ is defined via importlib.metadata and follows
+    semantic versioning. Tested here because version originates from the
+    package metadata managed alongside config.
+    """
+
+    def test_version_exists(self):
+        """Version string should be defined."""
+        assert __version__ is not None
+        assert isinstance(__version__, str)
+
+    def test_version_format(self):
+        """Version should follow semantic versioning (at least major.minor)."""
+        parts = __version__.split(".")
+        assert len(parts) >= 2
+        assert all(p.isdigit() for p in parts[:2])
+
 
 # -----------------------------------------------------------------------
 # Public API tests

@@ -186,7 +186,7 @@ make ci
 # Individual targets
 make lint                      # ruff check + ruff format --check
 make check                     # ty type checker
-make test-python               # pytest (432 tests)
+make test-python               # pytest (426 tests)
 make test-unit                 # BATS unit tests (34 tests)
 make test-integration          # BATS integration tests (53 tests)
 make test                      # All BATS tests
@@ -198,7 +198,7 @@ make verify                    # Ensure build matches promoted reference
 
 The test suite has two layers:
 
-- **pytest** (432 tests, 69% coverage) -- Python CLI across 3 tiers:
+- **pytest** (426 tests, 69% coverage) -- Python CLI across 3 tiers:
   pure logic (config, tools, templates, integrity, validation),
   filesystem with `tmp_path` (detector, init, create, output),
   and subprocess mocking (scan, doctor, proxy, secure). Includes

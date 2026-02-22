@@ -2,15 +2,17 @@
 
 ## Current State
 
-432 pytest tests across 19 files, 69% coverage. All three tiers are
-implemented. The original `test_plsec.py` (12 smoke tests) remains and
-will be redistributed into the per-module files in a future session.
+426 pytest tests across 18 files, 69% coverage. All three tiers are
+implemented. The original `test_plsec.py` has been redistributed:
+duplicate tests deleted, unique tests moved to `test_cli.py` and
+`test_config.py`.
 
 | Test file | Tests | Tier | Target module |
 |-----------|-------|------|---------------|
-| `test_config.py` | 25 | 1 | `core/config.py` |
+| `test_cli.py` | 3 | -- | `cli.py` (top-level app smoke tests) |
+| `test_config.py` | 27 | 1 | `core/config.py` + package version |
 | `test_tools.py` | 20 | 1 | `core/tools.py` |
-| `test_templates.py` | 32 | 1 | `configs/templates.py` |
+| `test_templates.py` | 33 | 1 | `configs/templates.py` |
 | `test_integrity.py` | 28 | 1 | `commands/integrity.py` |
 | `test_validate.py` | 17 | 1 | `commands/validate.py` |
 | `test_agents.py` | 39 | 1 | `core/agents.py` (registry) |
@@ -25,7 +27,6 @@ will be redistributed into the per-module files in a future session.
 | `test_scan.py` | 10 | 3 | `commands/scan.py` |
 | `test_doctor.py` | 13 | 3 | `commands/doctor.py` |
 | `test_proxy.py` | 13 | 3 | `commands/proxy.py` |
-| `test_plsec.py` | 12 | -- | Smoke tests (to be redistributed) |
 
 ## Test Structure (implemented)
 
@@ -50,12 +51,8 @@ tests/
 ├── test_agents.py             # core/agents.py - agent registry
 ├── test_scanners.py           # core/scanners.py - scanner registry
 ├── test_processes.py          # core/processes.py - process registry
-├── test_health.py             # core/health.py - health check functions
-└── test_plsec.py              # smoke tests (to be redistributed)
+└── test_health.py             # core/health.py - health check functions
 ```
-
-The existing `test_plsec.py` will be redistributed into the per-module
-files and removed once migration is complete.
 
 ## Priority Tiers
 

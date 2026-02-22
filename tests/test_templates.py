@@ -87,6 +87,10 @@ class TestOpencodeJsonTemplates:
         data = json.loads(OPENCODE_JSON_STRICT)
         assert "$schema" in data
 
+    def test_balanced_has_schema(self):
+        data = json.loads(OPENCODE_JSON_BALANCED)
+        assert "$schema" in data
+
     def test_strict_has_permission(self):
         data = json.loads(OPENCODE_JSON_STRICT)
         assert "permission" in data

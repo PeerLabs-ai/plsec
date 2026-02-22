@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-02-21
-**Status:** `make ci` green, registry refactoring complete (Phases A-F), zero `except Exception`, 432 pytest + 87 BATS tests, 69% coverage
+**Last Updated:** 2026-02-22
+**Status:** `make ci` green, registry refactoring complete (Phases A-F), zero `except Exception`, 426 pytest + 87 BATS tests, 69% coverage, `test_plsec.py` redistributed
 
 ---
 
@@ -160,11 +160,12 @@ Created 4 new registry modules (`core/agents.py`, `core/scanners.py`, `core/proc
 - `src/plsec/core/processes.py` - `ProcessSpec`, `PROCESSES`, `find_binary()`, `is_running()`, path helpers
 - `src/plsec/core/health.py` - `CheckResult`, `PLSEC_SUBDIRS`, check functions, verdict helpers
 
-### Test files (432 tests, all passing, 69% coverage)
+### Test files (426 tests, all passing, 69% coverage)
 - `tests/conftest.py` - 3 shared fixtures
-- `tests/test_config.py` - 25 tests
+- `tests/test_cli.py` - 3 tests (top-level app smoke tests)
+- `tests/test_config.py` - 27 tests (config + package version)
 - `tests/test_tools.py` - 20 tests
-- `tests/test_templates.py` - 32 tests
+- `tests/test_templates.py` - 33 tests
 - `tests/test_integrity.py` - 28 tests
 - `tests/test_validate.py` - 17 tests
 - `tests/test_output.py` - 19 tests
@@ -179,7 +180,6 @@ Created 4 new registry modules (`core/agents.py`, `core/scanners.py`, `core/proc
 - `tests/test_scan.py` - 10 tests (scan execution, flag resolution)
 - `tests/test_doctor.py` - 13 tests (render, orchestration, flags)
 - `tests/test_proxy.py` - 13 tests (start, stop, status, logs)
-- `tests/test_plsec.py` - 12 tests (to be redistributed later)
 
 ### Packaging
 - `pyproject.toml` - MIT license, no pydantic
