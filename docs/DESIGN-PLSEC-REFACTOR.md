@@ -749,6 +749,7 @@ each step:
 | **C: Cleanup**          | Fix all `except Exception` catches (`__init__.py`, `tools.py`, `secure.py`). Zero remaining.                                                                   | `make ci` passes                          | **COMPLETE** |
 | **D: Full verify**      | Run full `make ci`. All 216 existing tests pass.                                                                                                               | `make ci` green                           | **COMPLETE** |
 | **E: Registry tests**   | Write test files for the 4 registry modules (`agents.py`, `scanners.py`, `processes.py`, `health.py`). 142 new tests.                                           | `pytest` all pass (358 total)             | **COMPLETE** |
+| **F: Command tests**    | Tier 3 subprocess-mocking tests for command modules (`secure.py`, `scan.py`, `doctor.py`, `proxy.py`). 74 new tests.                                             | `pytest` all pass (432 total), 69% coverage | **COMPLETE** |
 
 ### Phase B ordering
 

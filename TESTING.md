@@ -2,27 +2,38 @@
 
 ## Current State
 
-The existing `tests/test_plsec.py` contains 10 tests across 5 classes:
+432 pytest tests across 19 files, 69% coverage. All three tiers are
+implemented. The original `test_plsec.py` (12 smoke tests) remains and
+will be redistributed into the per-module files in a future session.
 
-| Class | Tests | Covers |
-|-------|-------|--------|
-| `TestVersion` | 2 | `__version__` exists, semver format |
-| `TestCLI` | 3 | `--help`, `--version`, `doctor` runs |
-| `TestConfig` | 3 | Default config, roundtrip save/load, missing file error |
-| `TestToolChecker` | 2 | Missing tool detection, `_version_gte` |
-| `TestTemplates` | 2 | Templates importable, strict more restrictive |
+| Test file | Tests | Tier | Target module |
+|-----------|-------|------|---------------|
+| `test_config.py` | 25 | 1 | `core/config.py` |
+| `test_tools.py` | 20 | 1 | `core/tools.py` |
+| `test_templates.py` | 32 | 1 | `configs/templates.py` |
+| `test_integrity.py` | 28 | 1 | `commands/integrity.py` |
+| `test_validate.py` | 17 | 1 | `commands/validate.py` |
+| `test_agents.py` | 39 | 1 | `core/agents.py` (registry) |
+| `test_scanners.py` | 40 | 1+3 | `core/scanners.py` (registry) |
+| `test_processes.py` | 22 | 1+3 | `core/processes.py` (registry) |
+| `test_health.py` | 41 | 1+2 | `core/health.py` (registry) |
+| `test_detector.py` | 33 | 2 | `core/detector.py` |
+| `test_init.py` | 11 | 2 | `commands/init.py` |
+| `test_create.py` | 19 | 2 | `commands/create.py` |
+| `test_output.py` | 19 | 2 | `core/output.py` |
+| `test_secure.py` | 38 | 3 | `commands/secure.py` |
+| `test_scan.py` | 10 | 3 | `commands/scan.py` |
+| `test_doctor.py` | 13 | 3 | `commands/doctor.py` |
+| `test_proxy.py` | 13 | 3 | `commands/proxy.py` |
+| `test_plsec.py` | 12 | -- | Smoke tests (to be redistributed) |
 
-These are basic smoke tests. No coverage of individual commands, no mocking
-of external tools, no filesystem-heavy testing of `create`/`secure`/`init`.
+## Test Structure (implemented)
 
-## Proposed Test Structure
-
-Split into per-module files:
+Per-module test files plus registry module tests:
 
 ```
 tests/
-├── __init__.py
-├── test_cli.py                # cli.py - app registration, global options
+├── conftest.py                # 3 shared fixtures
 ├── test_config.py             # core/config.py - models, load/save, find
 ├── test_tools.py              # core/tools.py - checker, version compare
 ├── test_output.py             # core/output.py - Rich console helpers
@@ -35,17 +46,22 @@ tests/
 ├── test_doctor.py             # commands/doctor.py - health check
 ├── test_create.py             # commands/create.py - project scaffolding
 ├── test_secure.py             # commands/secure.py - retrofit security
-└── test_proxy.py              # commands/proxy.py - pipelock management
+├── test_proxy.py              # commands/proxy.py - pipelock management
+├── test_agents.py             # core/agents.py - agent registry
+├── test_scanners.py           # core/scanners.py - scanner registry
+├── test_processes.py          # core/processes.py - process registry
+├── test_health.py             # core/health.py - health check functions
+└── test_plsec.py              # smoke tests (to be redistributed)
 ```
 
-The existing `test_plsec.py` will be redistributed into these files and
-removed once migration is complete.
+The existing `test_plsec.py` will be redistributed into the per-module
+files and removed once migration is complete.
 
 ## Priority Tiers
 
-### Tier 1 - Pure Logic (no mocking, highest value)
+### Tier 1 - Pure Logic (no mocking, highest value) -- IMPLEMENTED
 
-These test pure functions and data structures. Fast, reliable, no side effects.
+Pure functions and data structures. Fast, reliable, no side effects.
 
 **test_config.py**
 - All Pydantic model defaults and validation
@@ -88,9 +104,9 @@ These test pure functions and data structures. Fast, reliable, no side effects.
 - `validate_opencode_json` with valid config, missing `$schema`,
   missing `permission`, missing `bash` rules
 
-### Tier 2 - Filesystem with tmp_path
+### Tier 2 - Filesystem with tmp_path -- IMPLEMENTED
 
-These create synthetic project structures and test against them.
+Synthetic project structures tested with `tmp_path`.
 
 **test_detector.py**
 - `_detect_type` with marker files: pyproject.toml (python), package.json (node),
@@ -122,9 +138,9 @@ These create synthetic project structures and test against them.
 - `print_summary` with various ok/warn/error counts
 - `print_header` and `print_table` produce structured output
 
-### Tier 3 - Subprocess Mocking
+### Tier 3 - Subprocess Mocking -- IMPLEMENTED
 
-These mock `subprocess.run`, `shutil.which`, and `os.kill`.
+Mock `subprocess.run`, `shutil.which`, and `os.kill`.
 
 **test_tools.py (extended)**
 - `check_tool` with mocked `shutil.which` returning path + `subprocess.run`

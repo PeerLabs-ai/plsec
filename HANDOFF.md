@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
 **Last Updated:** 2026-02-21
-**Status:** `make ci` green, registry refactoring complete (Phases A-E), zero `except Exception`, 358 pytest + 87 BATS tests, 57% coverage
+**Status:** `make ci` green, registry refactoring complete (Phases A-F), zero `except Exception`, 432 pytest + 87 BATS tests, 69% coverage
 
 ---
 
@@ -16,8 +16,9 @@ Build **plsec**, a defense-in-depth security framework for AI coding assistants.
 5. Implement Phase 2 pytest test cases - Tier 2 filesystem tests with `tmp_path` (complete)
 6. Registry refactoring - extract agent/scanner/process registries from command files (complete - Phases A-C)
 7. Registry module tests - write test files for the 4 new core modules (complete)
+8. Tier 3 command tests - subprocess-mocking tests for command modules (complete - Phase F)
 
-Items 1-7 are complete.
+Items 1-8 are complete.
 
 ## Instructions
 
@@ -70,6 +71,24 @@ of their target module. Total: 142 new tests (216 -> 358 pytest tests).
 
 Overall coverage increased from 52% to 57%.
 
+### Phase F: Tier 3 command tests (complete)
+
+Wrote 4 test files covering command modules with subprocess mocking.
+Total: 74 new tests (358 -> 432 pytest tests).
+
+| Test file | Target module | Tests | Module coverage |
+|-----------|--------------|-------|-----------------|
+| `tests/test_secure.py` | `commands/secure.py` | 38 | 44% (pure logic only) |
+| `tests/test_scan.py` | `commands/scan.py` | 10 | 100% |
+| `tests/test_doctor.py` | `commands/doctor.py` | 13 | 100% |
+| `tests/test_proxy.py` | `commands/proxy.py` | 13 | 89% |
+
+Also fixed 4 `ty` type checker errors in `test_secure.py` (added
+`assert ... is not None` type narrowing for `str | None` fields before
+`in` and `.split()` operations). `ty check tests/` now passes cleanly.
+
+Overall coverage increased from 57% to 69%.
+
 ## Accomplished (previous sessions)
 
 ### Session 7: Registry refactoring Phase B (10 steps)
@@ -113,26 +132,16 @@ Created 4 new registry modules (`core/agents.py`, `core/scanners.py`, `core/proc
 6. **`_LITERAL_CONSTRAINTS` for agent_type is now dynamic** - resolved at validation time via `_resolve_constraint("agent_type")` which lazily imports from the AGENTS registry.
 7. **Validator functions moved into registry entries** - `_validate_claude_md` and `_validate_opencode_json` are self-contained private functions in `core/agents.py`, eliminating circular imports.
 8. **Zero `except Exception` remaining** - all narrowed to specific exception types across 3 files.
-9. **Trailing docstrings on dataclass fields are a pre-PEP 526 pattern.** Project convention: comments above fields, class docstrings as docstrings.
-10. **Agent metadata was scattered across 35+ files.** Registry reduced adding a new agent to 1 `AgentSpec` entry.
-11. **Scanner invocation follows an identical pattern across all 4 tools.** Generic `run_scanner(spec, target, home)` replaces all four `run_<tool>()` functions.
+9. **Typer CLI runner flag ordering matters** - flags like `--secrets`, `--code` must come BEFORE the positional path argument, or typer returns exit code 2 (parsing error). Tests in `test_scan.py` were fixed for this.
+10. **`patch.multiple` requires short attribute names** - `patch.multiple("module", attr1=mock1)` not full dotted paths. For full dotted paths, use individual `patch()` calls or an `ExitStack` pattern (as done in `test_doctor.py`).
+11. **`ty` checks test files too** - `make ci` only runs `ty check src/`, but running `ty check tests/` catches real issues. Test helpers must use proper Literal types (not bare `str`) when constructing dataclasses with Literal fields. Use `assert content is not None` before operations on `str | None` fields.
+12. **Trailing docstrings on dataclass fields are a pre-PEP 526 pattern.** Project convention: comments above fields, class docstrings as docstrings.
+13. **Agent metadata was scattered across 35+ files.** Registry reduced adding a new agent to 1 `AgentSpec` entry.
+14. **Scanner invocation follows an identical pattern across all 4 tools.** Generic `run_scanner(spec, target, home)` replaces all four `run_<tool>()` functions.
 
 ## What Needs to Happen Next
 
-### Phase F: Tier 3 command tests (highest priority)
-
-Subprocess-mocking tests for command files that orchestrate registries:
-
-| Test file | Command module | What to test |
-|-----------|---------------|-------------|
-| `tests/test_scan.py` | `commands/scan.py` | Mock `run_scanner()`, test scan type filtering |
-| `tests/test_doctor.py` | `commands/doctor.py` | Mock health check functions, test orchestration |
-| `tests/test_proxy.py` | `commands/proxy.py` | Mock `find_binary()`, `is_running()`, `os.kill` |
-| `tests/test_secure.py` | `commands/secure.py` | `Change`/`ChangeSet` logic, `calculate_changes()` |
-
-### Then
-
-- **Redistribute `test_plsec.py`** - move its 12 tests into per-module files
+- **Redistribute `test_plsec.py`** - move its 12 tests into per-module files and remove the file
 - **`plsec-status` Phase 1** - bash status script in bootstrap
 - **Update `plsec-status` design doc** - reflect registry-driven check generation
 
@@ -145,13 +154,13 @@ Subprocess-mocking tests for command files that orchestrate registries:
 - `docs/DESIGN-PLSEC-REFACTOR.md` - Registry refactoring design (Phases A-E)
 - `docs/plsec-status-design.md` - Health check model (I-1 through F-2)
 
-### Registry modules (Phase A, tested by consumers but not directly)
+### Registry modules (Phase A, tested in Phases E + F)
 - `src/plsec/core/agents.py` - `AgentSpec`, `AGENTS`, `is_strict()`, `security_mode()`, `get_template()`, `resolve_agent_ids()`, validators
 - `src/plsec/core/scanners.py` - `ScannerSpec`, `SCANNERS`, `run_scanner()`
 - `src/plsec/core/processes.py` - `ProcessSpec`, `PROCESSES`, `find_binary()`, `is_running()`, path helpers
 - `src/plsec/core/health.py` - `CheckResult`, `PLSEC_SUBDIRS`, check functions, verdict helpers
 
-### Test files (358 tests, all passing)
+### Test files (432 tests, all passing, 69% coverage)
 - `tests/conftest.py` - 3 shared fixtures
 - `tests/test_config.py` - 25 tests
 - `tests/test_tools.py` - 20 tests
@@ -166,6 +175,10 @@ Subprocess-mocking tests for command files that orchestrate registries:
 - `tests/test_scanners.py` - 40 tests (builders, parsers, run_scanner)
 - `tests/test_processes.py` - 22 tests (spec, paths, is_running)
 - `tests/test_health.py` - 41 tests (check functions, verdicts)
+- `tests/test_secure.py` - 38 tests (Change/ChangeSet, calculate_changes, apply_changes)
+- `tests/test_scan.py` - 10 tests (scan execution, flag resolution)
+- `tests/test_doctor.py` - 13 tests (render, orchestration, flags)
+- `tests/test_proxy.py` - 13 tests (start, stop, status, logs)
 - `tests/test_plsec.py` - 12 tests (to be redistributed later)
 
 ### Packaging
