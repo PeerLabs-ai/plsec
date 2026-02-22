@@ -25,19 +25,26 @@ class AgentSpec:
 
     # Short identifier used in CLI and config (e.g., "claude", "opencode")
     id: str
+
     # Human-readable name (e.g., "Claude Code", "OpenCode")
     display_name: str
+
     # Config file this agent expects in the project root (e.g., "CLAUDE.md")
     config_filename: str
+
     # Map from security mode ("strict", "balanced") to template content
     templates: dict[str, str]
+
     # Agent type value used in plsec.yaml serialization (e.g., "claude-code")
     config_type: str
+
     # Validation function: takes file path, returns (ok, list of warnings).
     # None if no validator exists yet.
     validate: Callable[[Path], tuple[bool, list[str]]] | None = None
+
     # Additional global install location (e.g., ~/.config/opencode/), or None
     global_config_dir: Path | None = None
+
     # Bootstrap wrapper script template name (e.g., "wrapper-claude.sh"), or None
     wrapper_template: str | None = None
 

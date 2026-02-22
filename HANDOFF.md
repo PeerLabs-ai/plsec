@@ -45,11 +45,11 @@ Items 1-8 are complete.
 
 Narrowed 3 remaining `except Exception` instances to specific types. Zero remain.
 
-| File | Original | Fixed to |
-|------|----------|----------|
-| `src/plsec/__init__.py:13` | `except Exception:` | `except PackageNotFoundError:` |
-| `src/plsec/core/tools.py:163` | `except Exception as e:` | `except (OSError, subprocess.SubprocessError, ValueError, IndexError) as e:` |
-| `src/plsec/commands/secure.py:568` | `except Exception:` | `except (OSError, subprocess.SubprocessError) as e:` + include `e` in warning |
+| File                               | Original                 | Fixed to                                                                      |
+|------------------------------------|--------------------------|-------------------------------------------------------------------------------|
+| `src/plsec/__init__.py:13`         | `except Exception:`      | `except PackageNotFoundError:`                                                |
+| `src/plsec/core/tools.py:163`      | `except Exception as e:` | `except (OSError, subprocess.SubprocessError, ValueError, IndexError) as e:`  |
+| `src/plsec/commands/secure.py:568` | `except Exception:`      | `except (OSError, subprocess.SubprocessError) as e:` + include `e` in warning |
 
 ### Phase D: Updated documentation
 
@@ -62,12 +62,12 @@ Narrowed 3 remaining `except Exception` instances to specific types. Zero remain
 Wrote 4 test files covering all 4 registry modules. All achieve 100% coverage
 of their target module. Total: 142 new tests (216 -> 358 pytest tests).
 
-| Test file | Target module | Tests | Module coverage |
-|-----------|--------------|-------|-----------------|
-| `tests/test_agents.py` | `core/agents.py` | 39 | 52% (validators covered by test_validate.py) |
-| `tests/test_scanners.py` | `core/scanners.py` | 40 | 100% |
-| `tests/test_processes.py` | `core/processes.py` | 22 | 100% |
-| `tests/test_health.py` | `core/health.py` | 41 | 100% |
+| Test file                 | Target module       | Tests | Module coverage                              |
+|---------------------------|---------------------|-------|----------------------------------------------|
+| `tests/test_agents.py`    | `core/agents.py`    | 39    | 52% (validators covered by test_validate.py) |
+| `tests/test_scanners.py`  | `core/scanners.py`  | 40    | 100%                                         |
+| `tests/test_processes.py` | `core/processes.py` | 22    | 100%                                         |
+| `tests/test_health.py`    | `core/health.py`    | 41    | 100%                                         |
 
 Overall coverage increased from 52% to 57%.
 
@@ -76,12 +76,12 @@ Overall coverage increased from 52% to 57%.
 Wrote 4 test files covering command modules with subprocess mocking.
 Total: 74 new tests (358 -> 432 pytest tests).
 
-| Test file | Target module | Tests | Module coverage |
-|-----------|--------------|-------|-----------------|
-| `tests/test_secure.py` | `commands/secure.py` | 38 | 44% (pure logic only) |
-| `tests/test_scan.py` | `commands/scan.py` | 10 | 100% |
-| `tests/test_doctor.py` | `commands/doctor.py` | 13 | 100% |
-| `tests/test_proxy.py` | `commands/proxy.py` | 13 | 89% |
+| Test file              | Target module        | Tests | Module coverage       |
+|------------------------|----------------------|-------|-----------------------|
+| `tests/test_secure.py` | `commands/secure.py` | 38    | 44% (pure logic only) |
+| `tests/test_scan.py`   | `commands/scan.py`   | 10    | 100%                  |
+| `tests/test_doctor.py` | `commands/doctor.py` | 13    | 100%                  |
+| `tests/test_proxy.py`  | `commands/proxy.py`  | 13    | 89%                   |
 
 Also fixed 4 `ty` type checker errors in `test_secure.py` (added
 `assert ... is not None` type narrowing for `str | None` fields before
@@ -95,18 +95,18 @@ Overall coverage increased from 57% to 69%.
 
 All 10 consumer files rewired to use registries. `make ci` green (216 pytest + 34 BATS unit + 53 BATS integration + lint/format/typecheck/golden).
 
-| Step | File | What Changed |
-|------|------|-------------|
-| **B1** | `core/detector.py` | `detected_agents: dict[str, bool]` replaces per-agent booleans |
-| **B2** | `core/wizard.py` | `AGENT_CHOICES` generated from `AGENTS.values()` |
-| **B3** | `core/config.py` | `AgentType` removed, runtime validation via `_resolve_constraint()` |
-| **B4** | `commands/init.py` | Agent loop via `resolve_agent_ids()`, `get_template()` |
-| **B5** | `commands/secure.py` | `_add_agent_config_changes()` helper, registry loops |
-| **B6** | `commands/create.py` | Agent loop, `get_template()` |
-| **B7** | `commands/validate.py` | Validators moved into `core/agents.py`, loops `AGENTS` |
-| **B8** | `commands/doctor.py` | Delegates to `health.py` check functions (~80 lines from 208) |
-| **B9** | `commands/scan.py` | Generic loop over `SCANNERS` + `run_scanner()` (~130 lines from 277) |
-| **B10** | `commands/proxy.py` | Uses `PROCESSES["pipelock"]` spec |
+| Step    | File                   | What Changed                                                         |
+|---------|------------------------|----------------------------------------------------------------------|
+| **B1**  | `core/detector.py`     | `detected_agents: dict[str, bool]` replaces per-agent booleans       |
+| **B2**  | `core/wizard.py`       | `AGENT_CHOICES` generated from `AGENTS.values()`                     |
+| **B3**  | `core/config.py`       | `AgentType` removed, runtime validation via `_resolve_constraint()`  |
+| **B4**  | `commands/init.py`     | Agent loop via `resolve_agent_ids()`, `get_template()`               |
+| **B5**  | `commands/secure.py`   | `_add_agent_config_changes()` helper, registry loops                 |
+| **B6**  | `commands/create.py`   | Agent loop, `get_template()`                                         |
+| **B7**  | `commands/validate.py` | Validators moved into `core/agents.py`, loops `AGENTS`               |
+| **B8**  | `commands/doctor.py`   | Delegates to `health.py` check functions (~80 lines from 208)        |
+| **B9**  | `commands/scan.py`     | Generic loop over `SCANNERS` + `run_scanner()` (~130 lines from 277) |
+| **B10** | `commands/proxy.py`    | Uses `PROCESSES["pipelock"]` spec                                    |
 
 Also fixed during Phase B: removed 4 `except Exception` in validate.py, 2 in proxy.py, fixed variable shadowing, fixed f-string lint. Total codebase reduced by ~146 SLOC, coverage 43% -> 52%.
 
@@ -138,12 +138,46 @@ Created 4 new registry modules (`core/agents.py`, `core/scanners.py`, `core/proc
 12. **Trailing docstrings on dataclass fields are a pre-PEP 526 pattern.** Project convention: comments above fields, class docstrings as docstrings.
 13. **Agent metadata was scattered across 35+ files.** Registry reduced adding a new agent to 1 `AgentSpec` entry.
 14. **Scanner invocation follows an identical pattern across all 4 tools.** Generic `run_scanner(spec, target, home)` replaces all four `run_<tool>()` functions.
+15. **Bootstrap/CLI gap is significant.** Wrapper scripts, shell aliases, and session logging only exist in bootstrap -- the Python CLI has none of these. `AgentSpec.wrapper_template` exists but is unused. `plsec init` needs to generate wrappers.
+16. **`CLAUDE_CODE_SHELL_PREFIX`** is the key integration point for audit logging. It wraps ALL bash commands Claude Code executes. Setting it in the wrapper gives complete visibility into what the LLM did during a session.
+17. **Trivy trivy-secret.yaml has a blocking RE2 regex bug.** The `openai-legacy` rule uses `(?!...)` negative lookahead which Go's regexp (RE2) does not support. Secret scanning is completely broken.
+18. **Bandit scans `.venv/` by default.** All findings in `plsec scan` output are false positives from third-party packages. Need `--exclude .venv,...` in the command builder.
+19. **`plsec run` is the convergence point.** It bridges the CLI and bootstrap by providing managed agent execution with container support, replacing the `*-safe` aliases. Warrants a v0.2.0 version bump.
+20. **`log_dir` in `plsec.yaml` is aspirational.** The `AuditLayerConfig.log_dir` field exists but nothing in the Python CLI writes to it. Only bootstrap wrappers write to the logs directory.
+21. **Podman as default container runtime.** User-configurable via `plsec.yaml`, prominently communicated.
 
 ## What Needs to Happen Next
 
-- **Redistribute `test_plsec.py`** - move its 12 tests into per-module files and remove the file
-- **`plsec-status` Phase 1** - bash status script in bootstrap
-- **Update `plsec-status` design doc** - reflect registry-driven check generation
+### v0.1.x milestones (in order)
+
+1. **Fix scan bugs** - Trivy RE2-incompatible regex in trivy-secret.yaml
+   (FATAL on all secret scans), Bandit scanning .venv/ (false positives)
+2. **Add `make scan` target** - dogfood plsec scan on own codebase
+3. **Update docs** - roadmap.md (version bumps, milestones),
+   plsec-status-design.md (resolve open questions, registry notes)
+4. **Enhanced wrapper logging** - Tier 1: git info, duration, preset.
+   Tier 2: `CLAUDE_CODE_SHELL_PREFIX` audit logging for Claude Code
+5. **Bridge CLI/bootstrap gap** - `plsec init` generates wrappers +
+   shell aliases using `AgentSpec.wrapper_template`
+6. **Scan result persistence** - write to logs for plsec-status
+7. **`plsec-status` Phase 1** - bash health checks in bootstrap
+8. **`plsec-status` Phase 2** - watch mode
+
+### v0.2.0 milestones
+
+9. **`plsec run` command** - managed agent execution, container
+   isolation (Podman default), `CLAUDE_CODE_SHELL_PREFIX` audit,
+   pre/post-flight checks
+10. **MCP server harness** - `plsec create --mcp-server` generates
+    secured sample MCP server project
+
+### Completed this session
+
+- Redistributed `test_plsec.py` (7 duplicates deleted, 5 tests moved
+  to test_cli.py and test_config.py, 1 new assertion in test_templates.py)
+- Updated PROJECT.md with comprehensive new TODOs, architecture gap
+  table, scan bugs, `plsec run` design, MCP integration, version bumps
+- Added `make help` target with grouped output
 
 ## Relevant files / directories
 
