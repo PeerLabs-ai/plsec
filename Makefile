@@ -1,20 +1,12 @@
 # Makefile - plsec build and test targets
 #
-# Primary targets:
-#   make all       - Lint, check, test, build, and verify everything
-#   make ci        - Full CI pipeline
-#   make setup     - Install Python dev dependencies via uv
-#   make lint      - All linting (Python + templates)
-#   make check     - Type check Python with ty
-#   make format    - Format Python with ruff (mutating)
-#   make test      - Run all tests (BATS + pytest)
-#   make build     - Assemble build/bootstrap.sh from templates
-#   make promote   - Copy build artifact to bin/bootstrap.default.sh
-#   make clean     - Remove build artifacts and caches
+# Run 'make' or 'make help' to see available targets.
 #
 # The build/ directory contains assembled output (checked in as curl target).
 # The bin/bootstrap.default.sh is the promoted known-good reference.
 # Uses uv for Python toolchain management throughout.
+
+.DEFAULT_GOAL := help
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -35,103 +27,80 @@ DEFAULT_REF   := bin/bootstrap.default.sh
 GOLDEN_DIR    := tests/bats/golden
 
 # ---------------------------------------------------------------------------
-# Top-level targets
-# ---------------------------------------------------------------------------
-
-.PHONY: all ci
-
-all: lint check test build verify
-
-ci: lint check build test-assembler test verify golden-check
-	@echo ""
-	@echo "CI passed."
-
-# ---------------------------------------------------------------------------
-# Setup
-# ---------------------------------------------------------------------------
-
-.PHONY: setup setup-bats
-
-setup:
-	uv sync --dev
-
-setup-bats:
-	scripts/setup-bats.sh
-
-# ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
 
-.PHONY: build clean
+## Build
+all: lint check test build verify  ## Lint, check, test, build, verify everything
+ci: lint check build test-assembler test verify golden-check  ## Full CI pipeline (non-interactive)
+	@echo ""
+	@echo "CI passed."
 
-build: $(BUILD_OUTPUT)
+build: $(BUILD_OUTPUT)  ## Assemble build/bootstrap.sh from templates
 
 $(BUILD_OUTPUT): $(SKELETON) $(TEMPLATES) $(ASSEMBLER) VERSION
 	@bash $(ASSEMBLER) "$(VERSION)+bootstrap" "$(BUILD_OUTPUT)"
 
-clean:
-	rm -f $(BUILD_OUTPUT)
-	rm -rf .venv.make .ruff_cache
-
-# ---------------------------------------------------------------------------
-# Promote: copy build artifact to known-good reference
-# ---------------------------------------------------------------------------
-
-.PHONY: promote
-
-promote: $(BUILD_OUTPUT)
+promote: $(BUILD_OUTPUT)  ## Copy build to bin/bootstrap.default.sh
 	@echo "Promoting build/bootstrap.sh -> bin/bootstrap.default.sh"
 	@mkdir -p bin
 	@cp $(BUILD_OUTPUT) $(DEFAULT_REF)
 	@chmod +x $(DEFAULT_REF)
 	@echo "Done. Review and commit bin/bootstrap.default.sh"
 
+clean:  ## Remove build artifacts and caches
+	rm -f $(BUILD_OUTPUT)
+	rm -rf .venv.make .ruff_cache
+
+# ---------------------------------------------------------------------------
+# Setup
+# ---------------------------------------------------------------------------
+
+## Setup
+setup:  ## Install Python dev dependencies via uv
+	uv sync --dev
+
+setup-bats:  ## Install BATS test framework
+	scripts/setup-bats.sh
+
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
 
-.PHONY: test test-unit test-integration test-container test-python test-assembler
+## Test
+test: test-python test-unit test-integration  ## Run all tests (pytest + BATS)
 
-test: test-python test-unit test-integration
+test-python:  ## pytest (426 tests)
+	uv run pytest tests/ --ignore=tests/bats
 
-test-unit:
+test-unit:  ## BATS unit tests only
 	bats tests/bats/unit/
 
-test-integration: build
+test-integration: build  ## BATS integration tests
 	bats tests/bats/integration/
 
-test-container: build
+test-container: build  ## Run BATS tests in container
 	tests/bats/run-in-container.sh tests/bats/integration/
-
-test-python:
-	uv run pytest tests/ --ignore=tests/bats
 
 test-assembler:
 	bash scripts/test-assembler-escaping.sh
 
 # ---------------------------------------------------------------------------
-# Python quality
+# Quality
 # ---------------------------------------------------------------------------
 
-.PHONY: lint-python check format
+## Quality
+lint: lint-python lint-templates lint-skeleton lint-bootstrap  ## All linting (Python + templates + bootstrap)
 
-lint-python:
+lint-python:  ## ruff check + format --check
 	uv run ruff check .
 	uv run ruff format . --check
 
-check:
+check:  ## Type check Python with ty
 	uv run ty check src/
 
-format:
+format:  ## Format Python with ruff (mutating)
 	uv run ruff format .
-
-# ---------------------------------------------------------------------------
-# Template and bootstrap linting
-# ---------------------------------------------------------------------------
-
-.PHONY: lint lint-templates lint-bootstrap lint-skeleton
-
-lint: lint-python lint-templates lint-skeleton lint-bootstrap
 
 lint-templates:
 	@echo "Checking JSON templates..."
@@ -167,12 +136,11 @@ lint-bootstrap: $(BUILD_OUTPUT)
 	@bash -n $(BUILD_OUTPUT) && echo "  OK: $(BUILD_OUTPUT)" || (echo "  FAIL: $(BUILD_OUTPUT)" && exit 1)
 
 # ---------------------------------------------------------------------------
-# Golden files
+# Golden Files
 # ---------------------------------------------------------------------------
 
-.PHONY: golden golden-check
-
-golden: build
+## Golden Files
+golden: build  ## Regenerate golden test fixtures
 	@echo "Regenerating golden files..."
 	@mkdir -p $(GOLDEN_DIR)
 	@cp $(TEMPLATE_DIR)/claude-md-strict.md $(GOLDEN_DIR)/
@@ -183,7 +151,7 @@ golden: build
 	@cp $(TEMPLATE_DIR)/trivy.yaml $(GOLDEN_DIR)/
 	@echo "Golden files updated in $(GOLDEN_DIR)/"
 
-golden-check:
+golden-check:  ## Verify golden files match templates
 	@echo "Checking golden files match templates..."
 	@FAIL=0; \
 	for f in claude-md-strict.md claude-md-balanced.md opencode-json-strict.json opencode-json-balanced.json trivy-secret.yaml trivy.yaml; do \
@@ -201,9 +169,7 @@ golden-check:
 # Verify: ensure build artifact matches the promoted reference
 # ---------------------------------------------------------------------------
 
-.PHONY: verify
-
-verify: build
+verify: build  ## Ensure build matches promoted reference
 	@echo "Verifying build matches promoted reference..."
 	@if [ ! -f $(DEFAULT_REF) ]; then \
 		echo "  No reference file yet ($(DEFAULT_REF)). Run 'make promote' first."; \
@@ -216,3 +182,22 @@ verify: build
 		echo "  Run 'make promote' after reviewing changes, or fix templates."; \
 		exit 1; \
 	fi
+
+# ---------------------------------------------------------------------------
+# Help
+# ---------------------------------------------------------------------------
+
+## Help
+help:  ## Show this help
+	@awk 'BEGIN {FS = ":.*##"} \
+		/^## [A-Z]/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 4) } \
+		/^[a-zA-Z0-9_-]+:.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' \
+		$(MAKEFILE_LIST)
+	@echo ""
+
+.PHONY: all ci build promote clean \
+        setup setup-bats \
+        test test-python test-unit test-integration test-container test-assembler \
+        lint lint-python lint-templates lint-skeleton lint-bootstrap check format \
+        golden golden-check verify \
+        help
