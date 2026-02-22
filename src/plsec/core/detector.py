@@ -4,6 +4,8 @@ Project detection and analysis.
 Analyzes existing projects to detect type, dependencies, and security posture.
 """
 
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -39,9 +41,8 @@ class ProjectInfo:
     is_git_repo: bool = False
     has_uncommitted_changes: bool = False
 
-    # Existing security configuration
-    has_claude_md: bool = False
-    has_opencode_json: bool = False
+    # Existing security configuration -- agent configs keyed by agent ID
+    detected_agents: dict[str, bool] = field(default_factory=dict)
     has_plsec_yaml: bool = False
     has_gitignore: bool = False
     has_pre_commit: bool = False
@@ -135,9 +136,8 @@ class ProjectDetector:
         if info.is_git_repo:
             info.has_uncommitted_changes = self._check_uncommitted_changes()
 
-        # Check existing security configuration
-        info.has_claude_md = (self.path / "CLAUDE.md").exists()
-        info.has_opencode_json = (self.path / "opencode.json").exists()
+        # Check existing security configuration -- iterate agent registry
+        info.detected_agents = self._detect_agents()
         info.has_plsec_yaml = (self.path / "plsec.yaml").exists()
         info.has_gitignore = (self.path / ".gitignore").exists()
         info.has_pre_commit = (self.path / ".pre-commit-config.yaml").exists()
@@ -241,6 +241,12 @@ class ProjectDetector:
                 return "jest"
 
         return None
+
+    def _detect_agents(self) -> dict[str, bool]:
+        """Detect which managed agents have config files in the project."""
+        from plsec.core.agents import AGENTS
+
+        return {aid: (self.path / spec.config_filename).exists() for aid, spec in AGENTS.items()}
 
     def _check_uncommitted_changes(self) -> bool:
         """Check for uncommitted git changes."""

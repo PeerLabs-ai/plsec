@@ -58,10 +58,11 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 - [ ] Build pytest test cases for Python CLI component (see TESTING.md)
 - [ ] Verify ty type checker integration works correctly
 - [ ] **Unify build system through Make** (see below)
-- [ ] **Registry refactoring**: Extract agent, scanner, and process registries
+- [x] **Registry refactoring**: Extract agent, scanner, and process registries
   from command files into `core/agents.py`, `core/scanners.py`,
   `core/processes.py`. Decompose `doctor.py` into reusable health check
-  functions in `core/health.py`.
+  functions in `core/health.py`. Phases A-C complete, zero `except Exception`
+  remaining.
   (see [docs/DESIGN-PLSEC-REFACTOR.md](docs/DESIGN-PLSEC-REFACTOR.md))
 - [ ] **`plsec-status` Phase 1**: Bash status script in bootstrap.
   **Note:** The status design doc (`docs/plsec-status-design.md`) predates

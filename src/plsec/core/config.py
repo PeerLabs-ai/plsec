@@ -17,17 +17,35 @@ import yaml
 
 RuntimeType = Literal["podman", "docker", "sandbox"]
 ProxyMode = Literal["audit", "balanced", "strict"]
-AgentType = Literal["claude-code", "opencode", "codex"]
 ProjectType = Literal["python", "node", "go", "mixed"]
 StorageType = Literal["keychain", "env", "file"]
+
+
+def _valid_agent_types() -> set[str]:
+    """Build the set of valid agent config_type values from the AGENTS registry.
+
+    Imported lazily to avoid circular imports (agents.py -> templates.py is safe,
+    but config.py is imported by many modules).
+    """
+    from plsec.core.agents import AGENTS
+
+    return {spec.config_type for spec in AGENTS.values()}
+
 
 _LITERAL_CONSTRAINTS: dict[str, set[str]] = {
     "runtime": {"podman", "docker", "sandbox"},
     "mode": {"audit", "balanced", "strict"},
-    "agent_type": {"claude-code", "opencode", "codex"},
+    # agent_type is resolved dynamically — see _resolve_constraint()
     "project_type": {"python", "node", "go", "mixed"},
     "storage": {"keychain", "env", "file"},
 }
+
+
+def _resolve_constraint(field_name: str) -> set[str]:
+    """Resolve a constraint set, handling dynamically-generated ones."""
+    if field_name == "agent_type":
+        return _valid_agent_types()
+    return _LITERAL_CONSTRAINTS[field_name]
 
 
 def _validate_literal(value: str, field_name: str, allowed: set[str]) -> str:
@@ -98,7 +116,8 @@ class LayersConfig:
 class AgentConfig:
     """AI agent configuration."""
 
-    type: AgentType = "claude-code"
+    # Validated at load time against AGENTS registry config_type values
+    type: str = "claude-code"
     config_path: str = "./CLAUDE.md"
 
 
@@ -179,9 +198,9 @@ def _validate_config(data: dict) -> None:
             data["project"]["type"], "project.type", _LITERAL_CONSTRAINTS["project_type"]
         )
 
-    # Agent type
+    # Agent type -- resolved dynamically from AGENTS registry
     if "agent" in data and "type" in data["agent"]:
-        _validate_literal(data["agent"]["type"], "agent.type", _LITERAL_CONSTRAINTS["agent_type"])
+        _validate_literal(data["agent"]["type"], "agent.type", _resolve_constraint("agent_type"))
 
     # Layers
     layers = data.get("layers", {})

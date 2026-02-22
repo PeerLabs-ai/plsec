@@ -1,13 +1,13 @@
 """
-plsec proxy - Manage Pipelock runtime proxy.
+plsec proxy - Manage security proxy processes.
 
-Start, stop, and monitor the Pipelock security proxy.
+Start, stop, and monitor managed proxy services (e.g., Pipelock).
+Delegates process management to the PROCESSES registry in core/processes.py.
 """
 
 __version__ = "0.1.0"
 
 import os
-import shutil
 import signal
 import subprocess
 from pathlib import Path
@@ -23,6 +23,14 @@ from plsec.core.output import (
     print_ok,
     print_warning,
 )
+from plsec.core.processes import (
+    PROCESSES,
+    find_binary,
+    get_config_path,
+    get_log_path,
+    get_pid_file_path,
+    is_running,
+)
 
 app = typer.Typer(
     help="Manage Pipelock runtime proxy.",
@@ -32,34 +40,8 @@ app = typer.Typer(
 
 ProxyMode = Literal["audit", "balanced", "strict"]
 
-
-def get_pid_file() -> Path:
-    """Get path to Pipelock PID file."""
-    return get_plsec_home() / "pipelock.pid"
-
-
-def is_pipelock_running() -> tuple[bool, int | None]:
-    """Check if Pipelock is running."""
-    pid_file = get_pid_file()
-
-    if not pid_file.exists():
-        return False, None
-
-    try:
-        pid = int(pid_file.read_text().strip())
-        # Check if process exists
-        os.kill(pid, 0)
-        return True, pid
-    except (ValueError, ProcessLookupError, PermissionError):
-        # PID file exists but process is dead
-        pid_file.unlink(missing_ok=True)
-        return False, None
-
-
-def find_pipelock() -> Path | None:
-    """Find Pipelock binary."""
-    path = shutil.which("pipelock")
-    return Path(path) if path else None
+# The default process managed by the proxy command
+_SPEC = PROCESSES["pipelock"]
 
 
 @app.command()
@@ -72,65 +54,59 @@ def start(
         bool, typer.Option("--background/--foreground", "-b/-f", help="Run in background.")
     ] = True,
     config: Annotated[
-        Path | None, typer.Option("--config", "-c", help="Path to Pipelock config file.")
+        Path | None, typer.Option("--config", "-c", help="Path to config file.")
     ] = None,
 ) -> None:
     """Start the Pipelock proxy."""
     console.print("[bold]plsec proxy start[/bold]\n")
 
+    plsec_home = get_plsec_home()
+
     # Check if already running
-    running, pid = is_pipelock_running()
+    running, pid = is_running(_SPEC, plsec_home)
     if running:
-        print_warning(f"Pipelock already running (PID: {pid})")
+        print_warning(f"{_SPEC.display_name} already running (PID: {pid})")
         console.print("Run 'plsec proxy stop' first")
         raise typer.Exit(1)
 
-    # Find Pipelock binary
-    pipelock = find_pipelock()
-    if pipelock is None:
-        print_error("Pipelock not found")
-        console.print("\nInstall with:")
-        console.print("  go install github.com/luckyPipewrench/pipelock/cmd/pipelock@latest")
+    # Find binary
+    binary = find_binary(_SPEC)
+    if binary is None:
+        print_error(f"{_SPEC.display_name} not found")
+        console.print(f"\nInstall with:\n  {_SPEC.install_hint}")
         raise typer.Exit(1)
 
     # Use default config if not specified
-    plsec_home = get_plsec_home()
     if config is None:
-        config = plsec_home / "pipelock.yaml"
+        config = get_config_path(_SPEC, plsec_home)
 
     if not config.exists():
         print_warning(f"Config not found: {config}")
         print_info("Generating default config...")
 
         # Generate default config
-        result = subprocess.run(
-            [str(pipelock), "generate", "config", "--preset", mode, "-o", str(config)],
-            capture_output=True,
-            text=True,
-        )
+        if _SPEC.build_config_cmd is not None:
+            gen_cmd = _SPEC.build_config_cmd(binary, mode, config)
+            result = subprocess.run(gen_cmd, capture_output=True, text=True)
 
-        if result.returncode != 0:
-            print_error("Failed to generate config")
-            console.print(result.stderr)
+            if result.returncode != 0:
+                print_error("Failed to generate config")
+                console.print(result.stderr)
+                raise typer.Exit(1)
+
+            print_ok(f"Created {config}")
+        else:
+            print_error("No config generator available")
             raise typer.Exit(1)
 
-        print_ok(f"Created {config}")
+    # Build run command
+    cmd = _SPEC.build_run_cmd(binary, config, port, mode)
 
-    # Build command
-    cmd = [
-        str(pipelock),
-        "run",
-        "--config",
-        str(config),
-        "--listen",
-        f"127.0.0.1:{port}",
-    ]
-
-    print_info(f"Starting Pipelock in {mode} mode on port {port}...")
+    print_info(f"Starting {_SPEC.display_name} in {mode} mode on port {port}...")
 
     if background:
         # Start in background
-        log_file = plsec_home / "logs" / "pipelock.log"
+        log_file = get_log_path(_SPEC, plsec_home)
         log_file.parent.mkdir(parents=True, exist_ok=True)
 
         with open(log_file, "a") as log:
@@ -142,10 +118,10 @@ def start(
             )
 
         # Save PID
-        pid_file = get_pid_file()
+        pid_file = get_pid_file_path(_SPEC, plsec_home)
         pid_file.write_text(str(process.pid))
 
-        print_ok(f"Pipelock started (PID: {process.pid})")
+        print_ok(f"{_SPEC.display_name} started (PID: {process.pid})")
         console.print(f"  Log: {log_file}")
         console.print(f"  Proxy: http://127.0.0.1:{port}")
         console.print("\nTo use with Claude Code:")
@@ -168,22 +144,26 @@ def stop() -> None:
     """Stop the Pipelock proxy."""
     console.print("[bold]plsec proxy stop[/bold]\n")
 
-    running, pid = is_pipelock_running()
+    plsec_home = get_plsec_home()
+    running, pid = is_running(_SPEC, plsec_home)
 
     if not running:
-        print_info("Pipelock is not running")
+        print_info(f"{_SPEC.display_name} is not running")
         raise typer.Exit(0)
 
-    assert pid is not None  # guaranteed by is_pipelock_running() when running=True
+    assert pid is not None  # guaranteed by is_running() when running=True
     try:
         os.kill(pid, signal.SIGTERM)
-        print_ok(f"Stopped Pipelock (PID: {pid})")
+        print_ok(f"Stopped {_SPEC.display_name} (PID: {pid})")
 
         # Clean up PID file
-        get_pid_file().unlink(missing_ok=True)
+        get_pid_file_path(_SPEC, plsec_home).unlink(missing_ok=True)
 
-    except Exception as e:
-        print_error(f"Failed to stop Pipelock: {e}")
+    except ProcessLookupError:
+        print_info(f"{_SPEC.display_name} already stopped")
+        get_pid_file_path(_SPEC, plsec_home).unlink(missing_ok=True)
+    except OSError as e:
+        print_error(f"Failed to stop {_SPEC.display_name}: {e}")
         raise typer.Exit(1) from e
 
     raise typer.Exit(0)
@@ -191,21 +171,18 @@ def stop() -> None:
 
 @app.command()
 def status() -> None:
-    """Check Pipelock status."""
+    """Check proxy status."""
     console.print("[bold]plsec proxy status[/bold]\n")
 
-    running, pid = is_pipelock_running()
+    plsec_home = get_plsec_home()
+    running, pid = is_running(_SPEC, plsec_home)
 
     if running:
-        print_ok(f"Pipelock is running (PID: {pid})")
+        print_ok(f"{_SPEC.display_name} is running (PID: {pid})")
 
-        # Try to get stats
-        plsec_home = get_plsec_home()
-        log_file = plsec_home / "logs" / "pipelock.log"
-
+        log_file = get_log_path(_SPEC, plsec_home)
         if log_file.exists():
             console.print(f"\nLog file: {log_file}")
-            # Show last few lines
             try:
                 lines = log_file.read_text().strip().split("\n")[-5:]
                 if lines:
@@ -215,7 +192,7 @@ def status() -> None:
             except OSError:
                 pass
     else:
-        print_info("Pipelock is not running")
+        print_info(f"{_SPEC.display_name} is not running")
         console.print("\nStart with: plsec proxy start")
 
     raise typer.Exit(0)
@@ -236,22 +213,20 @@ def logs(
         help="Number of lines to show.",
     ),
 ) -> None:
-    """View Pipelock logs."""
+    """View proxy logs."""
     plsec_home = get_plsec_home()
-    log_file = plsec_home / "logs" / "pipelock.log"
+    log_file = get_log_path(_SPEC, plsec_home)
 
     if not log_file.exists():
         print_info("No log file found")
         raise typer.Exit(0)
 
     if follow:
-        # Use tail -f
         try:
             subprocess.run(["tail", "-f", str(log_file)])
         except KeyboardInterrupt:
             pass
     else:
-        # Show last N lines
         try:
             result = subprocess.run(
                 ["tail", f"-{lines}", str(log_file)],
@@ -259,7 +234,7 @@ def logs(
                 text=True,
             )
             console.print(result.stdout)
-        except Exception as e:
+        except OSError as e:
             print_error(f"Failed to read logs: {e}")
             raise typer.Exit(1) from e
 

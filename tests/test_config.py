@@ -14,6 +14,7 @@ from plsec.core.config import (
     PlsecConfig,
     ProjectConfig,
     _from_dict,
+    _resolve_constraint,
     _to_dict,
     _validate_config,
     _validate_literal,
@@ -245,11 +246,19 @@ class TestConfigBoundaryValidation:
     # -- _LITERAL_CONSTRAINTS consistency --
 
     def test_literal_constraints_cover_all_constrained_fields(self):
-        """_LITERAL_CONSTRAINTS should have entries for all Literal-typed fields."""
-        expected_keys = {"runtime", "mode", "agent_type", "project_type", "storage"}
-        assert set(_LITERAL_CONSTRAINTS.keys()) == expected_keys
+        """Static constraints + dynamic resolvers cover all Literal-typed fields."""
+        # Static constraints in _LITERAL_CONSTRAINTS
+        static_keys = {"runtime", "mode", "project_type", "storage"}
+        assert set(_LITERAL_CONSTRAINTS.keys()) == static_keys
+        # Dynamic constraint resolved from AGENTS registry
+        agent_types = _resolve_constraint("agent_type")
+        assert "claude-code" in agent_types
+        assert "opencode" in agent_types
 
     def test_literal_constraints_are_nonempty(self):
         """Every constraint set should have at least 2 allowed values."""
         for key, allowed in _LITERAL_CONSTRAINTS.items():
             assert len(allowed) >= 2, f"Constraint {key!r} has fewer than 2 values"
+        # Dynamic agent_type constraint
+        agent_types = _resolve_constraint("agent_type")
+        assert len(agent_types) >= 2, "agent_type constraint has fewer than 2 values"

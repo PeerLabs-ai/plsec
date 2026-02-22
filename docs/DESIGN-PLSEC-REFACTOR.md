@@ -5,8 +5,8 @@
 | Field    | Value                                     |
 |----------|-------------------------------------------|
 | Author   | Gylthuin (with AI Assistance from Claude) |
-| Status   | DRAFT                                     |
-| Version  | 0.1                                       |
+| Status   | IMPLEMENTED (Phases A-C complete)         |
+| Version  | 0.2                                       |
 | Date     | 2026-02-21                                |
 | Audience | plsec contributors                        |
 
@@ -722,17 +722,17 @@ def _add_agent_config_change(
 Each helper is independently testable.
 
 
-## Remaining `except Exception` Fixes
+## `except Exception` Fixes (Complete)
 
-Per project policy (never suppress, never catch broad exceptions), two
-remaining instances need narrowing:
+All `except Exception` catches have been narrowed to specific types:
 
-| File        | Line | Current                  | Fix                                                                           |
-|-------------|------|--------------------------|-------------------------------------------------------------------------------|
-| `secure.py` | 588  | `except Exception:`      | `except (subprocess.CalledProcessError, subprocess.TimeoutExpired, OSError):` |
-| `tools.py`  | 163  | `except Exception as e:` | `except (OSError, subprocess.SubprocessError) as e:`                          |
+| File           | Original                 | Fixed to                                                       |
+|----------------|--------------------------|----------------------------------------------------------------|
+| `__init__.py`  | `except Exception:`      | `except PackageNotFoundError:`                                 |
+| `tools.py`     | `except Exception as e:` | `except (OSError, subprocess.SubprocessError, ValueError, IndexError) as e:` |
+| `secure.py`    | `except Exception:`      | `except (OSError, subprocess.SubprocessError) as e:`           |
 
-These are addressed as part of Phase C (cleanup).
+Zero `except Exception` instances remain in the codebase.
 
 
 ## Implementation Plan
@@ -742,13 +742,13 @@ These are addressed as part of Phase C (cleanup).
 The refactoring is split into phases to maintain a green test suite at
 each step:
 
-| Phase                   | Scope                                                                                                                                                          | Verify                                    |
-|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------|
-| **A: Foundation**       | Create `core/agents.py`, `core/scanners.py`, `core/processes.py`, `core/health.py` with registries and pure functions. No consumer changes.                    | `make ci` passes (new files are additive) |
-| **B: Rewire consumers** | One command at a time: `init.py`, `secure.py`, `create.py`, `validate.py`, `doctor.py`, `scan.py`, `proxy.py`. Update `detector.py`, `wizard.py`, `config.py`. | Run `pytest` after each file change       |
-| **C: Cleanup**          | Fix `except Exception` in `secure.py` and `tools.py`. Remove dead code.                                                                                        | `make ci` passes                          |
-| **D: Full verify**      | Run full `make ci`. All 216 existing tests pass.                                                                                                               | `make ci` green                           |
-| **E: Phase 3 tests**    | Write subprocess-mocking tests against the clean interfaces.                                                                                                   | `pytest` all pass                         |
+| Phase                   | Scope                                                                                                                                                          | Verify                                    | Status       |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------|--------------|
+| **A: Foundation**       | Create `core/agents.py`, `core/scanners.py`, `core/processes.py`, `core/health.py` with registries and pure functions. No consumer changes.                    | `make ci` passes (new files are additive) | **COMPLETE** |
+| **B: Rewire consumers** | One command at a time: `init.py`, `secure.py`, `create.py`, `validate.py`, `doctor.py`, `scan.py`, `proxy.py`. Update `detector.py`, `wizard.py`, `config.py`. | Run `pytest` after each file change       | **COMPLETE** |
+| **C: Cleanup**          | Fix all `except Exception` catches (`__init__.py`, `tools.py`, `secure.py`). Zero remaining.                                                                   | `make ci` passes                          | **COMPLETE** |
+| **D: Full verify**      | Run full `make ci`. All 216 existing tests pass.                                                                                                               | `make ci` green                           | **COMPLETE** |
+| **E: Registry tests**   | Write test files for the 4 registry modules (`agents.py`, `scanners.py`, `processes.py`, `health.py`). 142 new tests.                                           | `pytest` all pass (358 total)             | **COMPLETE** |
 
 ### Phase B ordering
 

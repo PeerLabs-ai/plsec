@@ -35,7 +35,7 @@ class WizardState:
 
     project_name: str = ""
     project_type: str = "python"
-    agents: list[str] = field(default_factory=lambda: ["claude", "opencode"])
+    agents: list[str] = field(default_factory=lambda: _default_agent_ids())
     preset: str = "balanced"
     sensitive_data: list[str] = field(default_factory=list)
     cloud_providers: list[str] = field(default_factory=list)
@@ -253,6 +253,34 @@ class Wizard:
         console.print(f"    [green][OK][/green] {message}")
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _default_agent_ids() -> list[str]:
+    """Return IDs of all registered agents (used as WizardState default)."""
+    from plsec.core.agents import AGENTS
+
+    return list(AGENTS.keys())
+
+
+def _build_agent_choices() -> list[Choice]:
+    """Generate agent choices from the registry, plus non-managed agents."""
+    from plsec.core.agents import AGENTS
+
+    choices = [Choice(spec.id, spec.display_name, checked=True) for spec in AGENTS.values()]
+    # Non-plsec agents shown for informational purposes only
+    choices.extend(
+        [
+            Choice("copilot", "GitHub Copilot"),
+            Choice("cursor", "Cursor"),
+            Choice("other", "Other"),
+        ]
+    )
+    return choices
+
+
 # Pre-defined choice sets for reuse
 PROJECT_TYPE_CHOICES = [
     Choice("python", "Python", "Django, FastAPI, CLI"),
@@ -263,13 +291,7 @@ PROJECT_TYPE_CHOICES = [
     Choice("other", "Other"),
 ]
 
-AGENT_CHOICES = [
-    Choice("claude", "Claude Code", checked=True),
-    Choice("opencode", "Opencode", checked=True),
-    Choice("copilot", "GitHub Copilot"),
-    Choice("cursor", "Cursor"),
-    Choice("other", "Other"),
-]
+AGENT_CHOICES = _build_agent_choices()
 
 PRESET_CHOICES = [
     Choice("minimal", "Minimal", "Secret scanning only"),

@@ -1,7 +1,7 @@
 """
 plsec validate - Validate configuration files.
 
-Checks syntax and schema of plsec.yaml, CLAUDE.md, opencode.json, etc.
+Checks syntax and schema of plsec.yaml, agent configs, pre-commit hooks.
 """
 
 __version__ = "0.1.0"
@@ -12,6 +12,7 @@ from typing import Annotated
 import typer
 import yaml
 
+from plsec.core.agents import AGENTS
 from plsec.core.config import find_config_file, load_config
 from plsec.core.output import (
     console,
@@ -36,7 +37,7 @@ def validate_yaml_syntax(path: Path) -> tuple[bool, str | None]:
         return True, None
     except yaml.YAMLError as e:
         return False, str(e)
-    except Exception as e:
+    except OSError as e:
         return False, str(e)
 
 
@@ -45,59 +46,8 @@ def validate_plsec_config(path: Path) -> tuple[bool, str | None]:
     try:
         load_config(path)
         return True, None
-    except Exception as e:
+    except (ValueError, OSError, yaml.YAMLError) as e:
         return False, str(e)
-
-
-def validate_claude_md(path: Path) -> tuple[bool, list[str]]:
-    """Validate CLAUDE.md has expected sections."""
-    warnings = []
-
-    try:
-        content = path.read_text()
-
-        # Check for expected sections
-        expected = ["NEVER", "ALWAYS"]
-        for section in expected:
-            if section not in content.upper():
-                warnings.append(f"Missing '{section}' section")
-
-        return True, warnings
-    except Exception as e:
-        return False, [str(e)]
-
-
-def validate_opencode_json(path: Path) -> tuple[bool, list[str]]:
-    """Validate opencode.json syntax and schema."""
-    import json
-
-    warnings = []
-
-    try:
-        with open(path) as f:
-            data = json.load(f)
-
-        # Check for schema reference
-        if "$schema" not in data:
-            warnings.append("Missing $schema field (recommended: https://opencode.ai/config.json)")
-
-        # Check for permission section (the main security config)
-        if "permission" not in data:
-            warnings.append("Missing 'permission' section")
-        else:
-            perm = data["permission"]
-            # Check for security-relevant permissions
-            if isinstance(perm, dict):
-                if "bash" not in perm:
-                    warnings.append("No bash permission rules defined")
-                if "external_directory" not in perm:
-                    warnings.append("No external_directory permission (recommended: deny or ask)")
-
-        return True, warnings
-    except json.JSONDecodeError as e:
-        return False, [f"Invalid JSON: {e}"]
-    except Exception as e:
-        return False, [str(e)]
 
 
 @app.callback(invoke_without_command=True)
@@ -112,8 +62,7 @@ def validate(
 
     Checks:
     - plsec.yaml syntax and schema
-    - CLAUDE.md structure
-    - opencode.json syntax
+    - Agent config files (CLAUDE.md, opencode.json, etc.)
     - Pre-commit hooks installation
     """
     console.print("[bold]plsec validate[/bold] - Configuration validation\n")
@@ -139,50 +88,36 @@ def validate(
         print_warning("No plsec.yaml found", details="Run 'plsec init' to create")
         warn_count += 1
 
-    # Check CLAUDE.md
-    print_header("CLAUDE.md")
-    claude_md = path / "CLAUDE.md"
+    # Check agent config files via registry
+    for _aid, spec in AGENTS.items():
+        print_header(spec.config_filename)
+        config_path = path / spec.config_filename
 
-    if claude_md.exists():
-        valid, warnings = validate_claude_md(claude_md)
-        if valid and not warnings:
-            print_ok(f"Valid: {claude_md}")
-            ok_count += 1
-        elif valid and warnings:
-            print_warning(f"Valid with warnings: {claude_md}")
-            for w in warnings:
-                console.print(f"      {w}", style="dim")
-            warn_count += 1
+        if config_path.exists():
+            if spec.validate is not None:
+                valid, warnings = spec.validate(config_path)
+                if valid and not warnings:
+                    print_ok(f"Valid: {config_path}")
+                    ok_count += 1
+                elif valid and warnings:
+                    print_warning(f"Valid with warnings: {config_path}")
+                    for w in warnings:
+                        console.print(f"      {w}", style="dim")
+                    warn_count += 1
+                else:
+                    print_error(f"Invalid: {config_path}")
+                    for w in warnings:
+                        console.print(f"      {w}", style="dim")
+                    error_count += 1
+            else:
+                print_ok(f"Found: {config_path} (no validator available)")
+                ok_count += 1
         else:
-            print_error(f"Invalid: {claude_md}")
-            for w in warnings:
-                console.print(f"      {w}", style="dim")
-            error_count += 1
-    else:
-        print_warning("CLAUDE.md not found", details="Run 'plsec init' to create")
-        warn_count += 1
-
-    # Check opencode.json
-    print_header("opencode.json")
-    opencode_json = path / "opencode.json"
-
-    if opencode_json.exists():
-        valid, warnings = validate_opencode_json(opencode_json)
-        if valid and not warnings:
-            print_ok(f"Valid: {opencode_json}")
-            ok_count += 1
-        elif valid and warnings:
-            print_warning(f"Valid with warnings: {opencode_json}")
-            for w in warnings:
-                console.print(f"      {w}", style="dim")
+            print_warning(
+                f"{spec.config_filename} not found",
+                details="Run 'plsec init' to create",
+            )
             warn_count += 1
-        else:
-            print_error(f"Invalid: {opencode_json}")
-            for w in warnings:
-                console.print(f"      {w}", style="dim")
-            error_count += 1
-    else:
-        print_warning("opencode.json not found", details="Optional for Claude Code users")
 
     # Check pre-commit hook
     print_header("Pre-commit Hook")

@@ -6,11 +6,13 @@ AI coding assistants through static analysis, configuration management,
 runtime monitoring, and audit logging.
 """
 
+from importlib.metadata import PackageNotFoundError
+
 try:
     from importlib.metadata import version
 
     __version__ = version("plsec")
-except Exception:
+except PackageNotFoundError:
     __version__ = "0.0.0-dev"
 
 __author__ = "Peerlabs"

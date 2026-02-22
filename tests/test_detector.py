@@ -299,7 +299,9 @@ class TestAnalyze:
         detector = ProjectDetector(tmp_path)
         info = detector.analyze()
         assert info.type == "python"
-        assert info.has_claude_md is True
+        # Registry-driven agent detection
+        assert info.detected_agents["claude"] is True
+        assert info.detected_agents["opencode"] is False
         assert info.has_plsec_yaml is True
         assert info.has_gitignore is True
         assert "*.pyc" in info.gitignore_patterns

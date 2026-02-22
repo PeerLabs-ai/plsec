@@ -2,12 +2,11 @@
 plsec scan - Run security scanners.
 
 Wraps Trivy, Bandit, Semgrep, and other scanners with consistent output.
+Delegates to the SCANNERS registry in core/scanners.py.
 """
 
 __version__ = "0.1.0"
 
-import shutil
-import subprocess
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -23,6 +22,7 @@ from plsec.core.output import (
     print_summary,
     print_warning,
 )
+from plsec.core.scanners import SCANNERS, run_scanner
 
 app = typer.Typer(
     help="Run security scanners.",
@@ -31,117 +31,6 @@ app = typer.Typer(
 
 
 ScanType = Literal["secrets", "code", "deps", "misconfig", "all"]
-
-
-def run_trivy_secrets(path: Path) -> tuple[bool, str]:
-    """Run Trivy secret scanning."""
-    plsec_home = get_plsec_home()
-    secret_config = plsec_home / "trivy" / "trivy-secret.yaml"
-
-    cmd = ["trivy", "fs", "--scanners", "secret"]
-
-    if secret_config.exists():
-        cmd.extend(["--secret-config", str(secret_config)])
-
-    cmd.extend(["--exit-code", "1", str(path)])
-
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        return result.returncode == 0, result.stdout + result.stderr
-    except subprocess.TimeoutExpired:
-        return False, "Trivy timed out"
-    except FileNotFoundError:
-        return False, "Trivy not found"
-
-
-def run_trivy_misconfig(path: Path) -> tuple[bool, str]:
-    """Run Trivy misconfiguration scanning."""
-    cmd = [
-        "trivy",
-        "config",
-        "--exit-code",
-        "1",
-        str(path),
-    ]
-
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        return result.returncode == 0, result.stdout + result.stderr
-    except subprocess.TimeoutExpired:
-        return False, "Trivy timed out"
-    except FileNotFoundError:
-        return False, "Trivy not found"
-
-
-def run_bandit(path: Path) -> tuple[bool, str]:
-    """Run Bandit Python security scanner."""
-    if not shutil.which("bandit"):
-        return True, "Bandit not installed (skipped)"
-
-    # Check if there are Python files
-    py_files = list(path.rglob("*.py"))
-    if not py_files:
-        return True, "No Python files found"
-
-    cmd = [
-        "bandit",
-        "-r",
-        "-ll",  # Only medium and high severity
-        "-q",  # Quiet mode
-        str(path),
-    ]
-
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-        # Bandit returns 1 if issues found, 0 if clean
-        return result.returncode == 0, result.stdout + result.stderr
-    except subprocess.TimeoutExpired:
-        return False, "Bandit timed out"
-    except FileNotFoundError:
-        return True, "Bandit not installed (skipped)"
-
-
-def run_semgrep(path: Path) -> tuple[bool, str]:
-    """Run Semgrep multi-language scanner."""
-    if not shutil.which("semgrep"):
-        return True, "Semgrep not installed (skipped)"
-
-    cmd = [
-        "semgrep",
-        "--config",
-        "auto",
-        "--quiet",
-        "--error",  # Exit 1 if findings
-        str(path),
-    ]
-
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=600,  # Semgrep can be slow
-        )
-        return result.returncode == 0, result.stdout + result.stderr
-    except subprocess.TimeoutExpired:
-        return False, "Semgrep timed out"
-    except FileNotFoundError:
-        return True, "Semgrep not installed (skipped)"
 
 
 @app.callback(invoke_without_command=True)
@@ -172,7 +61,7 @@ def scan(
     """
     console.print(f"[bold]plsec scan[/bold] - Scanning {path}\n")
 
-    # Determine which scans to run
+    # Determine which scan types to run
     if secrets:
         scan_type = "secrets"
     elif code:
@@ -187,78 +76,53 @@ def scan(
         print_error(f"Path not found: {path}")
         raise typer.Exit(1)
 
+    plsec_home = get_plsec_home()
     ok_count = 0
     warn_count = 0
     error_count = 0
 
-    # Secret scanning
-    if scan_type in ("secrets", "all"):
-        print_header("Secret Scanning (Trivy)")
-        passed, output = run_trivy_secrets(path)
+    # Group scanners by scan_type for section headers
+    current_section: str | None = None
+
+    for _sid, spec in SCANNERS.items():
+        # Filter by requested scan type
+        if scan_type != "all" and spec.scan_type != scan_type:
+            continue
+
+        # Print section header on type change
+        if spec.scan_type != current_section:
+            current_section = spec.scan_type
+            section_titles = {
+                "secrets": "Secret Scanning",
+                "code": "Code Analysis",
+                "misconfig": "Misconfiguration Scanning",
+            }
+            print_header(section_titles.get(current_section, current_section.title()))
+
+        # Run the scanner
+        print_info(f"Running {spec.display_name}...")
+        passed, message = run_scanner(spec, path, plsec_home)
+
         if passed:
-            print_ok("No secrets detected")
+            if "skipped" in message.lower() or "not installed" in message.lower():
+                print_info(message)
+            else:
+                print_ok(f"{spec.display_name}: {message}")
             ok_count += 1
         else:
-            if "No secret detected" in output:
-                print_ok("No secrets detected")
-                ok_count += 1
-            else:
-                print_error("Potential secrets found")
-                console.print(output)
+            # Secrets are errors; code/misconfig are warnings
+            if spec.scan_type == "secrets":
+                print_error(f"{spec.display_name}: Potential issues found")
+                console.print(message)
                 error_count += 1
-
-    # Code analysis
-    if scan_type in ("code", "all"):
-        print_header("Code Analysis")
-
-        # Bandit
-        print_info("Running Bandit...")
-        passed, output = run_bandit(path)
-        if passed:
-            if "skipped" in output.lower():
-                print_info(output)
             else:
-                print_ok("Bandit: No issues found")
-            ok_count += 1
-        else:
-            print_warning("Bandit: Issues found")
-            console.print(output)
-            warn_count += 1
-
-        # Semgrep
-        print_info("Running Semgrep...")
-        passed, output = run_semgrep(path)
-        if passed:
-            if "skipped" in output.lower():
-                print_info(output)
-            else:
-                print_ok("Semgrep: No issues found")
-            ok_count += 1
-        else:
-            print_warning("Semgrep: Issues found")
-            console.print(output)
-            warn_count += 1
-
-    # Misconfiguration scanning
-    if scan_type in ("misconfig", "all"):
-        print_header("Misconfiguration Scanning (Trivy)")
-        passed, output = run_trivy_misconfig(path)
-        if passed:
-            print_ok("No misconfigurations detected")
-            ok_count += 1
-        else:
-            if "Detected" not in output:
-                print_ok("No misconfigurations detected")
-                ok_count += 1
-            else:
-                print_warning("Misconfigurations found")
-                console.print(output)
+                print_warning(f"{spec.display_name}: Issues found")
+                console.print(message)
                 warn_count += 1
 
-    # Dependency audit
+    # Dependency audit (not yet backed by a scanner registry entry)
     if scan_type in ("deps", "all"):
         print_header("Dependency Audit")
-        # TODO: Implement pip-audit, npm audit, etc.
         print_info("Dependency audit not yet implemented")
 
     # Summary

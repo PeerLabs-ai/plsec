@@ -14,12 +14,7 @@ from typing import Annotated, Literal
 
 import typer
 
-from plsec.configs.templates import (
-    CLAUDE_MD_BALANCED,
-    CLAUDE_MD_STRICT,
-    OPENCODE_JSON_BALANCED,
-    OPENCODE_JSON_STRICT,
-)
+from plsec.core.agents import AGENTS, get_template, resolve_agent_ids
 from plsec.core.detector import ProjectDetector, ProjectInfo, SecurityIssue
 from plsec.core.output import console, print_error, print_ok, print_warning
 from plsec.core.wizard import (
@@ -36,7 +31,6 @@ app = typer.Typer(
 
 
 Preset = Literal["minimal", "balanced", "strict", "paranoid"]
-AgentType = Literal["claude", "opencode", "both"]
 
 
 @dataclass
@@ -122,6 +116,48 @@ def display_issues(issues: list[SecurityIssue]) -> None:
         console.print(f"    ... and {len(issues) - 10} more")
 
 
+def _add_agent_config_changes(
+    changes: ChangeSet,
+    info: ProjectInfo,
+    state: WizardState,
+    force: bool,
+) -> None:
+    """Add agent config file changes for each selected agent."""
+    for aid in state.agents:
+        if aid not in AGENTS:
+            continue
+        spec = AGENTS[aid]
+        template = get_template(aid, state.preset)
+        has_config = info.detected_agents.get(aid, False)
+
+        if not has_config:
+            changes.creates.append(
+                Change(
+                    action="create",
+                    path=spec.config_filename,
+                    description=f"{spec.display_name} configuration",
+                    content=template,
+                )
+            )
+        elif force:
+            changes.modifies.append(
+                Change(
+                    action="modify",
+                    path=spec.config_filename,
+                    description="Replace with template",
+                    content=template,
+                )
+            )
+        else:
+            changes.conflicts.append(
+                Change(
+                    action="conflict",
+                    path=spec.config_filename,
+                    description="Exists but differs from template",
+                )
+            )
+
+
 def calculate_changes(
     project_path: Path,
     info: ProjectInfo,
@@ -132,67 +168,12 @@ def calculate_changes(
     changes = ChangeSet()
     is_strict = state.preset in ("strict", "paranoid")
 
-    # CLAUDE.md
-    claude_content = CLAUDE_MD_STRICT if is_strict else CLAUDE_MD_BALANCED
-    if "claude" in state.agents:
-        if not info.has_claude_md:
-            changes.creates.append(
-                Change(
-                    action="create",
-                    path="CLAUDE.md",
-                    description="AI assistant constraints",
-                    content=claude_content,
-                )
-            )
-        elif force:
-            changes.modifies.append(
-                Change(
-                    action="modify",
-                    path="CLAUDE.md",
-                    description="Replace with template",
-                    content=claude_content,
-                )
-            )
-        else:
-            changes.conflicts.append(
-                Change(
-                    action="conflict",
-                    path="CLAUDE.md",
-                    description="Exists but differs from template",
-                )
-            )
+    # Agent config files (CLAUDE.md, opencode.json, etc.)
+    _add_agent_config_changes(changes, info, state, force)
 
-    # opencode.json
-    opencode_content = OPENCODE_JSON_STRICT if is_strict else OPENCODE_JSON_BALANCED
-    if "opencode" in state.agents:
-        if not info.has_opencode_json:
-            changes.creates.append(
-                Change(
-                    action="create",
-                    path="opencode.json",
-                    description="OpenCode configuration",
-                    content=opencode_content,
-                )
-            )
-        elif force:
-            changes.modifies.append(
-                Change(
-                    action="modify",
-                    path="opencode.json",
-                    description="Replace with template",
-                    content=opencode_content,
-                )
-            )
-        else:
-            changes.skips.append(
-                Change(
-                    action="skip",
-                    path="opencode.json",
-                    description="Already exists",
-                )
-            )
-
-    # plsec.yaml
+    # plsec.yaml -- use the first managed agent's config_type
+    managed = [a for a in state.agents if a in AGENTS]
+    first_spec = AGENTS[managed[0]] if managed else AGENTS["claude"]
     plsec_yaml = f"""version: 1
 
 project:
@@ -200,8 +181,8 @@ project:
   type: {info.type}
 
 agent:
-  type: {"claude-code" if "claude" in state.agents else "opencode"}
-  config_path: ./CLAUDE.md
+  type: {first_spec.config_type}
+  config_path: ./{first_spec.config_filename}
 
 layers:
   static:
@@ -443,7 +424,7 @@ def secure(
         typer.Option("--preset", "-p", help="Security preset: minimal, balanced, strict, paranoid"),
     ] = "balanced",
     agent: Annotated[
-        AgentType, typer.Option("--agent", "-a", help="AI agent: claude, opencode, both")
+        str, typer.Option("--agent", "-a", help="AI agent: claude, opencode, both")
     ] = "both",
     no_wizard: Annotated[
         bool, typer.Option("--no-wizard", help="Skip wizard, use detected/default values")
@@ -490,11 +471,10 @@ def secure(
     total_files = sum(info.file_counts.values())
     print_ok(f"Detected: {total_files} files")
 
-    # Check existing security
-    if not info.has_claude_md:
-        print_warning("No CLAUDE.md found")
-    if not info.has_opencode_json:
-        print_warning("No opencode.json found")
+    # Check existing agent configs
+    for aid, spec in AGENTS.items():
+        if not info.detected_agents.get(aid, False):
+            print_warning(f"No {spec.config_filename} found")
     if not info.has_pre_commit:
         print_warning("No pre-commit hooks installed")
     if info.has_gitignore:
@@ -517,7 +497,7 @@ def secure(
         state = WizardState(
             project_name=info.name,
             project_type=info.type,
-            agents=["claude", "opencode"] if agent == "both" else [agent],
+            agents=resolve_agent_ids(agent),
             preset=preset,
             cloud_providers=info.cloud_providers,
         )
@@ -585,8 +565,8 @@ def secure(
                 print_ok("No new issues found")
             else:
                 print_warning("Issues found - review output above")
-        except Exception:
-            print_warning("Scan failed")
+        except (OSError, subprocess.SubprocessError) as e:
+            print_warning(f"Scan failed: {e}")
 
     # Display remaining issues
     if issues:

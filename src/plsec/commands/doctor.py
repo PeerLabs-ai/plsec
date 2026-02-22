@@ -2,15 +2,25 @@
 plsec doctor - Check system dependencies and configuration.
 
 Verifies that all required tools are installed and properly configured.
+Delegates health checks to core/health.py and renders results.
 """
 
 __version__ = "0.1.0"
 
-import sys
-
 import typer
 
+from plsec.core.agents import AGENTS
 from plsec.core.config import find_config_file, get_plsec_home
+from plsec.core.health import (
+    CheckResult,
+    check_agent_configs,
+    check_config_file,
+    check_directory_structure,
+    check_runtime,
+    check_tools,
+    count_verdicts,
+    exit_code_for,
+)
 from plsec.core.output import (
     console,
     print_error,
@@ -24,13 +34,30 @@ from plsec.core.tools import (
     OPTIONAL_TOOLS,
     REQUIRED_TOOLS,
     ToolChecker,
-    ToolStatus,
 )
 
 app = typer.Typer(
     help="Check system dependencies and configuration.",
     no_args_is_help=False,
 )
+
+
+def _render_result(result: CheckResult) -> None:
+    """Render a single CheckResult using the output helpers."""
+    if result.verdict == "ok":
+        print_ok(result.name, details=result.detail or None)
+    elif result.verdict == "warn":
+        print_warning(result.name, details=result.fix_hint or result.detail or None)
+    elif result.verdict == "fail":
+        print_error(result.name, details=result.fix_hint or result.detail or None)
+    elif result.verdict == "skip":
+        print_status(result.name, "info", details=result.fix_hint or result.detail or None)
+
+
+def _render_results(results: list[CheckResult]) -> None:
+    """Render a batch of CheckResults."""
+    for r in results:
+        _render_result(r)
 
 
 @app.callback(invoke_without_command=True)
@@ -65,137 +92,72 @@ def doctor(
     """
     console.print("[bold]plsec doctor[/bold] - System health check\n")
 
-    ok_count = 0
-    warn_count = 0
-    error_count = 0
-
-    # Check plsec home directory
-    print_header("Directory Structure")
+    all_results: list[CheckResult] = []
     plsec_home = get_plsec_home()
 
-    if plsec_home.exists():
-        print_ok(f"plsec home: {plsec_home}")
-        ok_count += 1
-    else:
-        print_warning(f"plsec home not found: {plsec_home}")
-        warn_count += 1
+    # Directory structure
+    print_header("Directory Structure")
+    results = check_directory_structure(plsec_home, fix=fix)
+    _render_results(results)
+    all_results.extend(results)
 
-    # Check subdirectories
-    subdirs = ["configs", "logs", "manifests", "trivy"]
-    for subdir in subdirs:
-        path = plsec_home / subdir
-        if path.exists():
-            print_ok(f"  {subdir}/", details=str(path))
-            ok_count += 1
-        else:
-            if fix:
-                path.mkdir(parents=True, exist_ok=True)
-                print_ok(f"  {subdir}/ (created)", details=str(path))
-                ok_count += 1
-            else:
-                print_warning(f"  {subdir}/ missing", details="Run with --fix to create")
-                warn_count += 1
-
-    # Check for configuration file
+    # Configuration file
     print_header("Configuration")
-    config_file = find_config_file()
+    results = check_config_file(find_config_file())
+    _render_results(results)
+    all_results.extend(results)
 
-    if config_file:
-        print_ok(f"Config file: {config_file}")
-        ok_count += 1
-    else:
-        print_status("No plsec.yaml found", "info", details="Run 'plsec init' to create one")
+    # Agent configs
+    results = check_agent_configs(plsec_home, AGENTS)
+    _render_results(results)
+    all_results.extend(results)
 
-    # Check for agent configs
-    claude_md = plsec_home / "configs" / "CLAUDE.md"
-    opencode_json = plsec_home / "configs" / "opencode.json"
-
-    if claude_md.exists():
-        print_ok(f"CLAUDE.md template: {claude_md}")
-        ok_count += 1
-    else:
-        print_warning("CLAUDE.md template missing", details="Run 'plsec init' to create")
-        warn_count += 1
-
-    if opencode_json.exists():
-        print_ok(f"opencode.json template: {opencode_json}")
-        ok_count += 1
-    else:
-        print_warning("opencode.json template missing", details="Run 'plsec init' to create")
-        warn_count += 1
-
-    # Check required tools
+    # Required tools
     print_header("Required Tools")
     checker = ToolChecker(REQUIRED_TOOLS.copy())
     checker.check_all()
+    results = check_tools(checker.tools)
+    _render_results(results)
+    all_results.extend(results)
 
-    for tool in checker.tools:
-        if tool.status == ToolStatus.OK:
-            version_info = f"v{tool.version}" if tool.version else ""
-            print_ok(f"{tool.name} {version_info}", details=tool.path)
-            ok_count += 1
-        elif tool.status == ToolStatus.MISSING:
-            if tool.required:
-                print_error(f"{tool.name} not found", details=tool.install_hint)
-                error_count += 1
-            else:
-                print_warning(f"{tool.name} not found (optional)", details=tool.install_hint)
-                warn_count += 1
-        elif tool.status == ToolStatus.OUTDATED:
-            print_warning(
-                f"{tool.name} v{tool.version} (outdated)",
-                details=f"Minimum: v{tool.min_version}",
-            )
-            warn_count += 1
-        else:
-            print_error(f"{tool.name}: {tool.error}")
-            error_count += 1
-
-    # Check optional tools if requested
+    # Optional tools
     if all_tools:
         print_header("Optional Tools")
         opt_checker = ToolChecker(OPTIONAL_TOOLS.copy())
         opt_checker.check_all()
+        results = check_tools(opt_checker.tools)
+        _render_results(results)
+        all_results.extend(results)
 
-        for tool in opt_checker.tools:
-            if tool.status == ToolStatus.OK:
-                version_info = f"v{tool.version}" if tool.version else ""
-                print_ok(f"{tool.name} {version_info}", details=tool.path)
-                ok_count += 1
-            elif tool.status == ToolStatus.MISSING:
-                print_status(
-                    f"{tool.name} not installed",
-                    "skip",
-                    details=tool.install_hint,
-                )
-            else:
-                print_warning(f"{tool.name}: {tool.error}")
-                warn_count += 1
-
-    # Check Python version
+    # Runtime
     print_header("Runtime")
-    py_version = sys.version_info
-    if py_version >= (3, 12):
-        print_ok(f"Python {py_version.major}.{py_version.minor}.{py_version.micro}")
-        ok_count += 1
-    else:
-        print_error(f"Python {py_version.major}.{py_version.minor} (requires 3.12+)")
-        error_count += 1
+    results = check_runtime()
+    _render_results(results)
+    all_results.extend(results)
 
     # Summary
-    print_summary("Health check", ok=ok_count, warnings=warn_count, errors=error_count)
+    verdicts = count_verdicts(all_results)
+    print_summary(
+        "Health check",
+        ok=verdicts["ok"],
+        warnings=verdicts["warn"],
+        errors=verdicts["fail"],
+    )
 
-    if error_count > 0:
+    exit_code = exit_code_for(all_results)
+
+    if exit_code != 0:
         console.print("\n[red]Some required dependencies are missing.[/red]")
         if install:
             console.print("\nInstallation hints:")
-            for tool in checker.get_missing():
-                console.print(f"  {tool.install_hint}")
+            for r in all_results:
+                if r.verdict == "fail" and r.fix_hint:
+                    console.print(f"  {r.fix_hint}")
         else:
             console.print("Run with --install to see installation hints.")
         raise typer.Exit(1)
 
-    if warn_count > 0:
+    if verdicts["warn"] > 0:
         console.print("\n[yellow]Some optional items need attention.[/yellow]")
         if fix:
             console.print("Some issues were fixed. Re-run to verify.")

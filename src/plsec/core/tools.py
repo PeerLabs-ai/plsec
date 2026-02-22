@@ -160,7 +160,7 @@ class ToolChecker:
         except subprocess.TimeoutExpired:
             tool.status = ToolStatus.ERROR
             tool.error = "Command timed out"
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError, ValueError, IndexError) as e:
             tool.status = ToolStatus.ERROR
             tool.error = str(e)
 

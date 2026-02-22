@@ -1,9 +1,9 @@
-"""Tests for validation functions (commands/validate.py).
+"""Tests for validation functions.
 
-Covers the three pure-function validators:
-- validate_yaml_syntax: checks YAML parseability
-- validate_claude_md: checks CLAUDE.md has expected sections
-- validate_opencode_json: checks opencode.json syntax and schema fields
+Covers:
+- validate_yaml_syntax (commands/validate.py): checks YAML parseability
+- Agent validators via AGENTS registry (core/agents.py): each AgentSpec
+  carries a `validate` callable that checks the agent's config file.
 
 These functions take a Path and return (bool, error_or_warnings).
 They do not touch the console or raise SystemExit, making them
@@ -13,11 +13,15 @@ straightforward to test as pure logic.
 import json
 from pathlib import Path
 
-from plsec.commands.validate import (
-    validate_claude_md,
-    validate_opencode_json,
-    validate_yaml_syntax,
-)
+from plsec.commands.validate import validate_yaml_syntax
+from plsec.core.agents import AGENTS
+
+# Agent validators accessed through the registry.
+# Both are guaranteed non-None for "claude" and "opencode".
+assert AGENTS["claude"].validate is not None
+assert AGENTS["opencode"].validate is not None
+validate_claude_md = AGENTS["claude"].validate
+validate_opencode_json = AGENTS["opencode"].validate
 
 # -----------------------------------------------------------------------
 # validate_yaml_syntax

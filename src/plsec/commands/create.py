@@ -13,12 +13,7 @@ from typing import Annotated, Literal
 
 import typer
 
-from plsec.configs.templates import (
-    CLAUDE_MD_BALANCED,
-    CLAUDE_MD_STRICT,
-    OPENCODE_JSON_BALANCED,
-    OPENCODE_JSON_STRICT,
-)
+from plsec.core.agents import AGENTS, get_template, resolve_agent_ids
 from plsec.core.config import get_plsec_home
 from plsec.core.output import console, print_error, print_ok, print_warning
 from plsec.core.wizard import (
@@ -39,7 +34,6 @@ app = typer.Typer(
 
 ProjectType = Literal["python", "node", "go", "rust", "mixed", "other"]
 Preset = Literal["minimal", "balanced", "strict", "paranoid"]
-AgentType = Literal["claude", "opencode", "both"]
 
 
 def create_python_template(project_path: Path, name: str) -> None:
@@ -397,7 +391,7 @@ def create(
         typer.Option("--preset", "-p", help="Security preset: minimal, balanced, strict, paranoid"),
     ] = "balanced",
     agent: Annotated[
-        AgentType, typer.Option("--agent", "-a", help="AI agent: claude, opencode, both")
+        str, typer.Option("--agent", "-a", help="AI agent: claude, opencode, both")
     ] = "both",
     no_wizard: Annotated[
         bool, typer.Option("--no-wizard", help="Skip wizard, use defaults/flags only")
@@ -428,7 +422,7 @@ def create(
         state = WizardState(
             project_name=name,
             project_type=template,
-            agents=["claude", "opencode"] if agent == "both" else [agent],
+            agents=resolve_agent_ids(agent),
             preset=preset,
         )
     else:
@@ -476,20 +470,16 @@ def create(
     # Determine if strict mode
     is_strict = state.preset in ("strict", "paranoid")
 
-    # Create CLAUDE.md
-    if "claude" in state.agents or "both" in state.agents:
-        claude_content = CLAUDE_MD_STRICT if is_strict else CLAUDE_MD_BALANCED
-        (project_path / "CLAUDE.md").write_text(claude_content)
-        print_ok("Created CLAUDE.md")
-
-    # Create opencode.json
-    if "opencode" in state.agents or "both" in state.agents:
-        opencode_content = OPENCODE_JSON_STRICT if is_strict else OPENCODE_JSON_BALANCED
-        (project_path / "opencode.json").write_text(opencode_content)
-        print_ok("Created opencode.json")
+    # Create agent config files from registry
+    managed = [a for a in state.agents if a in AGENTS]
+    for aid in managed:
+        spec = AGENTS[aid]
+        agent_template = get_template(aid, state.preset)
+        (project_path / spec.config_filename).write_text(agent_template)
+        print_ok(f"Created {spec.config_filename}")
 
     # Create plsec.yaml
-    # (simplified - would use config builder in full implementation)
+    first_spec = AGENTS[managed[0]] if managed else AGENTS["claude"]
     plsec_yaml = f"""version: 1
 
 project:
@@ -497,8 +487,8 @@ project:
   type: {state.project_type}
 
 agent:
-  type: {"claude-code" if "claude" in state.agents else "opencode"}
-  config_path: ./CLAUDE.md
+  type: {first_spec.config_type}
+  config_path: ./{first_spec.config_filename}
 
 layers:
   static:

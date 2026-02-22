@@ -46,24 +46,48 @@ class AgentSpec:
 # Registry
 # ---------------------------------------------------------------------------
 
-# Validators are imported lazily to avoid circular imports between
-# core/ and commands/.  The validate.py functions have signature:
-#   (Path) -> tuple[bool, list[str]]
-# We wire them up here with late imports inside thin wrappers.
+# Validators live here (not in commands/) so the registry is self-contained.
+# Signature: (Path) -> tuple[bool, list[str]]
 
 
 def _validate_claude_md(path: Path) -> tuple[bool, list[str]]:
-    """Validate CLAUDE.md by delegating to commands.validate."""
-    from plsec.commands.validate import validate_claude_md
-
-    return validate_claude_md(path)
+    """Validate CLAUDE.md has expected sections."""
+    warnings: list[str] = []
+    try:
+        content = path.read_text()
+        for section in ("NEVER", "ALWAYS"):
+            if section not in content.upper():
+                warnings.append(f"Missing '{section}' section")
+        return True, warnings
+    except OSError as e:
+        return False, [str(e)]
 
 
 def _validate_opencode_json(path: Path) -> tuple[bool, list[str]]:
-    """Validate opencode.json by delegating to commands.validate."""
-    from plsec.commands.validate import validate_opencode_json
+    """Validate opencode.json syntax and schema."""
+    import json
 
-    return validate_opencode_json(path)
+    warnings: list[str] = []
+    try:
+        with open(path) as f:
+            data = json.load(f)
+
+        if "$schema" not in data:
+            warnings.append("Missing $schema field (recommended: https://opencode.ai/config.json)")
+        if "permission" not in data:
+            warnings.append("Missing 'permission' section")
+        else:
+            perm = data["permission"]
+            if isinstance(perm, dict):
+                if "bash" not in perm:
+                    warnings.append("No bash permission rules defined")
+                if "external_directory" not in perm:
+                    warnings.append("No external_directory permission (recommended: deny or ask)")
+        return True, warnings
+    except json.JSONDecodeError as e:
+        return False, [f"Invalid JSON: {e}"]
+    except OSError as e:
+        return False, [str(e)]
 
 
 AGENTS: dict[str, AgentSpec] = {

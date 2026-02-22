@@ -11,12 +11,7 @@ from typing import Annotated, Literal
 
 import typer
 
-from plsec.configs.templates import (
-    CLAUDE_MD_BALANCED,
-    CLAUDE_MD_STRICT,
-    OPENCODE_JSON_BALANCED,
-    OPENCODE_JSON_STRICT,
-)
+from plsec.core.agents import AGENTS, get_template, resolve_agent_ids
 from plsec.core.config import (
     AgentConfig,
     AuditLayerConfig,
@@ -44,8 +39,6 @@ app = typer.Typer(
 
 
 Preset = Literal["minimal", "balanced", "strict", "paranoid"]
-AgentType = Literal["claude", "opencode", "both"]
-
 
 ProjectType = Literal["python", "node", "go", "mixed"]
 
@@ -106,7 +99,7 @@ def init(
         ),
     ] = "balanced",
     agent: Annotated[
-        AgentType, typer.Option("--agent", "-a", help="Agent type: claude, opencode, both.")
+        str, typer.Option("--agent", "-a", help="Agent type: claude, opencode, both.")
     ] = "both",
     force: Annotated[
         bool, typer.Option("--force", "-f", help="Overwrite existing configuration files.")
@@ -133,13 +126,9 @@ def init(
     """
     console.print(f"[bold]plsec init[/bold] - Initializing with preset: {preset}\n")
 
+    agent_ids = resolve_agent_ids(agent)
     cwd = Path.cwd()
     plsec_home = get_plsec_home()
-    is_strict = preset in ("strict", "paranoid")
-
-    # Determine which templates to use
-    claude_md = CLAUDE_MD_STRICT if is_strict else CLAUDE_MD_BALANCED
-    opencode_json = OPENCODE_JSON_STRICT if is_strict else OPENCODE_JSON_BALANCED
 
     # Set up global configs
     print_header("Global Configuration (~/.peerlabs/plsec)")
@@ -148,33 +137,26 @@ def init(
     for subdir in ["configs", "logs", "manifests", "trivy", "trivy/policies"]:
         (plsec_home / subdir).mkdir(parents=True, exist_ok=True)
 
-    # Write global CLAUDE.md template
-    if agent in ("claude", "both"):
-        claude_path = plsec_home / "configs" / "CLAUDE.md"
-        if not claude_path.exists() or force:
-            claude_path.write_text(claude_md)
-            print_ok(f"Created {claude_path}")
+    # Write global agent config templates
+    for aid in agent_ids:
+        spec = AGENTS[aid]
+        template = get_template(aid, preset)
+        global_path = plsec_home / "configs" / spec.config_filename
+        if not global_path.exists() or force:
+            global_path.write_text(template)
+            print_ok(f"Created {global_path}")
         else:
-            print_warning(f"Exists: {claude_path} (use --force to overwrite)")
+            print_warning(f"Exists: {global_path} (use --force to overwrite)")
 
-    # Write global opencode.json template
-    if agent in ("opencode", "both"):
-        opencode_path = plsec_home / "configs" / "opencode.json"
-        if not opencode_path.exists() or force:
-            opencode_path.write_text(opencode_json)
-            print_ok(f"Created {opencode_path}")
-        else:
-            print_warning(f"Exists: {opencode_path} (use --force to overwrite)")
-
-        # Also install to ~/.config/opencode/
-        opencode_global = Path.home() / ".config" / "opencode"
-        opencode_global.mkdir(parents=True, exist_ok=True)
-        opencode_global_config = opencode_global / "opencode.json"
-        if not opencode_global_config.exists() or force:
-            opencode_global_config.write_text(opencode_json)
-            print_ok(f"Created {opencode_global_config}")
-        else:
-            print_warning(f"Exists: {opencode_global_config}")
+        # Install to agent's global config dir if one is defined
+        if spec.global_config_dir is not None:
+            spec.global_config_dir.mkdir(parents=True, exist_ok=True)
+            global_config = spec.global_config_dir / spec.config_filename
+            if not global_config.exists() or force:
+                global_config.write_text(template)
+                print_ok(f"Created {global_config}")
+            else:
+                print_warning(f"Exists: {global_config}")
 
     if global_only:
         console.print("\n[green]Global configuration complete.[/green]")
@@ -187,25 +169,19 @@ def init(
     project_type = detect_project_type(cwd)
     print_info(f"Detected project type: {project_type}")
 
-    # Write project CLAUDE.md
-    if agent in ("claude", "both"):
-        project_claude = cwd / "CLAUDE.md"
-        if not project_claude.exists() or force:
-            project_claude.write_text(claude_md)
-            print_ok(f"Created {project_claude}")
+    # Write project agent configs
+    for aid in agent_ids:
+        spec = AGENTS[aid]
+        template = get_template(aid, preset)
+        project_path = cwd / spec.config_filename
+        if not project_path.exists() or force:
+            project_path.write_text(template)
+            print_ok(f"Created {project_path}")
         else:
-            print_warning(f"Exists: {project_claude}")
+            print_warning(f"Exists: {project_path}")
 
-    # Write project opencode.json
-    if agent in ("opencode", "both"):
-        project_opencode = cwd / "opencode.json"
-        if not project_opencode.exists() or force:
-            project_opencode.write_text(opencode_json)
-            print_ok(f"Created {project_opencode}")
-        else:
-            print_warning(f"Exists: {project_opencode}")
-
-    # Create plsec.yaml
+    # Create plsec.yaml -- use the first agent's config_type
+    first_spec = AGENTS[agent_ids[0]]
     project_config = cwd / "plsec.yaml"
     if not project_config.exists() or force:
         config = PlsecConfig(
@@ -214,7 +190,7 @@ def init(
                 type=project_type,
             ),
             agent=AgentConfig(
-                type="claude-code" if agent == "claude" else "opencode",
+                type=first_spec.config_type,
             ),
             layers=get_preset_config(preset),
         )
