@@ -56,8 +56,10 @@ AI coding agents have broad filesystem and network access. Without guardrails, t
 
 - [x] **Path migration**: Unify Python CLI to use `~/.peerlabs/plsec` (see below)
 - [ ] Build pytest test cases for Python CLI component (see TESTING.md)
-- [ ] Verify ty type checker integration works correctly
-- [ ] **Unify build system through Make** (see below)
+- [x] Verify ty type checker integration works correctly
+- [x] **Unify build system through Make** (see below). All targets
+  implemented except `make docs` / `make docs-build`, which depend on
+  mkdocs setup (separate TODO).
 - [x] **Registry refactoring**: Extract agent, scanner, and process registries
   from command files into `core/agents.py`, `core/scanners.py`,
   `core/processes.py`. Decompose `doctor.py` into reusable health check
@@ -150,10 +152,12 @@ The Python CLI still uses the old `~/.plsec` path. These must be unified.
 | Bootstrap script  | Makefile passes `VERSION+bootstrap` to assembler | `0.1.0+bootstrap` |
 | Uninstalled dev   | Fallback in `__init__.py`                        | `0.0.0-dev`       |
 
-## Makefile Unification
+## Makefile Unification (complete)
 
-Currently there are two entry points: Make (bootstrap side) and pytest/uv
-(Python side). Unify everything under Make so `make all` works end-to-end.
+Make is the unified entry point. `make all` and `make ci` run the full
+pipeline (lint, type check, build, test, verify) across both Python and
+bootstrap sides. The `make docs` and `make docs-build` targets will be
+added when mkdocs is set up.
 
 ### Proposed target map
 
