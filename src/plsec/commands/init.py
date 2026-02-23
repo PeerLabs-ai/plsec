@@ -2,6 +2,8 @@
 plsec init - Initialize security configuration for a project.
 
 Sets up CLAUDE.md, opencode.json, plsec.yaml, and related configs.
+Delegates global configuration deployment to ``plsec install``
+shared logic.
 """
 
 __version__ = "0.1.0"
@@ -11,7 +13,7 @@ from typing import Annotated, Literal
 
 import typer
 
-from plsec.configs.templates import PRE_COMMIT_HOOK, TRIVY_CONFIG_YAML, TRIVY_SCAN_RULES_YAML
+from plsec.commands.install import deploy_global_configs
 from plsec.core.agents import AGENTS, get_template, resolve_agent_ids
 from plsec.core.config import (
     AgentConfig,
@@ -91,15 +93,6 @@ def get_preset_config(preset: Preset) -> LayersConfig:
         )
 
 
-def _deploy_global_file(path: Path, content: str, *, force: bool = False) -> None:
-    """Write a global config file if missing or force is set."""
-    if not path.exists() or force:
-        path.write_text(content)
-        print_ok(f"Created {path}")
-    else:
-        print_warning(f"Exists: {path} (use --force to overwrite)")
-
-
 @app.callback(invoke_without_command=True)
 def init(
     preset: Annotated[
@@ -116,7 +109,11 @@ def init(
     ] = False,
     global_only: Annotated[
         bool,
-        typer.Option("--global", "-g", help="Only set up global configs in ~/.peerlabs/plsec."),
+        typer.Option(
+            "--global",
+            "-g",
+            help="[Deprecated: use 'plsec install'] Set up global configs only.",
+        ),
     ] = False,
     with_pipelock: Annotated[
         bool, typer.Option("--with-pipelock", help="Include Pipelock proxy configuration.")
@@ -136,61 +133,24 @@ def init(
     """
     console.print(f"[bold]plsec init[/bold] - Initializing with preset: {preset}\n")
 
-    agent_ids = resolve_agent_ids(agent)
-    cwd = Path.cwd()
+    if global_only:
+        console.print(
+            "[yellow]Note: --global is deprecated. Use 'plsec install' instead.[/yellow]\n"
+        )
+
     plsec_home = get_plsec_home()
 
-    # Set up global configs
+    # Deploy global configs (shared with plsec install)
     print_header("Global Configuration (~/.peerlabs/plsec)")
-
-    # Create directory structure
-    for subdir in ["configs", "logs", "manifests", "trivy", "trivy/policies"]:
-        (plsec_home / subdir).mkdir(parents=True, exist_ok=True)
-
-    # Write global agent config templates
-    for aid in agent_ids:
-        spec = AGENTS[aid]
-        template = get_template(aid, preset)
-        global_path = plsec_home / "configs" / spec.config_filename
-        if not global_path.exists() or force:
-            global_path.write_text(template)
-            print_ok(f"Created {global_path}")
-        else:
-            print_warning(f"Exists: {global_path} (use --force to overwrite)")
-
-        # Install to agent's global config dir if one is defined
-        if spec.global_config_dir is not None:
-            spec.global_config_dir.mkdir(parents=True, exist_ok=True)
-            global_config = spec.global_config_dir / spec.config_filename
-            if not global_config.exists() or force:
-                global_config.write_text(template)
-                print_ok(f"Created {global_config}")
-            else:
-                print_warning(f"Exists: {global_config}")
-
-    # Deploy scanner configs -- these are required by plsec scan
-    _deploy_global_file(
-        plsec_home / "trivy" / "trivy-secret.yaml",
-        TRIVY_SCAN_RULES_YAML.lstrip("\n"),
-        force=force,
-    )
-    _deploy_global_file(
-        plsec_home / "trivy" / "trivy.yaml",
-        TRIVY_CONFIG_YAML.lstrip("\n"),
-        force=force,
-    )
-
-    # Deploy pre-commit hook template
-    pre_commit_path = plsec_home / "configs" / "pre-commit"
-    _deploy_global_file(pre_commit_path, PRE_COMMIT_HOOK.lstrip("\n"), force=force)
-    if pre_commit_path.exists():
-        pre_commit_path.chmod(0o755)
+    deploy_global_configs(plsec_home, preset=preset, agent=agent, force=force)
 
     if global_only:
         console.print("\n[green]Global configuration complete.[/green]")
         raise typer.Exit(0)
 
     # Set up project configs
+    cwd = Path.cwd()
+    agent_ids = resolve_agent_ids(agent)
     print_header(f"Project Configuration ({cwd})")
 
     # Detect project type

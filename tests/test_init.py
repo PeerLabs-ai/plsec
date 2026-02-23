@@ -9,7 +9,8 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from plsec.commands.init import _deploy_global_file, app, detect_project_type, get_preset_config
+from plsec.commands.init import app, detect_project_type, get_preset_config
+from plsec.commands.install import _deploy_file
 
 runner = CliRunner()
 
@@ -108,25 +109,25 @@ class TestGetPresetConfig:
 # -----------------------------------------------------------------------
 
 
-class TestDeployGlobalFile:
-    """Contract: _deploy_global_file writes content to path, respecting
+class TestDeployFile:
+    """Contract: _deploy_file writes content to path, respecting
     force flag and existing files."""
 
     def test_creates_file_when_missing(self, tmp_path: Path):
         target = tmp_path / "test.yaml"
-        _deploy_global_file(target, "content\n")
+        _deploy_file(target, "content\n")
         assert target.read_text() == "content\n"
 
     def test_does_not_overwrite_without_force(self, tmp_path: Path):
         target = tmp_path / "test.yaml"
         target.write_text("original\n")
-        _deploy_global_file(target, "new content\n")
+        _deploy_file(target, "new content\n")
         assert target.read_text() == "original\n"
 
     def test_overwrites_with_force(self, tmp_path: Path):
         target = tmp_path / "test.yaml"
         target.write_text("original\n")
-        _deploy_global_file(target, "new content\n", force=True)
+        _deploy_file(target, "new content\n", force=True)
         assert target.read_text() == "new content\n"
 
 

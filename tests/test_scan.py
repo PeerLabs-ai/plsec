@@ -16,7 +16,8 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from plsec.commands.scan import app
+from plsec.commands.scan import _check_scanner_prerequisites, app
+from plsec.core.health import PLSEC_EXPECTED_FILES
 
 runner = CliRunner()
 
@@ -31,9 +32,20 @@ def _patch_scanner(passed: bool = True, message: str = "No issues found"):
     return patch("plsec.commands.scan.run_scanner", return_value=(passed, message))
 
 
+def _setup_plsec_home(tmp_path: Path) -> Path:
+    """Create a plsec_home with all expected scanner configs so pre-flight passes."""
+    plsec_home = tmp_path / ".peerlabs" / "plsec"
+    for rel_path, _desc in PLSEC_EXPECTED_FILES:
+        fpath = plsec_home / rel_path
+        fpath.parent.mkdir(parents=True, exist_ok=True)
+        fpath.write_text("placeholder\n")
+    return plsec_home
+
+
 def _patch_home(tmp_path: Path):
-    """Patch get_plsec_home to return tmp_path."""
-    return patch("plsec.commands.scan.get_plsec_home", return_value=tmp_path)
+    """Patch get_plsec_home to return a fully-populated plsec_home."""
+    plsec_home = _setup_plsec_home(tmp_path)
+    return patch("plsec.commands.scan.get_plsec_home", return_value=plsec_home)
 
 
 # -----------------------------------------------------------------------
@@ -189,3 +201,62 @@ class TestDependencyAudit:
         with _patch_home(tmp_path), _patch_scanner(True, "ok"):
             result = runner.invoke(app, ["--deps", str(tmp_path)])
         assert result.exit_code == 0
+
+
+# -----------------------------------------------------------------------
+# Pre-flight prerequisite check
+# -----------------------------------------------------------------------
+
+
+class TestScannerPrerequisites:
+    """Contract: _check_scanner_prerequisites raises typer.Exit(1)
+    when required scanner configs are missing, and passes silently
+    when all configs are present."""
+
+    def test_passes_when_all_present(self, tmp_path: Path):
+        """No exit when all expected files exist."""
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        for rel_path, _desc in PLSEC_EXPECTED_FILES:
+            fpath = plsec_home / rel_path
+            fpath.parent.mkdir(parents=True, exist_ok=True)
+            fpath.write_text("placeholder\n")
+        # Should not raise
+        _check_scanner_prerequisites(plsec_home)
+
+    def test_fails_when_all_missing(self, tmp_path: Path):
+        """Exit 1 when plsec_home exists but contains no configs."""
+        import typer
+
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        plsec_home.mkdir(parents=True)
+        import pytest
+
+        with pytest.raises(typer.Exit) as exc_info:
+            _check_scanner_prerequisites(plsec_home)
+        assert exc_info.value.exit_code == 1
+
+    def test_fails_when_partially_missing(self, tmp_path: Path):
+        """Exit 1 when only some configs exist."""
+        import typer
+
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        # Create only the first expected file, leave the rest missing
+        first_rel, _first_desc = PLSEC_EXPECTED_FILES[0]
+        first_path = plsec_home / first_rel
+        first_path.parent.mkdir(parents=True, exist_ok=True)
+        first_path.write_text("placeholder\n")
+        import pytest
+
+        with pytest.raises(typer.Exit) as exc_info:
+            _check_scanner_prerequisites(plsec_home)
+        assert exc_info.value.exit_code == 1
+
+    def test_cli_exits_1_when_configs_missing(self, tmp_path: Path):
+        """The scan CLI should exit 1 when pre-flight fails."""
+        # Use an empty plsec_home (no expected files) to trigger pre-flight failure
+        empty_home = tmp_path / "empty_plsec_home"
+        empty_home.mkdir(parents=True)
+        with patch("plsec.commands.scan.get_plsec_home", return_value=empty_home):
+            result = runner.invoke(app, [str(tmp_path)])
+        assert result.exit_code == 1
+        assert "plsec install" in result.output

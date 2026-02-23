@@ -81,8 +81,16 @@ install-test:  ## Test clean install in isolated venv
 	@echo "Clean install test passed."
 	@rm -rf /tmp/plsec-install-test
 
-deploy:  ## Deploy/redeploy global configs to ~/.peerlabs/plsec
-	uv run plsec init --force --global
+install-global:  ## Deploy global configs to ~/.peerlabs/plsec (via plsec install)
+	uv run plsec install --check
+
+deploy:  ## Force redeploy global configs to ~/.peerlabs/plsec
+	uv run plsec install --force --check
+
+reset:  ## Factory reset global state (non-interactive)
+	uv run plsec reset --yes
+
+clean-install: reset install-global  ## Reset + install + verify from clean slate
 
 # ---------------------------------------------------------------------------
 # Test
@@ -220,7 +228,7 @@ help:  ## Show this help
 	@echo ""
 
 .PHONY: all ci build promote clean \
-        setup setup-bats build-dist install-test deploy \
+        setup setup-bats build-dist install-test install-global deploy reset clean-install \
         test test-python test-unit test-integration test-container test-assembler \
         lint lint-python lint-templates lint-skeleton lint-bootstrap check format scan \
         golden golden-check verify \

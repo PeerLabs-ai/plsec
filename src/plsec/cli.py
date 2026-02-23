@@ -9,6 +9,8 @@ Commands:
     secure      Add security configuration to an existing project
     doctor      Check system dependencies and configuration
     init        Initialize security configuration for a project
+    install     Deploy global security configuration
+    reset       Factory reset global security configuration
     scan        Run security scanners
     proxy       Manage Pipelock runtime proxy
     validate    Validate configuration files
@@ -19,7 +21,18 @@ import typer
 from rich.console import Console
 
 from plsec import __version__
-from plsec.commands import create, doctor, init, integrity, proxy, scan, secure, validate
+from plsec.commands import (
+    create,
+    doctor,
+    init,
+    install,
+    integrity,
+    proxy,
+    reset,
+    scan,
+    secure,
+    validate,
+)
 
 # Create main app
 app = typer.Typer(
@@ -34,6 +47,8 @@ app.add_typer(create.app, name="create")
 app.add_typer(secure.app, name="secure")
 app.add_typer(doctor.app, name="doctor")
 app.add_typer(init.app, name="init")
+app.add_typer(install.app, name="install")
+app.add_typer(reset.app, name="reset")
 app.add_typer(scan.app, name="scan")
 app.add_typer(validate.app, name="validate")
 app.add_typer(proxy.app, name="proxy")

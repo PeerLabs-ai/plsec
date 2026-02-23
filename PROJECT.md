@@ -104,12 +104,16 @@ of truth).
   `--skip-files` (`**/*.pyc`) to trivy commands and `trivy.yaml`.
   Created `.trivyignore.yaml` with per-path suppression for 21 files.
   `plsec init` now deploys trivy configs. `plsec doctor` checks I-5/I-6/I-7.
-- [ ] **`plsec install` / `plsec reset` / `plsec uninstall`**: Lifecycle
-  management commands. `plsec install` deploys global configs (replaces
-  `plsec init --global`). `plsec reset` wipes and redeploys. `plsec
-  uninstall` cleanly removes all plsec artifacts. Includes artifact
-  inventory model in `core/inventory.py`, `plsec scan` pre-flight check,
-  and `make clean-install` CI target.
+- [x] **`plsec install` / `plsec reset`**: Lifecycle management commands.
+  `plsec install` deploys global configs (replaces `plsec init --global`).
+  `plsec reset` wipes and redeploys. Includes artifact inventory model in
+  `core/inventory.py`, `plsec scan` pre-flight check, `.installed.json`
+  metadata, and `make clean-install` / `make reset` / `make install-global`
+  targets. Phases 1-4 complete (inventory, install, scan pre-flight, reset).
+  (see [docs/DESIGN-INSTALL-RESET-UNINSTALL.md](docs/DESIGN-INSTALL-RESET-UNINSTALL.md))
+- [ ] **`plsec uninstall`**: Clean removal of all plsec artifacts. Interactive
+  mode with scope selection, template matching for project-local files, external
+  tool reporting. Phase 5 of lifecycle management.
   (see [docs/DESIGN-INSTALL-RESET-UNINSTALL.md](docs/DESIGN-INSTALL-RESET-UNINSTALL.md))
 - [ ] **Enhanced wrapper logging**: Upgrade wrapper templates from 3-line
   session bookends to full audit. Tier 1: git info, duration, preset.
@@ -260,7 +264,10 @@ added when mkdocs is set up.
 | `make check`            | `ty check src/`                          | Python    |
 | `make format`           | `ruff format .` (mutating, not in CI)    | Python    |
 | `make scan`             | `plsec scan .` (dogfood own codebase)    | Python    |
-| `make deploy`           | `plsec init --force --global` (redeploy) | Python    |
+| `make install-global`   | `plsec install --check` (deploy global)  | Python    |
+| `make deploy`           | `plsec install --force --check`          | Python    |
+| `make reset`            | `plsec reset --yes` (factory reset)      | Python    |
+| `make clean-install`    | Reset + install + verify from clean slate| Python    |
 | `make build-dist`       | Build sdist + wheel via `uv build`       | Python    |
 | `make install-test`     | Clean install test in isolated venv      | Python    |
 | `make test`             | All tests (Python + BATS)                | Both      |

@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 import typer
 
 from plsec.core.config import get_plsec_home
+from plsec.core.health import PLSEC_EXPECTED_FILES
 from plsec.core.output import (
     console,
     print_error,
@@ -31,6 +32,24 @@ app = typer.Typer(
 
 
 ScanType = Literal["secrets", "code", "deps", "misconfig", "all"]
+
+
+def _check_scanner_prerequisites(plsec_home: Path) -> None:
+    """Verify required scanner configs exist before scanning.
+
+    Fails fast with a clear message and exit code 1 when configs
+    are missing, rather than letting trivy produce confusing errors.
+    """
+    missing: list[tuple[str, str]] = []
+    for rel_path, description in PLSEC_EXPECTED_FILES:
+        if not (plsec_home / rel_path).exists():
+            missing.append((rel_path, description))
+    if missing:
+        print_error("Scanner configuration not found.")
+        for rel_path, description in missing:
+            console.print(f"  Missing: {description} ({rel_path})")
+        console.print("\nRun 'plsec install' to deploy scanner configs.")
+        raise typer.Exit(1)
 
 
 @app.callback(invoke_without_command=True)
@@ -77,6 +96,8 @@ def scan(
         raise typer.Exit(1)
 
     plsec_home = get_plsec_home()
+    _check_scanner_prerequisites(plsec_home)
+
     ok_count = 0
     warn_count = 0
     error_count = 0

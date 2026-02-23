@@ -1,14 +1,14 @@
 # plsec - HANDOFF
 
 **Last Updated:** 2026-02-22
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 458 pytest + 87 BATS tests, 71% coverage
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 547 pytest + 87 BATS tests, 74% coverage
 
 ---
 
 ## Goal
 
 Build **plsec**, a defense-in-depth security framework for AI coding assistants.
-This project has had nine objectives across sessions:
+This project has had ten objectives across sessions:
 
 1. Get `make ci` passing end-to-end after previous infrastructure work (complete)
 2. Remove Pydantic in favour of plain dataclasses (complete)
@@ -19,8 +19,9 @@ This project has had nine objectives across sessions:
 7. Registry module tests - write test files for the 4 new core modules (complete)
 8. Tier 3 command tests - subprocess-mocking tests for command modules (complete - Phase F)
 9. Fix scan bugs, close CLI/bootstrap gap, get `make scan` clean (complete)
+10. Lifecycle management - `plsec install`, `plsec reset`, scan pre-flight, artifact inventory (complete - Phases 1-4)
 
-Items 1-9 are complete.
+Items 1-10 are complete.
 
 ## Instructions
 
@@ -29,6 +30,7 @@ Items 1-9 are complete.
 - **Read TESTING.md** for the full pytest test plan (3 tiers, 18 test files)
 - **Read `docs/DESIGN-PLSEC-REFACTOR.md`** for the registry refactoring design:
   entity-operation model, 4 new core modules, phased implementation plan
+- **Read `docs/DESIGN-INSTALL-RESET-UNINSTALL.md`** for lifecycle commands design
 - **Git operations**: Do NOT touch git. The user handles all commits.
 - **Podman is the default container runtime** for `plsec run --container`,
   user-configurable via `plsec.yaml`
@@ -57,7 +59,58 @@ Items 1-9 are complete.
 
 ## Accomplished (this session)
 
-### Get `make scan` clean -- trivy false positive elimination
+### Lifecycle management commands (Phases 1-4)
+
+Implemented `plsec install` and `plsec reset` commands with full test
+coverage, plus `plsec scan` pre-flight check and artifact inventory model.
+
+**Phase 1: Core inventory model** (`core/inventory.py`)
+- `Artifact` and `Inventory` dataclasses for tracking plsec filesystem footprint
+- `discover_global_artifacts()`, `discover_external_artifacts()`,
+  `discover_project_artifacts()`, `discover_all()`, `format_size()`
+- 42 tests in `tests/test_inventory.py`, 98% coverage
+
+**Phase 2: `plsec install` command** (`commands/install.py`)
+- `_deploy_file()` - write-if-missing with `--force` override
+- `deploy_global_configs()` - shared deployment logic (used by both
+  `plsec install` and `plsec init`)
+- `write_installed_metadata()` / `read_installed_metadata()` - `.installed.json`
+  with timestamp, preset, agents, version
+- `check_installation()` - verify all expected files present
+- CLI: `--preset`, `--agent`, `--force`, `--check` flags
+- Refactored `plsec init` to delegate global deployment to `install.py`
+- `plsec init --global` prints deprecation warning
+- 29 tests in `tests/test_install_cmd.py`, 100% coverage of `install.py`
+
+**Phase 3: `plsec scan` pre-flight check** (`commands/scan.py`)
+- `_check_scanner_prerequisites()` verifies scanner configs exist before
+  scanning, exits 1 with "Run 'plsec install'" message if missing
+- 4 new tests in `tests/test_scan.py` (existing tests updated for pre-flight)
+
+**Phase 4: `plsec reset` command** (`commands/reset.py`)
+- `_stop_managed_processes()` - SIGTERM to running pipelock
+- `_wipe_global_state()` - remove all children, preserve root dir
+- `_remove_external_configs()` - clean agent native config locations
+- Redeploys fresh defaults via `deploy_global_configs()` with `--force`
+- CLI: `--preset`, `--agent`, `--yes`, `--dry-run` flags
+- Exit codes: 0 (success), 2 (user cancelled)
+- 14 tests in `tests/test_reset.py`, 90% coverage
+
+**Makefile targets added:**
+- `make install-global` - `plsec install --check`
+- `make reset` - `plsec reset --yes`
+- `make clean-install` - reset + install from clean slate
+- `make deploy` updated to use `plsec install --force --check`
+
+**Also fixed:**
+- `tests/test_init.py` broken import (`_deploy_global_file` -> `_deploy_file`)
+- Pre-existing ruff lint issues in `test_inventory.py` and `test_scanners.py`
+- `ty` type check: removed unused `type: ignore[no-any-return]` in `install.py`
+- `datetime.timezone.utc` -> `datetime.UTC` alias (UP017)
+
+**89 new tests added** (458 -> 547 pytest tests), coverage 71% -> 74%.
+
+### Previous sub-session: Get `make scan` clean -- trivy false positive elimination
 
 Fixed trivy scanning `.venv/` (same class of bug as the Bandit fix from
 last session) and eliminated all false positives from trivy scanning
@@ -270,11 +323,12 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 3. ~~**Get `make scan` clean**~~ (DONE -- skip-dirs, skip-files, .trivyignore.yaml)
 4. ~~**`plsec init` deploys scanner configs**~~ (DONE -- trivy-secret.yaml, trivy.yaml, pre-commit)
 5. ~~**`plsec doctor` checks scanner configs**~~ (DONE -- checks I-5, I-6, I-7)
-6. **`plsec install` / `plsec reset` / `plsec uninstall`** -
-   lifecycle management commands. Artifact inventory model, scan
-   pre-flight check, `make clean-install` target. 6 phases.
+6. ~~**`plsec install` / `plsec reset`**~~ (DONE -- Phases 1-4: inventory,
+   install, scan pre-flight, reset. 547 tests, 74% coverage)
+7. **`plsec uninstall`** - Phase 5: interactive scope selection, template
+   matching, external tool reporting
    (see [docs/DESIGN-INSTALL-RESET-UNINSTALL.md](docs/DESIGN-INSTALL-RESET-UNINSTALL.md))
-7. **Update plsec-status-design.md** - resolve open questions, add
+8. **Update plsec-status-design.md** - resolve open questions, add
    registry notes, mark APPROVED
 8. **Enhanced wrapper logging** - Tier 1: git info, duration, preset.
    Tier 2: `CLAUDE_CODE_SHELL_PREFIX` audit logging for Claude Code
@@ -303,18 +357,23 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `docs/plsec-status-design.md` - Health check model (I-1 through F-2)
 - `docs/INSTALL.md` - Installation guide (6 paths)
 
-### Registry modules (Phase A, tested in Phases E + F)
+### Registry and core modules
 - `src/plsec/core/agents.py` - `AgentSpec`, `AGENTS`, `is_strict()`, `security_mode()`, `get_template()`, `resolve_agent_ids()`, validators
 - `src/plsec/core/scanners.py` - `ScannerSpec`, `SCANNERS`, `run_scanner()`, `_TRIVY_SKIP_DIRS`, `_TRIVY_SKIP_FILES`, `_TRIVY_IGNOREFILE`, `_add_trivy_common_flags()`
 - `src/plsec/core/processes.py` - `ProcessSpec`, `PROCESSES`, `find_binary()`, `is_running()`, path helpers
 - `src/plsec/core/health.py` - `CheckResult`, `PLSEC_SUBDIRS`, `PLSEC_EXPECTED_FILES`, check functions including `check_scanner_configs()`, verdict helpers
+- `src/plsec/core/inventory.py` - `Artifact`, `Inventory`, `discover_global_artifacts()`, `discover_external_artifacts()`, `discover_project_artifacts()`, `discover_all()`, `format_size()`
+
+### Lifecycle command modules
+- `src/plsec/commands/install.py` - `plsec install`, shared `deploy_global_configs()`, `.installed.json` metadata
+- `src/plsec/commands/reset.py` - `plsec reset`, process stop, wipe, redeploy
 
 ### Trivy configuration (3 layers)
 - `templates/bootstrap/trivy.yaml` - Bootstrap template (authoritative, includes skip-dirs + skip-files)
 - `src/plsec/configs/templates.py` -> `TRIVY_CONFIG_YAML` - Python CLI copy (kept in sync)
 - `.trivyignore.yaml` - Per-path false positive suppression (21 files, 4 rule IDs + 1 misconfig)
 
-### Test files (458 tests, all passing, 71% coverage)
+### Test files (547 tests, all passing, 74% coverage)
 - `tests/conftest.py` - 3 shared fixtures
 - `tests/test_cli.py` - 3 tests (top-level app smoke tests)
 - `tests/test_config.py` - 27 tests (config + package version)
@@ -323,7 +382,10 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `tests/test_integrity.py` - 28 tests
 - `tests/test_validate.py` - 17 tests
 - `tests/test_output.py` - 19 tests
-- `tests/test_init.py` - 18 tests (+7: deploy global file, scanner config deployment)
+- `tests/test_init.py` - 18 tests (deploy file, preset configs, scanner config deployment)
+- `tests/test_install_cmd.py` - 29 tests (NEW: deploy logic, idempotency, force, check, metadata, CLI)
+- `tests/test_reset.py` - 14 tests (NEW: wipe, external removal, dry-run, cancel, redeploy)
+- `tests/test_inventory.py` - 42 tests (artifact dataclass, inventory, discover functions)
 - `tests/test_detector.py` - 33 tests
 - `tests/test_create.py` - 19 tests
 - `tests/test_agents.py` - 39 tests (registry structure + helpers)
@@ -331,7 +393,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `tests/test_processes.py` - 22 tests (spec, paths, is_running)
 - `tests/test_health.py` - 46 tests (+5: scanner config checks)
 - `tests/test_secure.py` - 38 tests (Change/ChangeSet, calculate_changes, apply_changes)
-- `tests/test_scan.py` - 10 tests (scan execution, flag resolution)
+- `tests/test_scan.py` - 14 tests (scan execution, flag resolution, pre-flight prerequisites)
 - `tests/test_doctor.py` - 13 tests (render, orchestration, flags)
 - `tests/test_proxy.py` - 13 tests (start, stop, status, logs)
 

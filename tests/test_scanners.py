@@ -21,11 +21,11 @@ from unittest.mock import patch
 
 from plsec.core.scanners import (
     _BANDIT_EXCLUDE_DIRS,
-    SCANNERS,
-    ScannerSpec,
     _TRIVY_IGNOREFILE,
     _TRIVY_SKIP_DIRS,
     _TRIVY_SKIP_FILES,
+    SCANNERS,
+    ScannerSpec,
     _build_bandit_cmd,
     _build_semgrep_cmd,
     _build_trivy_misconfig_cmd,
