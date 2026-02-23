@@ -100,6 +100,17 @@ of truth).
   added for `.venv,.tox,node_modules,build,dist,.eggs`.
 - [x] **Add `make scan` target**: Run `plsec scan .` against own codebase
   as integration/dogfood test for scanner configuration.
+- [x] **Get `make scan` clean**: Added `--skip-dirs` (7 dirs) and
+  `--skip-files` (`**/*.pyc`) to trivy commands and `trivy.yaml`.
+  Created `.trivyignore.yaml` with per-path suppression for 21 files.
+  `plsec init` now deploys trivy configs. `plsec doctor` checks I-5/I-6/I-7.
+- [ ] **`plsec install` / `plsec reset` / `plsec uninstall`**: Lifecycle
+  management commands. `plsec install` deploys global configs (replaces
+  `plsec init --global`). `plsec reset` wipes and redeploys. `plsec
+  uninstall` cleanly removes all plsec artifacts. Includes artifact
+  inventory model in `core/inventory.py`, `plsec scan` pre-flight check,
+  and `make clean-install` CI target.
+  (see [docs/DESIGN-INSTALL-RESET-UNINSTALL.md](docs/DESIGN-INSTALL-RESET-UNINSTALL.md))
 - [ ] **Enhanced wrapper logging**: Upgrade wrapper templates from 3-line
   session bookends to full audit. Tier 1: git info, duration, preset.
   Tier 2: `CLAUDE_CODE_SHELL_PREFIX` for Claude Code command auditing.
@@ -249,6 +260,7 @@ added when mkdocs is set up.
 | `make check`            | `ty check src/`                          | Python    |
 | `make format`           | `ruff format .` (mutating, not in CI)    | Python    |
 | `make scan`             | `plsec scan .` (dogfood own codebase)    | Python    |
+| `make deploy`           | `plsec init --force --global` (redeploy) | Python    |
 | `make build-dist`       | Build sdist + wheel via `uv build`       | Python    |
 | `make install-test`     | Clean install test in isolated venv      | Python    |
 | `make test`             | All tests (Python + BATS)                | Both      |
@@ -362,6 +374,33 @@ directory without exclusions.
 
 **Resolution**: Added `--exclude .venv,.tox,node_modules,build,dist,.eggs`
 to the bandit command builder.
+
+### Bug 3: Trivy scans `.venv/` and `__pycache__/` (FIXED)
+
+Trivy's `generic-secret` rule walked into `.venv/lib/python3.12/site-packages/`
+producing hundreds of false positives from third-party packages (pygments,
+markdown_it, rich, yaml, etc.). Also scanned compiled `.pyc` bytecode.
+
+**Resolution (3 layers):**
+1. `trivy.yaml` config: added `skip-dirs` (7 dirs) and `skip-files` (`**/*.pyc`)
+2. CLI command builders: `--skip-dirs` and `--skip-files` flags via
+   `_add_trivy_common_flags()` (belt and suspenders)
+3. `.trivyignore.yaml`: per-path suppression for 21 source files where
+   trivy's `generic-secret` rule matches the word "secret" in config
+   paths, detection regex patterns, test fixtures, and documentation
+
+### Bug 4: Trivy false positives from own source code (FIXED)
+
+Trivy's `generic-secret` rule matches any occurrence of "secret" in code.
+A security tool scanning itself produces guaranteed false positives from
+`--secret-config` flags, `trivy-secret.yaml` path references, detection
+regex patterns, and test fixtures with dummy credentials.
+
+**Resolution**: Created `.trivyignore.yaml` using trivy's YAML ignore
+format (requires `--ignorefile` flag, experimental in v0.69.1). Supports
+per-path suppression: 4 rule IDs (`generic-secret`, `generic-api-key`,
+`stripe-secret-token`) across 21 files + 1 misconfig (`DS-0026`) for
+the test Containerfile.
 
 ## `plsec run` Command (v0.2.0)
 
