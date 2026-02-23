@@ -41,17 +41,17 @@ Bootstrap is the **quick-start runtime layer**: it installs wrapper
 scripts that provide session logging and auto-deploy agent configs.
 The Python CLI is the **full-featured analysis and control layer**.
 
-| Capability | Bootstrap | CLI | Status |
-|---|---|---|---|
-| Directory structure | Yes | Yes | Overlap (same paths) |
-| Agent config templates | Yes | Yes | Overlap (same content) |
-| Wrapper scripts + logging | Yes | **Planned** | Gap -- `plsec init` to generate |
-| Shell aliases | Yes | **Planned** | Gap -- `plsec init` to generate |
-| Managed agent execution | No | **Planned** | `plsec run` command (v0.2.0) |
-| Container isolation | No | **Planned** | `plsec run --container` |
-| Structured scanning | Basic | Yes | CLI superior |
-| Validation, integrity | No | Yes | CLI only |
-| Health status | **Planned** | No | `plsec-status` (bash, Phase 1) |
+| Capability                | Bootstrap   | CLI         | Status                          |
+|---------------------------|-------------|-------------|---------------------------------|
+| Directory structure       | Yes         | Yes         | Overlap (same paths)            |
+| Agent config templates    | Yes         | Yes         | Overlap (same content)          |
+| Wrapper scripts + logging | Yes         | **Planned** | Gap -- `plsec init` to generate |
+| Shell aliases             | Yes         | **Planned** | Gap -- `plsec init` to generate |
+| Managed agent execution   | No          | **Planned** | `plsec run` command (v0.2.0)    |
+| Container isolation       | No          | **Planned** | `plsec run --container`         |
+| Structured scanning       | Basic       | Yes         | CLI superior                    |
+| Validation, integrity     | No          | Yes         | CLI only                        |
+| Health status             | **Planned** | No          | `plsec-status` (bash, Phase 1)  |
 
 Users should run bootstrap for immediate protection, then install the
 CLI for full functionality. Future goal: the CLI subsumes all bootstrap
@@ -116,10 +116,11 @@ of truth).
   matching for project-local files, customised file warnings, remainder
   report (external tools, how to remove plsec itself). Phase 5 complete.
   (see [docs/DESIGN-INSTALL-RESET-UNINSTALL.md](docs/DESIGN-INSTALL-RESET-UNINSTALL.md))
-- [ ] **Enhanced wrapper logging**: Upgrade wrapper templates from 3-line
-  session bookends to full audit. Tier 1: git info, duration, preset.
-  Tier 2: `CLAUDE_CODE_SHELL_PREFIX` for Claude Code command auditing.
-  Tier 3 (future): OTEL integration.
+- [x] **Enhanced wrapper logging**: Upgrade wrapper templates from 3-line
+  session bookends to full audit. Tier 1: git info, duration, preset,
+  agent version. Tier 2: `CLAUDE_CODE_SHELL_PREFIX` for Claude Code
+  command auditing via `plsec-audit.sh`. Tier 3 (future): OTEL
+  integration. 41 BATS tests in `test_wrapper_logging.bats`.
 - [ ] **Bridge CLI/bootstrap gap**: `plsec init` must generate wrapper
   scripts and shell aliases, matching bootstrap.sh. Uses existing
   `AgentSpec.wrapper_template` field (exists but unused). Goal: CLI
@@ -131,10 +132,10 @@ of truth).
   Created `docs/INSTALL.md` covering all installation paths (pipx, uv,
   homebrew, bootstrap).
 - [ ] **`plsec-status` Phase 1**: Bash status script in bootstrap.
-  **Note:** The status design doc (`docs/plsec-status-design.md`) predates
-  the registry refactoring and should be updated to reflect registry-driven
-  check generation before implementation begins. See the "Future Directions"
-  section of `docs/DESIGN-PLSEC-REFACTOR.md` for specifics.
+  The status design doc (`docs/plsec-status-design.md`) has been updated
+  to APPROVED v0.2 with registry-driven check generation, `CheckResult`
+  data contract, lifecycle commands integration, and all 5 open questions
+  resolved.
   (see [docs/plsec-status-design.md](docs/plsec-status-design.md))
 
 ### Medium Priority
@@ -152,6 +153,13 @@ of truth).
 - [ ] **Agent support**: CoPilot (GitHub)
 - [ ] **Agent support**: ollama (local models)
 - [ ] Determine what other AI coding tools to support
+- [ ] **Agent data monitoring**: Read and monitor agent operational data
+  (sessions, tool calls, token usage, errors). Per-agent adapters with
+  version-pinned compatibility registry. `plsec doctor` checks for adapter
+  health, `plsec status` for activity, `plsec monitor` for detailed views.
+  Supports OpenCode (SQLite) and Claude Code (JSONL) at launch; other
+  agents to follow.
+  (see [docs/DESIGN-AGENT-MONITORING.md](docs/DESIGN-AGENT-MONITORING.md))
 - [ ] **`plsec run` command** (v0.2.0): Managed agent execution with
   full security wrapping. Container isolation (Podman default, Docker
   fallback, macOS sandbox -- user-configurable). `CLAUDE_CODE_SHELL_PREFIX`
@@ -175,6 +183,10 @@ of truth).
 
 ### Future
 
+- [ ] **Agent monitoring for additional agents**: Extend data adapters
+  to Gemini CLI, Codex, CoPilot, ollama as their data formats are
+  analyzed. Community-maintainable `compatibility.yaml` version registry.
+  (see [docs/DESIGN-AGENT-MONITORING.md](docs/DESIGN-AGENT-MONITORING.md))
 - [ ] **MCP server securing**: Monitor, audit, and enforce security
   policies on third-party MCP servers that agents connect to.
 - [ ] **ACP support**: Agent Communication Protocol integration for

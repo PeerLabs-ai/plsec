@@ -1,14 +1,14 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-02-22
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 565 pytest + 87 BATS tests, 75% coverage
+**Last Updated:** 2026-02-23
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 565 pytest + 75 BATS unit + 53 BATS integration + 44 assembler tests, 75% coverage
 
 ---
 
 ## Goal
 
 Build **plsec**, a defense-in-depth security framework for AI coding assistants.
-This project has had ten objectives across sessions:
+This project has had twelve objectives across sessions:
 
 1. Get `make ci` passing end-to-end after previous infrastructure work (complete)
 2. Remove Pydantic in favour of plain dataclasses (complete)
@@ -20,17 +20,22 @@ This project has had ten objectives across sessions:
 8. Tier 3 command tests - subprocess-mocking tests for command modules (complete - Phase F)
 9. Fix scan bugs, close CLI/bootstrap gap, get `make scan` clean (complete)
 10. Lifecycle management - `plsec install`, `plsec reset`, `plsec uninstall`, scan pre-flight, artifact inventory (complete - Phases 1-6)
+11. Update plsec-status-design.md - resolve open questions, add registry notes, mark APPROVED v0.2 (complete)
+12. Enhanced wrapper logging - Tier 1 session enrichment + Tier 2 audit logging via `CLAUDE_CODE_SHELL_PREFIX` (complete)
 
-Items 1-10 are complete.
+Items 1-12 are complete.
 
 ## Instructions
 
 - **Read AGENTS.md** for coding standards, build commands, and project conventions
 - **Read PROJECT.md** for TODOs, architecture decisions, and outstanding items
-- **Read TESTING.md** for the full pytest test plan (3 tiers, 18 test files)
+- **Read TESTING.md** for the full pytest test plan (3 tiers, 22 test files)
 - **Read `docs/DESIGN-PLSEC-REFACTOR.md`** for the registry refactoring design:
   entity-operation model, 4 new core modules, phased implementation plan
 - **Read `docs/DESIGN-INSTALL-RESET-UNINSTALL.md`** for lifecycle commands design
+  (IMPLEMENTED)
+- **Read `docs/plsec-status-design.md`** for the status command design
+  (APPROVED v0.2, registry-driven check generation)
 - **Git operations**: Do NOT touch git. The user handles all commits.
 - **Podman is the default container runtime** for `plsec run --container`,
   user-configurable via `plsec.yaml`
@@ -56,8 +61,56 @@ Items 1-10 are complete.
 - **Pydantic policy:** Fully removed. Plain dataclasses throughout. No
   re-introduction.
 - **License:** MIT. Copyright holder: Peerlabs Inc., Toronto, ON, Canada.
+- **Template escaping**: `@@INCLUDE:file@@` for content templates
+  (single-quoted strings, escape `'`), `@@INCLUDE_SCRIPT:file@@` for
+  script templates (heredocs, escape `$` and `` ` ``, then replace
+  `@@PLSEC_DIR@@` with `${PLSEC_DIR}`)
+- **POSIX portability**: Don't use `grep -P` (Perl regex) in shell
+  templates -- macOS default grep doesn't support it. Use `awk` or
+  `sed` instead.
+- **`make promote` and `make golden`** must be run after template changes
+  (CI verify and golden-check steps will fail otherwise)
 
 ## Accomplished (this session)
+
+### Milestone 8: Enhanced wrapper logging
+
+Implemented two-tier wrapper logging upgrade and CLAUDE_CODE_SHELL_PREFIX
+audit logging.
+
+**Tier 1 (both wrappers):** Added git branch, git SHA, agent version,
+preset detection, session duration to `wrapper-claude.sh` and
+`wrapper-opencode.sh`. Preset detection uses `awk` to parse `plsec.yaml`,
+falls back to CLAUDE.md "Strict Security" heuristic, defaults to "unknown".
+
+**Tier 2 (Claude only):** `CLAUDE_CODE_SHELL_PREFIX` audit logging via new
+`plsec-audit.sh` script. Logs `[timestamp] [pid] cwd=/path cmd=<command>`
+to separate daily audit log (`claude-audit-YYYYMMDD.log`). Uses `exec "$@"`
+to preserve exit codes and stdio. Fire-and-forget logging pattern ensures
+command execution is never blocked by log failures.
+
+**Files created:**
+- `templates/bootstrap/plsec-audit.sh` - Audit script for shell prefix
+- `tests/bats/unit/test_wrapper_logging.bats` - 41 BATS tests
+
+**Files modified:**
+- `templates/bootstrap/wrapper-claude.sh` - Tier 1 + Tier 2 wiring
+- `templates/bootstrap/wrapper-opencode.sh` - Tier 1 fields
+- `templates/bootstrap/skeleton.bash` - `@@INCLUDE_SCRIPT:plsec-audit.sh@@`
+- `build/bootstrap.sh`, `bin/bootstrap.default.sh` - Rebuilt
+- `tests/bats/golden/*` - Regenerated
+
+### Milestone 7: Update plsec-status-design.md
+
+Updated `docs/plsec-status-design.md` from DRAFT to APPROVED v0.2:
+- Document control: DRAFT -> APPROVED, version 0.1 -> 0.2
+- Resolved all 5 open questions (CWD default, fixed thresholds,
+  presence-check only, single project, exit codes 0=OK/1=FAIL)
+- Added "Registry-Driven Check Generation" section
+- Added "Shared Data Contract: CheckResult" section
+- Added "Source" column to check inventory tables
+- Added "Lifecycle Commands" integration point section
+- Fixed quiet mode exit code semantics inconsistency
 
 ### Lifecycle management commands (Phases 1-4)
 
@@ -334,6 +387,53 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
     commands. Testing depends on stale state from previous runs. Users cannot
     cleanly remove plsec or reset to factory defaults. Design doc written:
     `docs/DESIGN-INSTALL-RESET-UNINSTALL.md`.
+33. **`grep -oP` is not portable to macOS default grep.** The wrapper
+    templates must use `awk` for YAML field extraction instead of
+    Perl-compatible regex. Fixed `_detect_preset()` to use
+    `awk '/^preset:/ { print $2 }'`.
+34. **`CLAUDE_CODE_SHELL_PREFIX` is a prefix command, not an env var that
+    wraps output.** Claude Code prepends the script path to every shell
+    command it executes, so the audit script receives the original command
+    as `$@` and must `exec "$@"` to preserve exit codes and stdio.
+35. **Audit log must be separate from session log.** Session logs go to
+    `claude-YYYYMMDD.log`, audit logs go to `claude-audit-YYYYMMDD.log`.
+    Mixing them would make grep/awk parsing for `plsec-status` unreliable.
+36. **The audit script must be fast and fire-and-forget.** It runs on EVERY
+    shell command Claude executes. Logging failures must never prevent
+    command execution. The `{...} >> "$AUDIT_LOG" 2>/dev/null` pattern
+    ensures this.
+37. **`make promote` and `make golden` must be run after template changes.**
+    The CI pipeline has a `verify` step that diffs `build/bootstrap.sh`
+    against `bin/bootstrap.default.sh`, and a `golden-check` step that
+    diffs templates against golden files. Both will fail after template
+    modifications until promoted/regenerated.
+38. **The assembler escaping tests (`test-assembler-escaping.sh`) use
+    inline template copies, not actual template files.** This is by
+    design -- they test the escaping mechanism itself, not the wrapper
+    content. New wrapper features are tested by BATS integration/unit
+    tests against the assembled `build/bootstrap.sh`.
+39. **OpenCode stores rich operational data in SQLite.** `opencode.db`
+    at `~/.local/share/opencode/` contains sessions, messages, 16K+
+    parts (tool calls, token usage, patches), todos, and permissions.
+    Uses Drizzle ORM with schema migrations. Dual-write to JSON files
+    in `storage/`. Git object stores in `snapshot/` for file snapshots.
+40. **OpenCode `part` table is equivalent to `CLAUDE_CODE_SHELL_PREFIX`.**
+    The `type=tool, tool=bash` parts contain every bash command with
+    full input/output. No shell prefix wrapper needed for OpenCode --
+    plsec can query the database directly.
+41. **Claude Code stores session data as JSONL files.** Per-project at
+    `~/.claude/projects/{path-hash}/{session-id}.jsonl`. Each line is a
+    JSON object with role, content blocks (text, tool_use, tool_result,
+    thinking), version, gitBranch, cwd. `stats-cache.json` has pre-
+    aggregated daily metrics (messages, tokens, cost).
+42. **Neither agent documents their data format as a stable API.**
+    Formats are internal implementation details that evolve across
+    versions. A compatibility registry with version pinning and
+    automated schema validation is essential.
+43. **OpenCode auth tokens stored in plaintext.** `auth.json` at
+    `~/.local/share/opencode/auth.json` contains OAuth access/refresh
+    tokens per provider. plsec should WARN about this but NEVER read
+    token values.
 
 ## What Needs to Happen Next
 
@@ -347,22 +447,29 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 6. ~~**`plsec install` / `plsec reset` / `plsec uninstall`**~~ (DONE --
    Phases 1-6: inventory, install, scan pre-flight, reset, uninstall,
    docs. 565 tests, 75% coverage)
-7. **Update plsec-status-design.md** - resolve open questions, add
-   registry notes, mark APPROVED
-8. **Enhanced wrapper logging** - Tier 1: git info, duration, preset.
-   Tier 2: `CLAUDE_CODE_SHELL_PREFIX` audit logging for Claude Code
+7. ~~**Update plsec-status-design.md**~~ (DONE - APPROVED v0.2, registry-driven
+   check generation, CheckResult data contract, all 5 open questions resolved)
+8. ~~**Enhanced wrapper logging**~~ (DONE - Tier 1: git info, duration, preset,
+   agent version in both wrappers. Tier 2: `CLAUDE_CODE_SHELL_PREFIX` audit
+   logging via `plsec-audit.sh`. 41 BATS tests)
 9. **Bridge CLI/bootstrap gap** - `plsec init` generates wrappers +
    shell aliases using `AgentSpec.wrapper_template`
 10. **Scan result persistence** - write to logs for plsec-status
 11. **`plsec-status` Phase 1** - bash health checks in bootstrap
 12. **`plsec-status` Phase 2** - watch mode
+13. **Agent monitoring foundation** - `data_dir` in AgentSpec,
+    `compatibility.yaml`, adapter protocol, doctor checks D-1..D-4
+14. **Agent data adapters** - OpenCode SQLite + Claude Code JSONL
+    adapters, plsec-status activity checks
 
 ### v0.2.0 milestones
 
-13. **`plsec run` command** - managed agent execution, container
+15. **`plsec monitor` command** - agent activity summary, audit view,
+    token tracking, security cross-reference with wrapper logs
+16. **`plsec run` command** - managed agent execution, container
     isolation (Podman default), `CLAUDE_CODE_SHELL_PREFIX` audit,
     pre/post-flight checks
-14. **MCP server harness** - `plsec create --mcp-server` generates
+17. **MCP server harness** - `plsec create --mcp-server` generates
     secured sample MCP server project
 
 ## Relevant files / directories
@@ -370,10 +477,12 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 ### Design documents
 - `AGENTS.md` - Coding standards, build commands, project conventions
 - `PROJECT.md` - TODOs, architecture decisions
-- `TESTING.md` - Full 3-tier pytest test plan
-- `docs/DESIGN-INSTALL-RESET-UNINSTALL.md` - Lifecycle commands: install, reset, uninstall (PROPOSED)
-- `docs/DESIGN-PLSEC-REFACTOR.md` - Registry refactoring design (Phases A-E)
-- `docs/plsec-status-design.md` - Health check model (I-1 through F-2)
+- `TESTING.md` - Full 3-tier pytest test plan (22 files)
+- `docs/DESIGN-AGENT-MONITORING.md` - Agent data monitoring + compatibility registry (PROPOSED)
+- `docs/DESIGN-INSTALL-RESET-UNINSTALL.md` - Lifecycle commands (IMPLEMENTED)
+- `docs/DESIGN-PLSEC-REFACTOR.md` - Registry refactoring design (IMPLEMENTED)
+- `docs/DESIGN-CREATE-SECURE.md` - Create/secure commands (IMPLEMENTED)
+- `docs/plsec-status-design.md` - Health check model (APPROVED v0.2)
 - `docs/INSTALL.md` - Installation guide (6 paths)
 
 ### Registry and core modules
@@ -388,35 +497,46 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `src/plsec/commands/reset.py` - `plsec reset`, process stop, wipe, redeploy
 - `src/plsec/commands/uninstall.py` - `plsec uninstall`, interactive scope selection, artifact removal, remainder report
 
+### Bootstrap templates and wrapper scripts
+- `templates/bootstrap/skeleton.bash` - Bootstrap skeleton, `@@INCLUDE*@@` markers
+- `templates/bootstrap/wrapper-claude.sh` - Claude wrapper (Tier 1 + Tier 2 logging)
+- `templates/bootstrap/wrapper-opencode.sh` - Opencode wrapper (Tier 1 logging)
+- `templates/bootstrap/plsec-audit.sh` - Audit script for `CLAUDE_CODE_SHELL_PREFIX`
+- `scripts/assemble-bootstrap.sh` - Template assembler
+- `scripts/test-assembler-escaping.sh` - 44 escaping tests
+- `build/bootstrap.sh` - Assembled output
+- `bin/bootstrap.default.sh` - Promoted reference
+- `tests/bats/unit/test_wrapper_logging.bats` - 41 BATS wrapper logging tests
+
 ### Trivy configuration (3 layers)
 - `templates/bootstrap/trivy.yaml` - Bootstrap template (authoritative, includes skip-dirs + skip-files)
 - `src/plsec/configs/templates.py` -> `TRIVY_CONFIG_YAML` - Python CLI copy (kept in sync)
 - `.trivyignore.yaml` - Per-path false positive suppression (21 files, 4 rule IDs + 1 misconfig)
 
-### Test files (565 tests, all passing, 75% coverage)
+### Test files (565 pytest tests, all passing, 75% coverage)
 - `tests/conftest.py` - 3 shared fixtures
-- `tests/test_cli.py` - 3 tests (top-level app smoke tests)
-- `tests/test_config.py` - 27 tests (config + package version)
-- `tests/test_tools.py` - 20 tests
-- `tests/test_templates.py` - 47 tests (+14 this session: skip-dirs, skip-files, rule sync)
-- `tests/test_integrity.py` - 28 tests
-- `tests/test_validate.py` - 17 tests
-- `tests/test_output.py` - 19 tests
-- `tests/test_init.py` - 18 tests (deploy file, preset configs, scanner config deployment)
-- `tests/test_install_cmd.py` - 29 tests (NEW: deploy logic, idempotency, force, check, metadata, CLI)
-- `tests/test_reset.py` - 14 tests (NEW: wipe, external removal, dry-run, cancel, redeploy)
-- `tests/test_uninstall.py` - 18 tests (NEW: artifact removal, scope selection, dry-run, interactive, customised files)
-- `tests/test_inventory.py` - 42 tests (artifact dataclass, inventory, discover functions)
-- `tests/test_detector.py` - 33 tests
-- `tests/test_create.py` - 19 tests
-- `tests/test_agents.py` - 39 tests (registry structure + helpers)
-- `tests/test_scanners.py` - 50 tests (+10: skip-dirs, skip-files, ignorefile)
-- `tests/test_processes.py` - 22 tests (spec, paths, is_running)
-- `tests/test_health.py` - 46 tests (+5: scanner config checks)
-- `tests/test_secure.py` - 38 tests (Change/ChangeSet, calculate_changes, apply_changes)
-- `tests/test_scan.py` - 14 tests (scan execution, flag resolution, pre-flight prerequisites)
-- `tests/test_doctor.py` - 13 tests (render, orchestration, flags)
-- `tests/test_proxy.py` - 13 tests (start, stop, status, logs)
+- `tests/test_cli.py` - 4 tests (top-level app smoke tests)
+- `tests/test_config.py` - 28 tests (config + package version)
+- `tests/test_tools.py` - 21 tests
+- `tests/test_templates.py` - 46 tests (skip-dirs, skip-files, rule sync)
+- `tests/test_integrity.py` - 29 tests
+- `tests/test_validate.py` - 18 tests
+- `tests/test_output.py` - 20 tests
+- `tests/test_init.py` - 19 tests (deploy file, preset configs, scanner config deployment)
+- `tests/test_install_cmd.py` - 30 tests (deploy logic, idempotency, force, check, metadata, CLI)
+- `tests/test_reset.py` - 15 tests (wipe, external removal, dry-run, cancel, redeploy)
+- `tests/test_uninstall.py` - 19 tests (artifact removal, scope selection, dry-run, interactive, customised files)
+- `tests/test_inventory.py` - 43 tests (artifact dataclass, inventory, discover functions)
+- `tests/test_detector.py` - 34 tests
+- `tests/test_create.py` - 20 tests
+- `tests/test_agents.py` - 40 tests (registry structure + helpers)
+- `tests/test_scanners.py` - 49 tests (skip-dirs, skip-files, ignorefile)
+- `tests/test_processes.py` - 23 tests (spec, paths, is_running)
+- `tests/test_health.py` - 47 tests (scanner config checks)
+- `tests/test_secure.py` - 39 tests (Change/ChangeSet, calculate_changes, apply_changes)
+- `tests/test_scan.py` - 15 tests (scan execution, flag resolution, pre-flight prerequisites)
+- `tests/test_doctor.py` - 14 tests (render, orchestration, flags)
+- `tests/test_proxy.py` - 14 tests (start, stop, status, logs)
 
 ### Packaging
 - `pyproject.toml` - MIT license, no pydantic

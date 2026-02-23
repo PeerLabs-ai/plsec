@@ -78,6 +78,47 @@ can report on findings (F-1, F-2 checks). Options:
 functions as Phase 1, adds timestamp, delta indicators, and log tail.
 Minimal extension over Phase 1.
 
+### Milestone 7: Agent Data Monitoring Foundation
+
+Design: [DESIGN-AGENT-MONITORING.md](DESIGN-AGENT-MONITORING.md)
+
+Enable plsec to read and monitor agent operational data (sessions, tool
+calls, token usage, errors, file changes) from local agent data stores.
+
+**Phase 1 -- Foundation:**
+- Add `data_dir` field to `AgentSpec` registry
+- Create `compatibility.yaml` version compatibility registry
+- Implement `core/compatibility.py` -- version checking, cache management
+- Add `plsec doctor` checks D-1 through D-4 (adapter health, auth exposure)
+
+**Phase 2 -- Adapters:**
+- Define `AgentDataAdapter` protocol
+- Implement `OpenCodeAdapter` (SQLite queries)
+- Implement `ClaudeCodeAdapter` (JSONL parsing)
+- Integrate into `plsec status` activity checks
+
+**Supported agents at launch:**
+- OpenCode v1.1.0+ (SQLite + JSON dual-write)
+- Claude Code v2.0.0+ (JSONL sessions, stats-cache.json)
+
+Other agents (Gemini CLI, Codex, CoPilot, ollama) will follow as their
+data formats are analyzed.
+
+### Milestone 8: `plsec monitor` Command
+
+```
+plsec monitor                  # Auto-detect, show all agents
+plsec monitor opencode         # OpenCode only
+plsec monitor --audit          # Security audit focus (bash commands)
+plsec monitor --tokens         # Token usage breakdown
+plsec monitor --json           # Machine-readable output
+```
+
+Summary view, audit view, token view, error view. Security audit
+cross-reference between agent bash command records and plsec wrapper
+audit logs (defense-in-depth: two independent command execution data
+sources).
+
 ## v0.2.0 - Managed Agent Execution
 
 `plsec run` command: managed execution of AI coding agents with full
@@ -209,6 +250,12 @@ text.
 
 ## Future Considerations
 
+- **Agent monitoring for additional agents**: Extend agent data adapters
+  to Gemini CLI, Codex (OpenAI), CoPilot (GitHub), ollama, and other
+  agents as they mature. Requires data source analysis for each agent's
+  local storage format. Community contributions welcome -- submit PRs
+  adding validated versions to `compatibility.yaml`.
+  See [DESIGN-AGENT-MONITORING.md](DESIGN-AGENT-MONITORING.md).
 - **MCP server securing**: Monitor, audit, and enforce security policies
   on third-party MCP servers that agents connect to. Includes permission
   auditing, traffic monitoring, and policy enforcement integrated with

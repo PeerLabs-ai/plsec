@@ -373,6 +373,12 @@ write_file "${PLSEC_DIR}/scan.sh" << EOF
 EOF
 make_executable "${PLSEC_DIR}/scan.sh"
 
+# Audit script (used by CLAUDE_CODE_SHELL_PREFIX for command-level logging)
+write_file "${PLSEC_DIR}/plsec-audit.sh" << EOF
+@@INCLUDE_SCRIPT:plsec-audit.sh@@
+EOF
+make_executable "${PLSEC_DIR}/plsec-audit.sh"
+
 log_ok "Created wrapper scripts"
 
 # -----------------------------------------------------------------------------

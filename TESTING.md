@@ -2,31 +2,35 @@
 
 ## Current State
 
-426 pytest tests across 18 files, 69% coverage. All three tiers are
+565 pytest tests across 22 files, 75% coverage. All three tiers are
 implemented. The original `test_plsec.py` has been redistributed:
 duplicate tests deleted, unique tests moved to `test_cli.py` and
 `test_config.py`.
 
 | Test file | Tests | Tier | Target module |
 |-----------|-------|------|---------------|
-| `test_cli.py` | 3 | -- | `cli.py` (top-level app smoke tests) |
-| `test_config.py` | 27 | 1 | `core/config.py` + package version |
-| `test_tools.py` | 20 | 1 | `core/tools.py` |
-| `test_templates.py` | 33 | 1 | `configs/templates.py` |
-| `test_integrity.py` | 28 | 1 | `commands/integrity.py` |
-| `test_validate.py` | 17 | 1 | `commands/validate.py` |
-| `test_agents.py` | 39 | 1 | `core/agents.py` (registry) |
-| `test_scanners.py` | 40 | 1+3 | `core/scanners.py` (registry) |
-| `test_processes.py` | 22 | 1+3 | `core/processes.py` (registry) |
-| `test_health.py` | 41 | 1+2 | `core/health.py` (registry) |
-| `test_detector.py` | 33 | 2 | `core/detector.py` |
-| `test_init.py` | 11 | 2 | `commands/init.py` |
-| `test_create.py` | 19 | 2 | `commands/create.py` |
-| `test_output.py` | 19 | 2 | `core/output.py` |
-| `test_secure.py` | 38 | 3 | `commands/secure.py` |
-| `test_scan.py` | 10 | 3 | `commands/scan.py` |
-| `test_doctor.py` | 13 | 3 | `commands/doctor.py` |
-| `test_proxy.py` | 13 | 3 | `commands/proxy.py` |
+| `test_cli.py` | 4 | -- | `cli.py` (top-level app smoke tests) |
+| `test_config.py` | 28 | 1 | `core/config.py` + package version |
+| `test_tools.py` | 21 | 1 | `core/tools.py` |
+| `test_templates.py` | 46 | 1 | `configs/templates.py` |
+| `test_integrity.py` | 29 | 1 | `commands/integrity.py` |
+| `test_validate.py` | 18 | 1 | `commands/validate.py` |
+| `test_agents.py` | 40 | 1 | `core/agents.py` (registry) |
+| `test_scanners.py` | 49 | 1+3 | `core/scanners.py` (registry) |
+| `test_processes.py` | 23 | 1+3 | `core/processes.py` (registry) |
+| `test_health.py` | 47 | 1+2 | `core/health.py` (registry) |
+| `test_inventory.py` | 43 | 1+2 | `core/inventory.py` (artifact model) |
+| `test_detector.py` | 34 | 2 | `core/detector.py` |
+| `test_init.py` | 19 | 2 | `commands/init.py` |
+| `test_create.py` | 20 | 2 | `commands/create.py` |
+| `test_output.py` | 20 | 2 | `core/output.py` |
+| `test_install_cmd.py` | 30 | 2+3 | `commands/install.py` (lifecycle) |
+| `test_reset.py` | 15 | 2+3 | `commands/reset.py` (lifecycle) |
+| `test_uninstall.py` | 19 | 2+3 | `commands/uninstall.py` (lifecycle) |
+| `test_secure.py` | 39 | 3 | `commands/secure.py` |
+| `test_scan.py` | 15 | 3 | `commands/scan.py` |
+| `test_doctor.py` | 14 | 3 | `commands/doctor.py` |
+| `test_proxy.py` | 14 | 3 | `commands/proxy.py` |
 
 ## Test Structure (implemented)
 
@@ -43,6 +47,10 @@ tests/
 ├── test_integrity.py          # commands/integrity.py - manifest ops
 ├── test_validate.py           # commands/validate.py - config validation
 ├── test_init.py               # commands/init.py - project init
+├── test_install_cmd.py        # commands/install.py - lifecycle install
+├── test_reset.py              # commands/reset.py - lifecycle reset
+├── test_uninstall.py          # commands/uninstall.py - lifecycle uninstall
+├── test_inventory.py          # core/inventory.py - artifact model
 ├── test_scan.py               # commands/scan.py - scanner wrappers
 ├── test_doctor.py             # commands/doctor.py - health check
 ├── test_create.py             # commands/create.py - project scaffolding

@@ -48,6 +48,10 @@ class AgentSpec:
     # Bootstrap wrapper script template name (e.g., "wrapper-claude.sh"), or None
     wrapper_template: str | None = None
 
+    # Local data storage directory (e.g., ~/.local/share/opencode/)
+    # None if the agent does not store queryable local data
+    data_dir: Path | None = None
+
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -110,6 +114,7 @@ AGENTS: dict[str, AgentSpec] = {
         validate=_validate_claude_md,
         global_config_dir=None,
         wrapper_template="wrapper-claude.sh",
+        data_dir=Path.home() / ".claude",
     ),
     "opencode": AgentSpec(
         id="opencode",
@@ -123,6 +128,7 @@ AGENTS: dict[str, AgentSpec] = {
         validate=_validate_opencode_json,
         global_config_dir=Path.home() / ".config" / "opencode",
         wrapper_template="wrapper-opencode.sh",
+        data_dir=Path.home() / ".local" / "share" / "opencode",
     ),
 }
 

@@ -1,5 +1,7 @@
 #!/bin/bash
 # opencode-wrapper.sh - Logging wrapper for Opencode
+#
+# Tier 1: Session enrichment (git info, duration, preset, agent version)
 
 PLSEC_DIR="@@PLSEC_DIR@@"
 LOG_FILE="${PLSEC_DIR}/logs/opencode-$(date +%Y%m%d).log"
@@ -8,7 +10,39 @@ log() {
     echo "[$(date -u +"%Y-%m-%dT%H:%M:%SZ")] [$$] $*" >> "$LOG_FILE"
 }
 
+# ---------------------------------------------------------------------------
+# Tier 1: Gather session context (best-effort, never block startup)
+# ---------------------------------------------------------------------------
+
+_git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "n/a")
+_git_sha=$(git rev-parse --short HEAD 2>/dev/null || echo "n/a")
+_agent_version=$(opencode --version 2>/dev/null | head -1 || echo "n/a")
+
+# Detect preset from plsec.yaml or CLAUDE.md heuristic
+_detect_preset() {
+    local yaml="${PLSEC_DIR}/configs/plsec.yaml"
+    if [[ -f "$yaml" ]]; then
+        local val
+        val=$(awk '/^preset:/ { print $2 }' "$yaml" 2>/dev/null)
+        if [[ -n "$val" ]]; then echo "$val"; return; fi
+    fi
+    local claude_md="${PLSEC_DIR}/configs/CLAUDE.md"
+    if [[ -f "$claude_md" ]]; then
+        if grep -q "Strict Security" "$claude_md" 2>/dev/null; then
+            echo "strict"
+        else
+            echo "balanced"
+        fi
+        return
+    fi
+    echo "unknown"
+}
+_preset=$(_detect_preset)
+
+START_SECONDS=$SECONDS
+
 log "=== Session started: $(pwd) ==="
+log "git_branch=${_git_branch} git_sha=${_git_sha} preset=${_preset} agent_version=${_agent_version}"
 log "Args: $*"
 
 # Copy opencode.json to project if not present
@@ -27,5 +61,6 @@ fi
 opencode "$@"
 EXIT_CODE=$?
 
-log "=== Session ended: exit code $EXIT_CODE ==="
+ELAPSED=$(( SECONDS - START_SECONDS ))
+log "=== Session ended: exit code ${EXIT_CODE} duration=${ELAPSED}s ==="
 exit $EXIT_CODE

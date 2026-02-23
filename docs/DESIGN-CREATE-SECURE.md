@@ -1,7 +1,7 @@
 # plsec create & secure - Command Design
 
-**Version:** 0.1.0-draft
-**Status:** Design
+**Version:** 0.1.0
+**Status:** IMPLEMENTED
 
 ---
 
