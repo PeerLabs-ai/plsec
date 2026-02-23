@@ -508,13 +508,13 @@ class TestCheckScannerConfigs:
         assert len(results) == len(PLSEC_EXPECTED_FILES)
         assert all(r.verdict == "warn" for r in results)
 
-    def test_fix_hint_references_init(self, tmp_path: Path):
-        """Fix hints should direct to plsec init --force."""
+    def test_fix_hint_references_install(self, tmp_path: Path):
+        """Fix hints should direct to plsec install --force."""
         home = tmp_path / "plsec"
         home.mkdir()
         results = check_scanner_configs(home)
         for r in results:
-            assert "plsec init" in r.fix_hint
+            assert "plsec install" in r.fix_hint
 
     def test_check_ids_start_at_i5(self, tmp_path: Path):
         """Check IDs should start at I-5 per plsec-status design doc."""

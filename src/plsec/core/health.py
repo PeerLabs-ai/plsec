@@ -113,7 +113,7 @@ def check_directory_structure(
                 category="installation",
                 verdict="fail",
                 detail=str(plsec_home),
-                fix_hint="Run 'plsec init' to create",
+                fix_hint="Run 'plsec install' to create",
             )
         )
         # If home doesn't exist, subdirectory checks are meaningless
@@ -190,7 +190,7 @@ def check_agent_configs(
                     category="installation",
                     verdict="warn",
                     detail=f"{spec.display_name} template missing",
-                    fix_hint="Run 'plsec init' to create",
+                    fix_hint="Run 'plsec install' to create",
                 )
             )
 
@@ -201,7 +201,7 @@ def check_scanner_configs(plsec_home: Path) -> list[CheckResult]:
     """Check that scanner and tool config files exist in plsec_home.
 
     Verifies trivy-secret.yaml, trivy.yaml, and pre-commit hook template.
-    These files are deployed by plsec init and are required for plsec scan
+    These files are deployed by plsec install and are required for plsec scan
     and pre-commit integration to function correctly.
 
     Check IDs start at I-5 per the plsec-status design doc.
@@ -230,7 +230,7 @@ def check_scanner_configs(plsec_home: Path) -> list[CheckResult]:
                     category="installation",
                     verdict="warn",
                     detail=f"{rel_path} missing",
-                    fix_hint="Run 'plsec init --force' to deploy",
+                    fix_hint="Run 'plsec install --force' to deploy",
                 )
             )
 

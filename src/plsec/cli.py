@@ -11,6 +11,7 @@ Commands:
     init        Initialize security configuration for a project
     install     Deploy global security configuration
     reset       Factory reset global security configuration
+    uninstall   Remove plsec artifacts from the system
     scan        Run security scanners
     proxy       Manage Pipelock runtime proxy
     validate    Validate configuration files
@@ -31,6 +32,7 @@ from plsec.commands import (
     reset,
     scan,
     secure,
+    uninstall,
     validate,
 )
 
@@ -50,6 +52,7 @@ app.add_typer(init.app, name="init")
 app.add_typer(install.app, name="install")
 app.add_typer(reset.app, name="reset")
 app.add_typer(scan.app, name="scan")
+app.add_typer(uninstall.app, name="uninstall")
 app.add_typer(validate.app, name="validate")
 app.add_typer(proxy.app, name="proxy")
 app.add_typer(integrity.app, name="integrity")

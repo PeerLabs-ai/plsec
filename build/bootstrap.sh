@@ -426,6 +426,16 @@ TRIVY_YAML='scan:
     - vuln
     - secret
     - misconfig
+  skip-dirs:
+    - .venv
+    - .tox
+    - node_modules
+    - build
+    - dist
+    - .eggs
+    - __pycache__
+  skip-files:
+    - "**/*.pyc"
 
 secret:
   config: trivy-secret.yaml

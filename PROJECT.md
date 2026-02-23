@@ -111,9 +111,10 @@ of truth).
   metadata, and `make clean-install` / `make reset` / `make install-global`
   targets. Phases 1-4 complete (inventory, install, scan pre-flight, reset).
   (see [docs/DESIGN-INSTALL-RESET-UNINSTALL.md](docs/DESIGN-INSTALL-RESET-UNINSTALL.md))
-- [ ] **`plsec uninstall`**: Clean removal of all plsec artifacts. Interactive
-  mode with scope selection, template matching for project-local files, external
-  tool reporting. Phase 5 of lifecycle management.
+- [x] **`plsec uninstall`**: Clean removal of all plsec artifacts. Interactive
+  mode with scope selection (`--global`, `--project`, `--all`), template
+  matching for project-local files, customised file warnings, remainder
+  report (external tools, how to remove plsec itself). Phase 5 complete.
   (see [docs/DESIGN-INSTALL-RESET-UNINSTALL.md](docs/DESIGN-INSTALL-RESET-UNINSTALL.md))
 - [ ] **Enhanced wrapper logging**: Upgrade wrapper templates from 3-line
   session bookends to full audit. Tier 1: git info, duration, preset.

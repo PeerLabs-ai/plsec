@@ -1,7 +1,7 @@
 # Design: `plsec install`, `plsec reset`, `plsec uninstall`
 
-**Status:** PROPOSED
-**Version:** 0.1
+**Status:** IMPLEMENTED (Phases 1-6)
+**Version:** 0.2
 **Date:** 2026-02-22
 **Author:** Graham Toppin / Claude
 

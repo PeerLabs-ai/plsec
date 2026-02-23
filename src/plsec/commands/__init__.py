@@ -10,6 +10,7 @@ from plsec.commands import (
     reset,
     scan,
     secure,
+    uninstall,
     validate,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "reset",
     "scan",
     "secure",
+    "uninstall",
     "validate",
 ]

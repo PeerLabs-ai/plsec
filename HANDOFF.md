@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
 **Last Updated:** 2026-02-22
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 547 pytest + 87 BATS tests, 74% coverage
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 565 pytest + 87 BATS tests, 75% coverage
 
 ---
 
@@ -19,7 +19,7 @@ This project has had ten objectives across sessions:
 7. Registry module tests - write test files for the 4 new core modules (complete)
 8. Tier 3 command tests - subprocess-mocking tests for command modules (complete - Phase F)
 9. Fix scan bugs, close CLI/bootstrap gap, get `make scan` clean (complete)
-10. Lifecycle management - `plsec install`, `plsec reset`, scan pre-flight, artifact inventory (complete - Phases 1-4)
+10. Lifecycle management - `plsec install`, `plsec reset`, `plsec uninstall`, scan pre-flight, artifact inventory (complete - Phases 1-6)
 
 Items 1-10 are complete.
 
@@ -108,7 +108,28 @@ coverage, plus `plsec scan` pre-flight check and artifact inventory model.
 - `ty` type check: removed unused `type: ignore[no-any-return]` in `install.py`
 - `datetime.timezone.utc` -> `datetime.UTC` alias (UP017)
 
-**89 new tests added** (458 -> 547 pytest tests), coverage 71% -> 74%.
+**Phase 5: `plsec uninstall` command** (`commands/uninstall.py`)
+- `_remove_artifacts()` - removes files and directories by depth (children first)
+- `_remove_global_root()` - removes empty plsec_home and parent
+- `_print_inventory_summary()` - grouped artifact display
+- `_print_remainder_report()` - shows external tools and how to remove plsec itself
+- Interactive mode: sequential `typer.confirm()` for each scope
+- Flag mode: `--global`, `--project`, `--all` for direct scope selection
+- `--dry-run`, `--yes` support
+- Customised file detection via `_matches_plsec_template()` (from inventory.py)
+- Exit codes: 0 (success), 1 (error), 2 (cancelled)
+- 18 tests in `tests/test_uninstall.py`, 87% coverage
+- Registered in `cli.py` and `commands/__init__.py`
+
+**Phase 6: Documentation and deprecation**
+- Updated `health.py` fix_hints: `plsec init` -> `plsec install` for global
+  installation checks (I-1, I-2, I-3, I-5, I-6, I-7)
+- Updated `templates.py` module docstring
+- Updated design doc status to IMPLEMENTED
+- Updated PROJECT.md, HANDOFF.md
+- Added HANDOFF.md to `.trivyignore.yaml` for trivy false positives
+
+**107 new tests added** (458 -> 565 pytest tests), coverage 71% -> 75%.
 
 ### Previous sub-session: Get `make scan` clean -- trivy false positive elimination
 
@@ -323,12 +344,10 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 3. ~~**Get `make scan` clean**~~ (DONE -- skip-dirs, skip-files, .trivyignore.yaml)
 4. ~~**`plsec init` deploys scanner configs**~~ (DONE -- trivy-secret.yaml, trivy.yaml, pre-commit)
 5. ~~**`plsec doctor` checks scanner configs**~~ (DONE -- checks I-5, I-6, I-7)
-6. ~~**`plsec install` / `plsec reset`**~~ (DONE -- Phases 1-4: inventory,
-   install, scan pre-flight, reset. 547 tests, 74% coverage)
-7. **`plsec uninstall`** - Phase 5: interactive scope selection, template
-   matching, external tool reporting
-   (see [docs/DESIGN-INSTALL-RESET-UNINSTALL.md](docs/DESIGN-INSTALL-RESET-UNINSTALL.md))
-8. **Update plsec-status-design.md** - resolve open questions, add
+6. ~~**`plsec install` / `plsec reset` / `plsec uninstall`**~~ (DONE --
+   Phases 1-6: inventory, install, scan pre-flight, reset, uninstall,
+   docs. 565 tests, 75% coverage)
+7. **Update plsec-status-design.md** - resolve open questions, add
    registry notes, mark APPROVED
 8. **Enhanced wrapper logging** - Tier 1: git info, duration, preset.
    Tier 2: `CLAUDE_CODE_SHELL_PREFIX` audit logging for Claude Code
@@ -367,13 +386,14 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 ### Lifecycle command modules
 - `src/plsec/commands/install.py` - `plsec install`, shared `deploy_global_configs()`, `.installed.json` metadata
 - `src/plsec/commands/reset.py` - `plsec reset`, process stop, wipe, redeploy
+- `src/plsec/commands/uninstall.py` - `plsec uninstall`, interactive scope selection, artifact removal, remainder report
 
 ### Trivy configuration (3 layers)
 - `templates/bootstrap/trivy.yaml` - Bootstrap template (authoritative, includes skip-dirs + skip-files)
 - `src/plsec/configs/templates.py` -> `TRIVY_CONFIG_YAML` - Python CLI copy (kept in sync)
 - `.trivyignore.yaml` - Per-path false positive suppression (21 files, 4 rule IDs + 1 misconfig)
 
-### Test files (547 tests, all passing, 74% coverage)
+### Test files (565 tests, all passing, 75% coverage)
 - `tests/conftest.py` - 3 shared fixtures
 - `tests/test_cli.py` - 3 tests (top-level app smoke tests)
 - `tests/test_config.py` - 27 tests (config + package version)
@@ -385,6 +405,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `tests/test_init.py` - 18 tests (deploy file, preset configs, scanner config deployment)
 - `tests/test_install_cmd.py` - 29 tests (NEW: deploy logic, idempotency, force, check, metadata, CLI)
 - `tests/test_reset.py` - 14 tests (NEW: wipe, external removal, dry-run, cancel, redeploy)
+- `tests/test_uninstall.py` - 18 tests (NEW: artifact removal, scope selection, dry-run, interactive, customised files)
 - `tests/test_inventory.py` - 42 tests (artifact dataclass, inventory, discover functions)
 - `tests/test_detector.py` - 33 tests
 - `tests/test_create.py` - 19 tests

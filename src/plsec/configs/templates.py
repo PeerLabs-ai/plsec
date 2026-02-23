@@ -1,7 +1,7 @@
 """
 Embedded configuration templates.
 
-These templates are used by plsec init to generate configuration files.
+These templates are used by plsec install and plsec init to generate configuration files.
 """
 
 CLAUDE_MD_STRICT = """# CLAUDE.md - Strict Security Configuration
