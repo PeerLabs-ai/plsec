@@ -1,6 +1,7 @@
 # Makefile - plsec build and test targets
 #
 # Run 'make' or 'make help' to see available targets.
+# See docs/build-process.md for developer workflows and target reference.
 #
 # The build/ directory contains assembled output (checked in as curl target).
 # The bin/bootstrap.default.sh is the promoted known-good reference.
@@ -31,22 +32,29 @@ GOLDEN_DIR    := tests/bats/golden
 # ---------------------------------------------------------------------------
 
 ## Build
-all: lint check test build verify  ## Lint, check, test, build, verify everything
+all: ci  ## Full pipeline (alias for ci)
+
 ci: lint check build test-assembler test verify golden-check  ## Full CI pipeline (non-interactive)
 	@echo ""
 	@echo "CI passed."
+
+dev-check: lint check test build verify  ## Quick local dev checks (no assembler/golden)
 
 build: $(BUILD_OUTPUT)  ## Assemble build/bootstrap.sh from templates
 
 $(BUILD_OUTPUT): $(SKELETON) $(TEMPLATES) $(ASSEMBLER) VERSION
 	@bash $(ASSEMBLER) "$(VERSION)+bootstrap" "$(BUILD_OUTPUT)"
 
-promote: $(BUILD_OUTPUT)  ## Copy build to bin/bootstrap.default.sh
-	@echo "Promoting build/bootstrap.sh -> bin/bootstrap.default.sh"
-	@mkdir -p bin
-	@cp $(BUILD_OUTPUT) $(DEFAULT_REF)
-	@chmod +x $(DEFAULT_REF)
-	@echo "Done. Review and commit bin/bootstrap.default.sh"
+promote: $(BUILD_OUTPUT)  ## Copy build to bin/bootstrap.default.sh (skips if unchanged)
+	@if diff -q $(BUILD_OUTPUT) $(DEFAULT_REF) > /dev/null 2>&1; then \
+		echo "No changes -- build matches reference. Skipping promote."; \
+	else \
+		echo "Promoting build/bootstrap.sh -> bin/bootstrap.default.sh"; \
+		mkdir -p bin; \
+		cp $(BUILD_OUTPUT) $(DEFAULT_REF); \
+		chmod +x $(DEFAULT_REF); \
+		echo "Done. Review and commit bin/bootstrap.default.sh"; \
+	fi
 
 clean:  ## Remove build artifacts and caches
 	rm -f $(BUILD_OUTPUT)
@@ -64,10 +72,28 @@ setup-bats:  ## Install BATS test framework
 	scripts/setup-bats.sh
 
 # ---------------------------------------------------------------------------
-# Install
+# Lifecycle (modifies ~/.peerlabs/plsec)
 # ---------------------------------------------------------------------------
 
-## Install
+## Lifecycle (modifies ~/.peerlabs/plsec)
+install: install-global  ## Deploy global configs (alias for install-global)
+
+install-global:  ## Deploy global configs to ~/.peerlabs/plsec (via plsec install)
+	uv run plsec install --check
+
+deploy:  ## Force redeploy global configs to ~/.peerlabs/plsec
+	uv run plsec install --force --check
+
+reset:  ## Factory reset configs (preserves logs, re-injects aliases)
+	uv run plsec reset --yes
+
+clean-install: reset install  ## Reset + install + verify from clean slate
+
+# ---------------------------------------------------------------------------
+# Packaging
+# ---------------------------------------------------------------------------
+
+## Packaging
 build-dist:  ## Build sdist and wheel (output in dist/)
 	uv build
 
@@ -81,17 +107,6 @@ install-test:  ## Test clean install in isolated venv
 	@echo "Clean install test passed."
 	@rm -rf /tmp/plsec-install-test
 
-install-global:  ## Deploy global configs to ~/.peerlabs/plsec (via plsec install)
-	uv run plsec install --check
-
-deploy:  ## Force redeploy global configs to ~/.peerlabs/plsec
-	uv run plsec install --force --check
-
-reset:  ## Factory reset global state (non-interactive)
-	uv run plsec reset --yes
-
-clean-install: reset install-global  ## Reset + install + verify from clean slate
-
 # ---------------------------------------------------------------------------
 # Test
 # ---------------------------------------------------------------------------
@@ -99,7 +114,7 @@ clean-install: reset install-global  ## Reset + install + verify from clean slat
 ## Test
 test: test-python test-unit test-integration  ## Run all tests (pytest + BATS)
 
-test-python:  ## pytest (426 tests)
+test-python:  ## Run pytest suite
 	uv run pytest tests/ --ignore=tests/bats
 
 test-unit:  ## BATS unit tests only
@@ -111,7 +126,7 @@ test-integration: build  ## BATS integration tests
 test-container: build  ## Run BATS tests in container
 	tests/bats/run-in-container.sh tests/bats/integration/
 
-test-assembler:
+test-assembler:  ## Template assembler escaping tests
 	bash scripts/test-assembler-escaping.sh
 
 # ---------------------------------------------------------------------------
@@ -128,7 +143,7 @@ lint-python:  ## ruff check + format --check
 check:  ## Type check Python with ty
 	uv run ty check src/
 
-format:  ## Format Python with ruff (mutating)
+format:  ## Format Python with ruff (mutating, not in CI)
 	uv run ruff format .
 
 scan:  ## Run plsec scan against own codebase (dogfood)
@@ -227,8 +242,10 @@ help:  ## Show this help
 		$(MAKEFILE_LIST)
 	@echo ""
 
-.PHONY: all ci build promote clean \
-        setup setup-bats build-dist install-test install-global deploy reset clean-install \
+.PHONY: all ci dev-check build promote clean \
+        setup setup-bats \
+        install install-global deploy reset clean-install \
+        build-dist install-test \
         test test-python test-unit test-integration test-container test-assembler \
         lint lint-python lint-templates lint-skeleton lint-bootstrap check format scan \
         golden golden-check verify \

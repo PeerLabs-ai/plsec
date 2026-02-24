@@ -2,7 +2,7 @@
 
 ## Current State
 
-661 pytest tests across 22 files, 77% coverage. All three tiers are
+666 pytest tests across 22 files, 77% coverage. All three tiers are
 implemented. The original `test_plsec.py` has been redistributed:
 duplicate tests deleted, unique tests moved to `test_cli.py` and
 `test_config.py`.
@@ -25,7 +25,7 @@ duplicate tests deleted, unique tests moved to `test_cli.py` and
 | `test_create.py` | 20 | 2 | `commands/create.py` |
 | `test_output.py` | 20 | 2 | `core/output.py` |
 | `test_install_cmd.py` | 67 | 2+3 | `commands/install.py` (+ wrappers, aliases) |
-| `test_reset.py` | 15 | 2+3 | `commands/reset.py` (lifecycle) |
+| `test_reset.py` | 20 | 2+3 | `commands/reset.py` (lifecycle, log preservation) |
 | `test_uninstall.py` | 19 | 2+3 | `commands/uninstall.py` (lifecycle) |
 | `test_secure.py` | 39 | 3 | `commands/secure.py` |
 | `test_scan.py` | 29 | 3 | `commands/scan.py` (+ persistence, JSON output) |

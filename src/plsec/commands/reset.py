@@ -1,8 +1,9 @@
 """
 plsec reset - Factory reset global security configuration.
 
-Stops managed processes, wipes all state under ``~/.peerlabs/plsec/``,
-removes external agent configs, and redeploys fresh defaults.
+Stops managed processes, wipes configuration under ``~/.peerlabs/plsec/``
+(preserving logs by default), removes external agent configs, redeploys
+fresh defaults, and re-injects shell aliases.
 """
 
 __version__ = "0.1.0"
@@ -16,6 +17,7 @@ import typer
 from plsec.commands.install import (
     Preset,
     deploy_global_configs,
+    inject_aliases,
     write_installed_metadata,
 )
 from plsec.core.agents import AGENTS, AgentSpec, resolve_agent_ids
@@ -64,10 +66,22 @@ def _stop_managed_processes(plsec_home: Path) -> None:
                 print_error(f"Cannot stop {spec.display_name}: permission denied")
 
 
-def _wipe_global_state(plsec_home: Path) -> int:
-    """Remove all files and subdirectories under plsec_home.
+# Directories preserved during reset unless explicitly requested.
+_PRESERVED_DIRS = frozenset({"logs"})
 
-    Preserves the root directory itself.
+
+def _wipe_global_state(
+    plsec_home: Path,
+    *,
+    preserve_logs: bool = True,
+) -> int:
+    """Remove files and subdirectories under plsec_home.
+
+    By default the ``logs/`` directory is preserved because session and
+    scan logs are operational data, not configuration.  Pass
+    ``preserve_logs=False`` (CLI ``--wipe-logs``) to remove everything.
+
+    The root directory itself is always preserved.
     Returns the number of items removed.
     """
     count = 0
@@ -75,6 +89,8 @@ def _wipe_global_state(plsec_home: Path) -> int:
         return count
 
     for child in sorted(plsec_home.iterdir()):
+        if preserve_logs and child.name in _PRESERVED_DIRS:
+            continue
         if child.is_dir():
             shutil.rmtree(child)
         else:
@@ -117,15 +133,27 @@ def reset(
     ] = "both",
     yes: Annotated[bool, typer.Option("--yes", "-y", help="Skip confirmation prompt.")] = False,
     dry_run: Annotated[
-        bool, typer.Option("--dry-run", "-n", help="Show what would happen without making changes.")
+        bool,
+        typer.Option("--dry-run", "-n", help="Show what would happen without making changes."),
+    ] = False,
+    wipe_logs: Annotated[
+        bool,
+        typer.Option("--wipe-logs", help="Also delete scan and session logs."),
+    ] = False,
+    no_aliases: Annotated[
+        bool,
+        typer.Option("--no-aliases", help="Skip shell alias re-injection."),
     ] = False,
 ) -> None:
     """
     Factory reset global security configuration.
 
-    Stops managed processes, wipes all state under ~/.peerlabs/plsec/,
-    removes external agent configs, and redeploys fresh defaults with
-    the specified preset.
+    Stops managed processes, wipes configuration under ~/.peerlabs/plsec/,
+    removes external agent configs, redeploys fresh defaults with the
+    specified preset, and re-injects shell aliases.
+
+    Session and scan logs are preserved by default.  Use --wipe-logs
+    to remove them as well.
     """
     from plsec import __version__
 
@@ -145,12 +173,16 @@ def reset(
     print_info(f"Global artifacts: {len(global_artifacts)} items ({format_size(total_size)})")
     print_info(f"External configs: {len(external_artifacts)} items")
     print_info(f"Will redeploy with preset: {preset}")
+    if not wipe_logs:
+        print_info("Logs will be preserved (use --wipe-logs to remove)")
 
     if dry_run:
         console.print("\n[yellow]Dry run -- no changes made.[/yellow]")
         if global_artifacts:
             console.print("\nWould remove:")
             for artifact in all_artifacts:
+                if not wipe_logs and artifact.path.parent.name == "logs":
+                    continue
                 console.print(f"  {artifact.path}")
         console.print(f"\nWould redeploy {total_files} files with preset: {preset}")
         raise typer.Exit(0)
@@ -174,9 +206,9 @@ def reset(
     if ext_removed == 0:
         print_info("No external configs to remove")
 
-    # Step 3: Wipe global state
+    # Step 3: Wipe global state (preserving logs unless --wipe-logs)
     print_header("Wiping Global State")
-    items_removed = _wipe_global_state(plsec_home)
+    items_removed = _wipe_global_state(plsec_home, preserve_logs=not wipe_logs)
     print_ok(f"Removed {items_removed} items from {plsec_home}")
 
     # Step 4: Redeploy
@@ -184,7 +216,14 @@ def reset(
     agent_ids = resolve_agent_ids(agent)
     deploy_global_configs(plsec_home, preset=preset, agent=agent, force=True)
 
-    # Step 5: Write installation metadata
+    # Step 5: Re-inject shell aliases
+    if not no_aliases:
+        print_header("Shell Aliases")
+        rc = inject_aliases(plsec_home, agent_ids, AGENTS, force=True)
+        if rc:
+            print_info(f"Aliases re-injected into {rc}")
+
+    # Step 6: Write installation metadata
     write_installed_metadata(
         plsec_home,
         preset=preset,

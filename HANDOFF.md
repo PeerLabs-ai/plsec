@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-02-23
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 661 pytest + 75 BATS unit + 53 BATS integration + 44 assembler tests, 77% coverage
+**Last Updated:** 2026-02-24
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 666 pytest + 75 BATS unit + 53 BATS integration + 44 assembler tests, 77% coverage
 
 ---
 
@@ -72,6 +72,62 @@ Items 1-12 are complete.
   (CI verify and golden-check steps will fail otherwise)
 
 ## Accomplished (this session)
+
+### Makefile simplification and state contract hardening
+
+Simplified the Makefile, fixed reset/alias/logs asymmetries in Python,
+and wrote developer build process documentation.
+
+**Makefile changes:**
+- Renamed `make all` to `make dev-check` (quick local loop)
+- `make all` is now an alias for `make ci` (full pipeline)
+- Added `make install` as alias for `make install-global`
+- `make promote` now skips copy when content is unchanged (no git noise)
+- `make reset` description updated to reflect log preservation
+- `make test-python` and `make test-assembler` descriptions fixed
+- Grouped lifecycle targets under "Lifecycle (modifies ~/.peerlabs/plsec)"
+  section so `make help` visually separates safe from stateful targets
+- Added "Packaging" section for `build-dist` and `install-test`
+
+**Code changes (reset.py):**
+- `_wipe_global_state()` preserves `logs/` by default via
+  `_PRESERVED_DIRS` frozenset and `preserve_logs` parameter
+- Added `--wipe-logs` CLI flag to explicitly remove logs
+- Added `--no-aliases` CLI flag to skip alias re-injection
+- Reset now calls `inject_aliases()` after redeploying, ensuring
+  shell aliases are always in a known-good state
+- Info message: "Logs will be preserved (use --wipe-logs to remove)"
+
+**Tests (5 new, 2 modified):**
+- Modified `test_preserves_logs_by_default` (was `test_wipes_all_children`)
+- Added `test_wipes_logs_when_requested`
+- Added `test_preserved_dirs_constant`
+- Added `test_reset_preserves_logs_by_default` (CLI)
+- Added `test_reset_wipe_logs_flag` (CLI)
+- Added `test_reset_reinjects_aliases` (CLI)
+- Added `test_reset_no_aliases_flag` (CLI)
+- Total: 666 pytest tests, 77% coverage
+
+**Documentation:**
+- AGENTS.md: Fixed `make test`, `make clean`, `make setup` descriptions,
+  fixed stale `test_plsec.py` references, added `make dev-check`
+- PROJECT.md: Replaced target map with accurate version, added all
+  missing targets, fixed `make setup` command
+- README.md: Updated development section with new targets, fixed
+  test counts, updated `make reset` description
+- `docs/build-process.md` (new): Developer guide covering workflows,
+  target reference, state management, lifecycle comparison, anti-patterns
+
+**Files modified:**
+- `src/plsec/commands/reset.py` -- log preservation, alias re-injection
+- `tests/test_reset.py` -- 5 new tests, 2 modified
+- `Makefile` -- renamed/added targets, promote guard, section headers
+- `AGENTS.md` -- fixed target descriptions
+- `PROJECT.md` -- replaced target map
+- `README.md` -- updated dev section and test counts
+
+**Files created:**
+- `docs/build-process.md` -- developer build process guide
 
 ### Milestone 10: Scan result persistence
 
@@ -568,6 +624,23 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
     complete in all source code.** Only PROJECT.md still described it
     as pending, and 2 test fixtures in `test_processes.py` used the old
     path cosmetically.  Both cleaned up.
+50. **`make all` was a subset of `make ci`**, confusing developers who
+    expect "all" to mean "everything."  Renamed to `make dev-check`
+    for the fast loop, `make all` is now an alias for `make ci`.
+51. **`make reset` silently destroyed logs.** Session and scan logs are
+    operational data, not configuration.  `_wipe_global_state()` now
+    preserves `logs/` by default via `_PRESERVED_DIRS` frozenset.
+52. **`plsec install` injected aliases but `plsec reset` did not touch
+    them.** After reset, aliases existed in `~/.zshrc` but the system
+    had no record of having injected them.  Reset now calls
+    `inject_aliases()` to ensure a consistent known-good state.
+53. **`make promote` created false git diffs.** When build content was
+    identical to the reference, `cp` still updated the timestamp.
+    Added a diff guard to skip the copy when content matches.
+54. **Documentation across 4 files was contradictory on Make targets.**
+    AGENTS.md said `make test` was "BATS only" (it includes pytest),
+    `make clean` "removes venvs" (it doesn't), `make setup` runs
+    `uv pip install` (it runs `uv sync --dev`).  All fixed.
 
 ## What Needs to Happen Next
 
@@ -619,6 +692,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `docs/DESIGN-PLSEC-REFACTOR.md` - Registry refactoring design (IMPLEMENTED)
 - `docs/DESIGN-CREATE-SECURE.md` - Create/secure commands (IMPLEMENTED)
 - `docs/plsec-status-design.md` - Health check model (APPROVED v0.2)
+- `docs/build-process.md` - Developer build process guide (workflows, target reference, state management)
 - `docs/INSTALL.md` - Installation guide (6 paths)
 
 ### Registry and core modules
@@ -630,7 +704,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 
 ### Lifecycle command modules
 - `src/plsec/commands/install.py` - `plsec install`, shared `deploy_global_configs()`, `.installed.json` metadata
-- `src/plsec/commands/reset.py` - `plsec reset`, process stop, wipe, redeploy
+- `src/plsec/commands/reset.py` - `plsec reset`, process stop, wipe (log-preserving), alias re-injection, redeploy
 - `src/plsec/commands/uninstall.py` - `plsec uninstall`, interactive scope selection, artifact removal, remainder report
 
 ### Bootstrap templates and wrapper scripts
@@ -649,7 +723,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `src/plsec/configs/templates.py` -> `TRIVY_CONFIG_YAML` - Python CLI copy (kept in sync)
 - `.trivyignore.yaml` - Per-path false positive suppression (21 files, 4 rule IDs + 1 misconfig)
 
-### Test files (661 pytest tests, all passing, 77% coverage)
+### Test files (666 pytest tests, all passing, 77% coverage)
 - `tests/conftest.py` - 3 shared fixtures
 - `tests/test_cli.py` - 4 tests (top-level app smoke tests)
 - `tests/test_config.py` - 28 tests (config + package version)
@@ -660,7 +734,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `tests/test_output.py` - 20 tests
 - `tests/test_init.py` - 19 tests (deploy file, preset configs, scanner config deployment)
 - `tests/test_install_cmd.py` - 67 tests (deploy logic, wrappers, aliases, idempotency, force, check, metadata, CLI)
-- `tests/test_reset.py` - 15 tests (wipe, external removal, dry-run, cancel, redeploy)
+- `tests/test_reset.py` - 20 tests (wipe, log preservation, alias re-injection, external removal, dry-run, cancel, redeploy)
 - `tests/test_uninstall.py` - 19 tests (artifact removal, scope selection, dry-run, interactive, customised files)
 - `tests/test_inventory.py` - 43 tests (artifact dataclass, inventory, discover functions)
 - `tests/test_detector.py` - 34 tests

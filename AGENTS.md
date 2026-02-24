@@ -45,10 +45,12 @@ plsec/
 
 ```bash
 # Install with dev dependencies (recommended)
-uv pip install -e ".[dev]"
+make setup                  # runs: uv sync --dev
 
-# Or with pip
-pip install -e ".[dev]"
+# Or manually
+uv sync --dev               # preferred (lockfile-based)
+uv pip install -e ".[dev]"  # alternative
+pip install -e ".[dev]"     # fallback
 ```
 
 ### Running Tests
@@ -56,20 +58,21 @@ pip install -e ".[dev]"
 ```bash
 # Python tests (pytest)
 pytest                                             # All Python tests
-pytest tests/test_plsec.py -v                      # Single file
-pytest tests/test_plsec.py::TestCLI -v             # Single test class
-pytest tests/test_plsec.py::TestCLI::test_help -v  # Single test method
+pytest tests/test_config.py -v                      # Single file
+pytest tests/test_config.py::TestVersion -v         # Single test class
+pytest tests/test_config.py::TestVersion::test_version_exists -v  # Single test method
 pytest -k "version"                                # Tests matching keyword
 pytest --cov=plsec --cov-report=html               # With HTML coverage
 
 # Shell tests (BATS)
 make test-unit              # BATS unit tests only
 make test-integration       # BATS integration tests
-make test                   # All BATS tests (unit + integration)
 
 # All tests
+make test                   # All tests (pytest + BATS unit + BATS integration)
 make test-python            # pytest only
-make ci                     # Full CI (lint + build + all tests)
+make dev-check              # Quick local checks (lint + types + tests + build)
+make ci                     # Full CI (lint + types + build + all tests + golden)
 ```
 
 ### Linting & Formatting
@@ -92,12 +95,14 @@ ty check src/                   # Type check (strict mode enabled)
 
 ```bash
 make build                  # Assemble build/bootstrap.sh from templates
-make lint                   # Validate JSON/YAML/shell templates
+make lint                   # All linting (Python + templates + bootstrap)
 make lint-bootstrap         # Check assembled bootstrap.sh syntax
 make verify                 # Ensure build matches promoted reference
 make promote                # Copy build to bin/bootstrap.default.sh
 make golden                 # Regenerate golden test fixtures
-make clean                  # Remove build artifacts and venv
+make clean                  # Remove build artifacts and caches
+make scan                   # Run plsec scan on own codebase
+make deploy                 # Force redeploy global configs
 ```
 
 ## Architecture and Design Guidelines

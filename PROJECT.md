@@ -233,51 +233,54 @@ filename is a per-workspace artifact, not a home directory path.
 | Bootstrap script  | Makefile passes `VERSION+bootstrap` to assembler | `0.1.0+bootstrap` |
 | Uninstalled dev   | Fallback in `__init__.py`                        | `0.0.0-dev`       |
 
-## Makefile Unification (complete)
+## Makefile Reference
 
-Make is the unified entry point. `make all` and `make ci` run the full
-pipeline (lint, type check, build, test, verify) across both Python and
-bootstrap sides. The `make docs` and `make docs-build` targets will be
-added when mkdocs is set up.
+Make is the unified entry point. See `docs/build-process.md` for
+developer workflows and the full target reference.
 
-### Proposed target map
+### Target map
 
-| Target                  | What                                     | Side      |
-|-------------------------|------------------------------------------|-----------|
-| `make all`              | lint + check + test + build + verify     | Both      |
-| `make ci`               | Full CI pipeline (non-interactive)       | Both      |
-| `make setup`            | `uv pip install -e ".[dev]"`             | Python    |
-| `make lint`             | All linting (Python + templates)         | Both      |
-| `make lint-python`      | `ruff check .` + `ruff format . --check` | Python    |
-| `make lint-templates`   | JSON/YAML/shell template validation      | Bootstrap |
-| `make check`            | `ty check src/`                          | Python    |
-| `make format`           | `ruff format .` (mutating, not in CI)    | Python    |
-| `make scan`             | `plsec scan .` (dogfood own codebase)    | Python    |
-| `make install-global`   | `plsec install --check` (deploy global)  | Python    |
-| `make deploy`           | `plsec install --force --check`          | Python    |
-| `make reset`            | `plsec reset --yes` (factory reset)      | Python    |
-| `make clean-install`    | Reset + install + verify from clean slate| Python    |
-| `make build-dist`       | Build sdist + wheel via `uv build`       | Python    |
-| `make install-test`     | Clean install test in isolated venv      | Python    |
-| `make test`             | All tests (Python + BATS)                | Both      |
-| `make test-python`      | `pytest tests/ --ignore=tests/bats`      | Python    |
-| `make test-unit`        | BATS unit tests                          | Bootstrap |
-| `make test-integration` | BATS integration tests                   | Bootstrap |
-| `make build`            | Assemble bootstrap.sh                    | Bootstrap |
-| `make verify`           | Build matches promoted reference         | Bootstrap |
-| `make promote`          | Copy build to bin/                       | Bootstrap |
-| `make golden`           | Regenerate golden fixtures               | Bootstrap |
-| `make clean`            | Remove all artifacts + venvs             | Both      |
-| `make docs`             | `mkdocs serve` (local preview)           | Docs      |
-| `make docs-build`       | `mkdocs build` (static site)             | Docs      |
+| Target                  | What                                        | Side      |
+|-------------------------|---------------------------------------------|-----------|
+| `make all`              | Full pipeline (alias for `make ci`)         | Both      |
+| `make ci`               | lint + check + build + assembler + test + verify + golden | Both |
+| `make dev-check`        | lint + check + test + build + verify (quick)| Both      |
+| `make setup`            | `uv sync --dev`                             | Python    |
+| `make lint`             | All linting (Python + templates + bootstrap)| Both      |
+| `make lint-python`      | `ruff check .` + `ruff format . --check`    | Python    |
+| `make check`            | `ty check src/`                             | Python    |
+| `make format`           | `ruff format .` (mutating, not in CI)       | Python    |
+| `make scan`             | `plsec scan .` (dogfood own codebase)       | Python    |
+| `make install`          | Deploy global configs (alias for install-global) | Lifecycle |
+| `make install-global`   | `plsec install --check`                     | Lifecycle |
+| `make deploy`           | `plsec install --force --check`             | Lifecycle |
+| `make reset`            | `plsec reset --yes` (preserves logs)        | Lifecycle |
+| `make clean-install`    | Reset + install from clean slate            | Lifecycle |
+| `make build-dist`       | Build sdist + wheel via `uv build`          | Packaging |
+| `make install-test`     | Clean install test in isolated venv         | Packaging |
+| `make test`             | All tests (pytest + BATS unit + integration)| Both      |
+| `make test-python`      | `pytest tests/ --ignore=tests/bats`         | Python    |
+| `make test-unit`        | BATS unit tests                             | Bootstrap |
+| `make test-integration` | BATS integration tests                      | Bootstrap |
+| `make test-assembler`   | Template assembler escaping tests           | Bootstrap |
+| `make build`            | Assemble bootstrap.sh                       | Bootstrap |
+| `make verify`           | Build matches promoted reference            | Bootstrap |
+| `make promote`          | Copy build to bin/ (skips if unchanged)     | Bootstrap |
+| `make golden`           | Regenerate golden fixtures                  | Bootstrap |
+| `make golden-check`     | Verify golden files match templates         | Bootstrap |
+| `make clean`            | Remove build artifacts and caches           | Both      |
 
 ### Design notes
 
+- `make all` is an alias for `make ci` -- use `make dev-check` for the
+  faster local development loop (skips assembler tests and golden checks)
 - `make format` is mutating (changes files) so excluded from CI; `make lint`
   is read-only (includes `ruff format . --check`)
 - `make test-python` uses plain `pytest` (assumes `make setup` has been run)
-- `make ci` is the full non-interactive pipeline including `make check` (ty)
-  and `make lint-python`
+- Lifecycle targets (`install`, `deploy`, `reset`) modify `~/.peerlabs/plsec/`
+- `make reset` preserves logs by default; use `plsec reset --wipe-logs` to
+  remove them
+- `make promote` is a no-op when build matches the reference (no git noise)
 
 ## mkdocs Setup
 

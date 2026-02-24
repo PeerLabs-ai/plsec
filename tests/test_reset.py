@@ -23,6 +23,7 @@ from plsec.commands.install import (
     write_installed_metadata,
 )
 from plsec.commands.reset import (
+    _PRESERVED_DIRS,
     _remove_external_configs,
     _wipe_global_state,
     app,
@@ -39,17 +40,40 @@ runner = CliRunner()
 
 
 class TestWipeGlobalState:
-    """Contract: _wipe_global_state removes all children of plsec_home
-    but preserves the root directory itself."""
+    """Contract: _wipe_global_state removes children of plsec_home,
+    preserving the root directory and (by default) the logs/ directory."""
 
-    def test_wipes_all_children(self, tmp_path: Path):
+    def test_preserves_logs_by_default(self, tmp_path: Path):
+        """With preserve_logs=True (default), logs/ survives the wipe."""
         plsec_home = tmp_path / ".peerlabs" / "plsec"
         deploy_global_configs(plsec_home, agents=AGENTS)
-        assert any(plsec_home.iterdir())
+        # Add a log file
+        logs_dir = plsec_home / "logs"
+        logs_dir.mkdir(exist_ok=True)
+        (logs_dir / "session.log").write_text("data\n")
+
         count = _wipe_global_state(plsec_home)
         assert count > 0
-        # Root dir should still exist but be empty
+        # Root and logs should survive
         assert plsec_home.is_dir()
+        assert logs_dir.is_dir()
+        assert (logs_dir / "session.log").read_text() == "data\n"
+        # Everything else should be gone
+        remaining = {c.name for c in plsec_home.iterdir()}
+        assert remaining == {"logs"}
+
+    def test_wipes_logs_when_requested(self, tmp_path: Path):
+        """With preserve_logs=False, logs/ is also removed."""
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        deploy_global_configs(plsec_home, agents=AGENTS)
+        logs_dir = plsec_home / "logs"
+        logs_dir.mkdir(exist_ok=True)
+        (logs_dir / "session.log").write_text("data\n")
+
+        count = _wipe_global_state(plsec_home, preserve_logs=False)
+        assert count > 0
+        assert plsec_home.is_dir()
+        assert not logs_dir.exists()
         assert list(plsec_home.iterdir()) == []
 
     def test_returns_zero_for_empty_dir(self, tmp_path: Path):
@@ -62,6 +86,10 @@ class TestWipeGlobalState:
         plsec_home = tmp_path / "does_not_exist"
         count = _wipe_global_state(plsec_home)
         assert count == 0
+
+    def test_preserved_dirs_constant(self):
+        """_PRESERVED_DIRS should contain 'logs'."""
+        assert "logs" in _PRESERVED_DIRS
 
 
 # -----------------------------------------------------------------------
@@ -218,3 +246,46 @@ class TestResetCLI:
         assert result.exit_code == 0
         # Should have deployed fresh configs
         assert (plsec_home / "trivy" / "trivy.yaml").exists()
+
+    def test_reset_preserves_logs_by_default(self, tmp_path: Path):
+        """CLI reset without --wipe-logs should preserve logs/."""
+        plsec_home = self._setup_installed(tmp_path)
+        logs_dir = plsec_home / "logs"
+        logs_dir.mkdir(exist_ok=True)
+        (logs_dir / "session.log").write_text("keep me\n")
+
+        with patch("plsec.commands.reset.get_plsec_home", return_value=plsec_home):
+            result = runner.invoke(app, ["--yes"])
+        assert result.exit_code == 0
+        assert (logs_dir / "session.log").read_text() == "keep me\n"
+        assert "preserved" in result.output.lower()
+
+    def test_reset_wipe_logs_flag(self, tmp_path: Path):
+        """CLI reset with --wipe-logs should remove logs/."""
+        plsec_home = self._setup_installed(tmp_path)
+        logs_dir = plsec_home / "logs"
+        logs_dir.mkdir(exist_ok=True)
+        (logs_dir / "session.log").write_text("delete me\n")
+
+        with patch("plsec.commands.reset.get_plsec_home", return_value=plsec_home):
+            result = runner.invoke(app, ["--yes", "--wipe-logs"])
+        assert result.exit_code == 0
+        # logs dir is recreated by deploy_global_configs but old file is gone
+        assert not (logs_dir / "session.log").exists()
+
+    def test_reset_reinjects_aliases(self, tmp_path: Path):
+        """Reset should call inject_aliases (output mentions aliases)."""
+        plsec_home = self._setup_installed(tmp_path)
+        with patch("plsec.commands.reset.get_plsec_home", return_value=plsec_home):
+            result = runner.invoke(app, ["--yes"])
+        assert result.exit_code == 0
+        assert "aliases" in result.output.lower()
+
+    def test_reset_no_aliases_flag(self, tmp_path: Path):
+        """--no-aliases should skip alias injection."""
+        plsec_home = self._setup_installed(tmp_path)
+        with patch("plsec.commands.reset.get_plsec_home", return_value=plsec_home):
+            result = runner.invoke(app, ["--yes", "--no-aliases"])
+        assert result.exit_code == 0
+        # Should not contain the "Shell Aliases" header
+        assert "shell aliases" not in result.output.lower()

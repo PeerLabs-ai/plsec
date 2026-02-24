@@ -105,7 +105,7 @@ opencode-safe              # wrapper around opencode with logging
 | `plsec validate`    | Validate configuration files                       |
 | `plsec proxy`       | Manage Pipelock runtime proxy                      |
 | `plsec integrity`   | Workspace integrity monitoring                     |
-| `plsec reset`       | Reset to factory defaults (wipe and redeploy)      |
+| `plsec reset`       | Reset to factory defaults (preserves logs)          |
 | `plsec uninstall`   | Remove all plsec artifacts from the system         |
 
 ## Security Layers
@@ -225,29 +225,33 @@ Make is the unified entry point for all build, test, and lint operations.
 
 ```bash
 # Setup
-uv pip install -e ".[dev]"    # or: pip install -e ".[dev]"
+make setup                     # or: uv sync --dev
 
-# Full CI pipeline (lint + type check + build + all tests)
-make ci
+# Common workflows
+make dev-check                 # Quick local loop (lint + types + tests + build)
+make ci                        # Full CI pipeline (lint + types + all tests + golden)
+make all                       # Alias for make ci
 
 # Individual targets
-make lint                      # ruff check + ruff format --check
+make lint                      # All linting (Python + templates + bootstrap)
 make check                     # ty type checker
-make test-python               # pytest
-make test-unit                 # BATS unit tests
-make test-integration          # BATS integration tests
-make test                      # All BATS tests
+make test                      # All tests (pytest + BATS)
+make test-python               # pytest only
 make build                     # Assemble bootstrap.sh from templates
 make verify                    # Ensure build matches promoted reference
 make scan                      # Run plsec scan on own codebase
-make deploy                    # plsec install --force --check
+
+# Lifecycle (modifies ~/.peerlabs/plsec)
+make install                   # Deploy global configs
+make deploy                    # Force redeploy global configs
+make reset                     # Factory reset (preserves logs)
 ```
 
 ### Testing
 
 The test suite has two layers:
 
-- **pytest** (638 tests, 76% coverage) -- Python CLI across 3 tiers:
+- **pytest** (666 tests, 77% coverage) -- Python CLI across 3 tiers:
   pure logic (config, tools, templates, integrity, validation),
   filesystem with `tmp_path` (detector, init, create, output, install,
   reset, uninstall, inventory), and subprocess mocking (scan, doctor,
