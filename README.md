@@ -71,34 +71,42 @@ pip install -e ".[dev]"
 ## Quick Start
 
 ```bash
-# Check system dependencies
+# 1. Install global configuration, wrapper scripts, and shell aliases
+plsec install
+
+# 2. Source your shell to activate aliases (or restart terminal)
+source ~/.zshrc
+
+# 3. Check system dependencies
 plsec doctor
 
-# Create a new secure project
-plsec create my-api
+# 4. Initialize a project
+plsec create my-api        # new project
+plsec secure               # existing project
 
-# Or secure an existing project
-plsec secure
-
-# Run security scans
+# 5. Run security scans
 plsec scan
 
-# Validate configuration
-plsec validate
+# 6. Launch agents with session logging and audit
+claude-safe                # wrapper around claude with logging
+opencode-safe              # wrapper around opencode with logging
 ```
 
 ## Commands
 
-| Command           | Description                                    |
-|-------------------|------------------------------------------------|
-| `plsec create`    | Create a new project with security built-in    |
-| `plsec secure`    | Add security to an existing project            |
-| `plsec doctor`    | Check system dependencies and configuration    |
-| `plsec init`      | Initialize security configuration (low-level)  |
-| `plsec scan`      | Run security scanners (Trivy, Bandit, Semgrep) |
-| `plsec validate`  | Validate configuration files                   |
-| `plsec proxy`     | Manage Pipelock runtime proxy                  |
-| `plsec integrity` | Workspace integrity monitoring                 |
+| Command             | Description                                        |
+|---------------------|----------------------------------------------------|
+| `plsec install`     | Deploy global configs, wrapper scripts, and aliases |
+| `plsec create`      | Create a new project with security built-in        |
+| `plsec secure`      | Add security to an existing project                |
+| `plsec doctor`      | Check system dependencies and configuration        |
+| `plsec init`        | Initialize project security configuration          |
+| `plsec scan`        | Run security scanners (Trivy, Bandit, Semgrep)     |
+| `plsec validate`    | Validate configuration files                       |
+| `plsec proxy`       | Manage Pipelock runtime proxy                      |
+| `plsec integrity`   | Workspace integrity monitoring                     |
+| `plsec reset`       | Reset to factory defaults (wipe and redeploy)      |
+| `plsec uninstall`   | Remove all plsec artifacts from the system         |
 
 ## Security Layers
 
@@ -120,6 +128,45 @@ Layer 5: AUDIT       - Structured logging, integrity monitoring
 | `balanced` | Full static analysis, audit logging        |
 | `strict`   | Add container isolation and Pipelock proxy |
 | `paranoid` | Strict mode with network isolation         |
+
+## Wrapper Scripts and Aliases
+
+`plsec install` deploys wrapper scripts that add session logging and
+audit capabilities when running AI coding agents:
+
+```bash
+# Deploy wrappers, configs, and shell aliases
+plsec install
+
+# Or deploy without modifying your shell RC file
+plsec install --no-aliases
+```
+
+**What gets deployed to `~/.peerlabs/plsec/`:**
+
+| File | Purpose |
+|------|---------|
+| `claude-wrapper.sh` | Session logging, config auto-deploy, audit via `CLAUDE_CODE_SHELL_PREFIX` |
+| `opencode-wrapper.sh` | Session logging, config auto-deploy |
+| `plsec-audit.sh` | Per-command audit logging (every shell command Claude executes) |
+
+**Shell aliases added to `~/.zshrc` (or `~/.bashrc`):**
+
+| Alias | Target |
+|-------|--------|
+| `claude-safe` | `~/.peerlabs/plsec/claude-wrapper.sh` |
+| `opencode-safe` | `~/.peerlabs/plsec/opencode-wrapper.sh` |
+| `plsec-logs` | `tail -f ~/.peerlabs/plsec/logs/*.log` |
+
+The wrappers provide two tiers of logging:
+
+- **Tier 1** (both agents): Git branch/SHA, agent version, preset,
+  session duration, auto-deploy of agent configs to project
+- **Tier 2** (Claude only): `CLAUDE_CODE_SHELL_PREFIX` audit logging --
+  every shell command the LLM executes is logged to a separate daily
+  audit file
+
+Use `plsec uninstall` to remove wrappers and aliases cleanly.
 
 ## Configuration
 
@@ -186,26 +233,31 @@ make ci
 # Individual targets
 make lint                      # ruff check + ruff format --check
 make check                     # ty type checker
-make test-python               # pytest (426 tests)
-make test-unit                 # BATS unit tests (34 tests)
-make test-integration          # BATS integration tests (53 tests)
+make test-python               # pytest
+make test-unit                 # BATS unit tests
+make test-integration          # BATS integration tests
 make test                      # All BATS tests
 make build                     # Assemble bootstrap.sh from templates
 make verify                    # Ensure build matches promoted reference
+make scan                      # Run plsec scan on own codebase
+make deploy                    # plsec install --force --check
 ```
 
 ### Testing
 
 The test suite has two layers:
 
-- **pytest** (426 tests, 69% coverage) -- Python CLI across 3 tiers:
+- **pytest** (638 tests, 76% coverage) -- Python CLI across 3 tiers:
   pure logic (config, tools, templates, integrity, validation),
-  filesystem with `tmp_path` (detector, init, create, output),
-  and subprocess mocking (scan, doctor, proxy, secure). Includes
-  registry module tests for agents, scanners, processes, and health.
-- **BATS** (87 tests) -- Bootstrap shell script: directory structure
-  creation, agent config generation, wrapper script assembly, dry-run
-  mode, idempotency, and template escaping.
+  filesystem with `tmp_path` (detector, init, create, output, install,
+  reset, uninstall, inventory), and subprocess mocking (scan, doctor,
+  proxy, secure). Includes registry module tests for agents, scanners,
+  processes, and health. Wrapper deployment and shell alias
+  injection/removal are tested with full filesystem isolation.
+- **BATS** (172 tests) -- Bootstrap shell script: 75 unit tests
+  (directory structure, agent configs, wrapper scripts, logging fields),
+  53 integration tests (idempotency, agent switching, dry-run), and
+  44 assembler escaping tests.
 
 ```bash
 # Run Python tests with coverage
