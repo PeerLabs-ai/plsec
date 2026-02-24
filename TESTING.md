@@ -2,7 +2,7 @@
 
 ## Current State
 
-638 pytest tests across 22 files, 76% coverage. All three tiers are
+661 pytest tests across 22 files, 77% coverage. All three tiers are
 implemented. The original `test_plsec.py` has been redistributed:
 duplicate tests deleted, unique tests moved to `test_cli.py` and
 `test_config.py`.
@@ -16,7 +16,7 @@ duplicate tests deleted, unique tests moved to `test_cli.py` and
 | `test_integrity.py` | 29 | 1 | `commands/integrity.py` |
 | `test_validate.py` | 18 | 1 | `commands/validate.py` |
 | `test_agents.py` | 40 | 1 | `core/agents.py` (registry) |
-| `test_scanners.py` | 49 | 1+3 | `core/scanners.py` (registry) |
+| `test_scanners.py` | 58 | 1+3 | `core/scanners.py` (registry + ScanResult/ScanSummary) |
 | `test_processes.py` | 23 | 1+3 | `core/processes.py` (registry) |
 | `test_health.py` | 55 | 1+2 | `core/health.py` (+ wrapper script checks) |
 | `test_inventory.py` | 43 | 1+2 | `core/inventory.py` (artifact model) |
@@ -28,7 +28,7 @@ duplicate tests deleted, unique tests moved to `test_cli.py` and
 | `test_reset.py` | 15 | 2+3 | `commands/reset.py` (lifecycle) |
 | `test_uninstall.py` | 19 | 2+3 | `commands/uninstall.py` (lifecycle) |
 | `test_secure.py` | 39 | 3 | `commands/secure.py` |
-| `test_scan.py` | 15 | 3 | `commands/scan.py` |
+| `test_scan.py` | 29 | 3 | `commands/scan.py` (+ persistence, JSON output) |
 | `test_doctor.py` | 14 | 3 | `commands/doctor.py` |
 | `test_proxy.py` | 14 | 3 | `commands/proxy.py` |
 

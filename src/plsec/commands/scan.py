@@ -2,11 +2,15 @@
 plsec scan - Run security scanners.
 
 Wraps Trivy, Bandit, Semgrep, and other scanners with consistent output.
-Delegates to the SCANNERS registry in core/scanners.py.
+Delegates to the SCANNERS registry in core/scanners.py.  Persists scan
+results to ``~/.peerlabs/plsec/logs/`` as JSON lines for consumption by
+``plsec-status``.
 """
 
 __version__ = "0.1.0"
 
+import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -23,7 +27,7 @@ from plsec.core.output import (
     print_summary,
     print_warning,
 )
-from plsec.core.scanners import SCANNERS, run_scanner
+from plsec.core.scanners import SCANNERS, ScanResult, ScanSummary, run_scanner
 
 app = typer.Typer(
     help="Run security scanners.",
@@ -32,6 +36,82 @@ app = typer.Typer(
 
 
 ScanType = Literal["secrets", "code", "deps", "misconfig", "all"]
+
+# Daily scan log file pattern: scan-YYYYMMDD.jsonl
+SCAN_LOG_PATTERN = "scan-{date}.jsonl"
+# Symlink/file for quick access to most recent scan results
+SCAN_LATEST = "scan-latest.json"
+
+
+def _result_to_dict(result: ScanResult) -> dict:
+    """Convert a ScanResult to a JSON-serializable dict."""
+    return {
+        "scanner": result.scanner_id,
+        "type": result.scan_type,
+        "verdict": result.verdict,
+        "exit_code": result.exit_code,
+        "duration": result.duration_seconds,
+        "message": result.message,
+    }
+
+
+def _summary_to_dict(summary: ScanSummary) -> dict:
+    """Convert a ScanSummary to a JSON-serializable dict."""
+    return {
+        "ts": datetime.now(UTC).isoformat(),
+        "target": summary.target,
+        "passed": summary.passed,
+        "results": [_result_to_dict(r) for r in summary.results],
+        "counts": {
+            "pass": summary.pass_count,
+            "fail": summary.fail_count,
+            "skip": summary.skip_count,
+        },
+    }
+
+
+def _write_scan_log(plsec_home: Path, summary: ScanSummary) -> Path | None:
+    """Write scan results to the daily JSON lines log file.
+
+    Each scanner result is a separate line.  A summary line follows.
+    Also writes ``scan-latest.json`` with the full summary for quick
+    access by ``plsec-status``.
+
+    Returns the log file path, or None if writing failed.
+    """
+    logs_dir = plsec_home / "logs"
+    if not logs_dir.is_dir():
+        return None
+
+    ts = datetime.now(UTC)
+    ts_str = ts.isoformat()
+    date_str = ts.strftime("%Y%m%d")
+
+    # Append per-result lines to daily JSONL file
+    log_path = logs_dir / SCAN_LOG_PATTERN.format(date=date_str)
+    try:
+        with open(log_path, "a") as f:
+            for result in summary.results:
+                entry = _result_to_dict(result)
+                entry["ts"] = ts_str
+                entry["target"] = summary.target
+                f.write(json.dumps(entry) + "\n")
+    except OSError:
+        return None
+
+    # Write latest summary as a single JSON file
+    latest_path = logs_dir / SCAN_LATEST
+    try:
+        latest_path.write_text(json.dumps(_summary_to_dict(summary), indent=2) + "\n")
+    except OSError:
+        pass  # Non-critical: daily log is the primary record
+
+    return log_path
+
+
+def _print_json(summary: ScanSummary) -> None:
+    """Print scan summary as JSON to stdout."""
+    console.print_json(json.dumps(_summary_to_dict(summary)))
 
 
 def _check_scanner_prerequisites(plsec_home: Path) -> None:
@@ -98,6 +178,7 @@ def scan(
     plsec_home = get_plsec_home()
     _check_scanner_prerequisites(plsec_home)
 
+    summary = ScanSummary(target=str(path))
     ok_count = 0
     warn_count = 0
     error_count = 0
@@ -122,29 +203,42 @@ def scan(
 
         # Run the scanner
         print_info(f"Running {spec.display_name}...")
-        passed, message = run_scanner(spec, path, plsec_home)
+        result = run_scanner(spec, path, plsec_home)
+        summary.results.append(result)
 
-        if passed:
-            if "skipped" in message.lower() or "not installed" in message.lower():
-                print_info(message)
+        if result.passed:
+            if result.verdict == "skip":
+                print_info(result.message)
             else:
-                print_ok(f"{spec.display_name}: {message}")
+                print_ok(f"{spec.display_name}: {result.message}")
             ok_count += 1
         else:
             # Secrets are errors; code/misconfig are warnings
             if spec.scan_type == "secrets":
                 print_error(f"{spec.display_name}: Potential issues found")
-                console.print(message)
+                if result.output:
+                    console.print(result.output)
                 error_count += 1
             else:
                 print_warning(f"{spec.display_name}: Issues found")
-                console.print(message)
+                if result.output:
+                    console.print(result.output)
                 warn_count += 1
 
     # Dependency audit (not yet backed by a scanner registry entry)
     if scan_type in ("deps", "all"):
         print_header("Dependency Audit")
         print_info("Dependency audit not yet implemented")
+
+    summary.passed = error_count == 0
+
+    # Persist scan results to logs
+    _write_scan_log(plsec_home, summary)
+
+    # JSON output
+    if json_output:
+        _print_json(summary)
+        raise typer.Exit(1 if error_count > 0 else 0)
 
     # Summary
     print_summary("Scan complete", ok=ok_count, warnings=warn_count, errors=error_count)

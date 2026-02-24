@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
 **Last Updated:** 2026-02-23
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 638 pytest + 75 BATS unit + 53 BATS integration + 44 assembler tests, 76% coverage
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 661 pytest + 75 BATS unit + 53 BATS integration + 44 assembler tests, 77% coverage
 
 ---
 
@@ -73,6 +73,51 @@ Items 1-12 are complete.
 
 ## Accomplished (this session)
 
+### Milestone 10: Scan result persistence
+
+Refactored `run_scanner()` to return structured `ScanResult` dataclass
+and added scan log persistence to `~/.peerlabs/plsec/logs/`.
+
+**Phase A -- `ScanResult`/`ScanSummary` dataclasses:**
+- `ScanResult`: `scanner_id`, `scan_type`, `verdict` (pass/fail/skip),
+  `exit_code`, `duration_seconds`, `message`, `output`, `.passed` property
+- `ScanSummary`: `results` list, `target`, `passed`, computed
+  `pass_count`/`fail_count`/`skip_count` properties
+- `run_scanner()` refactored from `tuple[bool, str]` to `ScanResult`
+- `time.monotonic()` timing, output truncated to 10K chars
+
+**Phase B -- Persistence functions:**
+- `_result_to_dict()` / `_summary_to_dict()` -- JSON-serializable conversion
+- `_write_scan_log()` -- writes per-result JSON lines to daily
+  `scan-YYYYMMDD.jsonl`, plus `scan-latest.json` summary
+- `_print_json()` -- outputs summary via `console.print_json()`
+
+**Phase C -- scan command integration:**
+- `scan()` updated to accumulate `ScanResult` into `ScanSummary`
+- Calls `_write_scan_log()` after all scanners complete
+- `--json` flag implemented (was dead code, now functional)
+
+**Phase D -- Test updates (23 new tests):**
+- Fixed 8 tests in `test_scanners.py::TestRunScanner` -- changed
+  `ok, msg = run_scanner(...)` to `result = run_scanner(...)` with
+  assertions on `result.passed`, `result.verdict`, `result.message`
+- Fixed 15 tests in `test_scan.py` -- mock functions now return
+  `ScanResult` instances instead of tuples
+- 5 new `TestScanResult` tests (verdicts, defaults, all fields)
+- 4 new `TestScanSummary` tests (empty, mixed, all-pass, all-skip)
+- 3 new `TestResultToDict` tests (fields, None exit_code, no output)
+- 3 new `TestSummaryToDict` tests (structure, empty, ISO timestamp)
+- 5 new `TestWriteScanLog` tests (missing dir, JSONL, latest, append, date)
+- 1 new `TestPrintJson` test (valid JSON output)
+- 2 new `TestJsonFlag` tests (valid output, exit code on failure)
+- Total: 661 pytest tests, 77% coverage, `core/scanners.py` at 100%
+
+**Files modified:**
+- `src/plsec/core/scanners.py` -- `ScanResult`, `ScanSummary`, refactored `run_scanner()`
+- `src/plsec/commands/scan.py` -- persistence, JSON output, `--json` flag
+- `tests/test_scanners.py` -- 8 fixes + 9 new tests
+- `tests/test_scan.py` -- 15 fixes + 14 new tests
+
 ### Milestone 9: Bridge CLI/Bootstrap gap
 
 Made `plsec install` deploy wrapper scripts and shell aliases, closing
@@ -117,7 +162,7 @@ session logging, audit trails, and `*-safe` aliases from the CLI alone.
   registries, cross-checks)
 - `test_health.py`: 8 new tests (wrapper script health checks,
   executable perms, check IDs)
-- Total: 638 pytest tests, 76% coverage
+- Total: 638 pytest tests, 76% coverage (before Milestone 10)
 
 **Files created:** None (all changes to existing files)
 
@@ -242,6 +287,7 @@ coverage, plus `plsec scan` pre-flight check and artifact inventory model.
 
 **107 new tests added** (458 -> 565 pytest tests), coverage 71% -> 75%.
 *Milestone 9 added 73 more tests (565 -> 638), coverage 75% -> 76%.*
+*Milestone 10 added 23 more tests (638 -> 661), coverage 76% -> 77%.*
 
 ### Previous sub-session: Get `make scan` clean -- trivy false positive elimination
 
@@ -508,6 +554,20 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
     `# --- plsec aliases (do not edit) ---` / `# --- end plsec aliases ---`
     markers.  `_remove_alias_block()` handles both formats for
     backward compatibility with bootstrap-injected aliases.
+46. **`ty` rejects `**dict` spreading in dataclass constructors.**
+    When creating `ScanResult` instances, using `**base` dict causes
+    type errors because ty can't verify dict values match parameter
+    types.  Must use explicit keyword arguments.
+47. **`plsec scan --json` flag was dead code.** Declared on line 74 of
+    scan.py but never referenced in the function body.  Implemented as
+    part of Milestone 10.
+48. **`run_scanner()` returned `tuple[bool, str]` -- too coarse for
+    structured output.** No scanner ID, scan type, exit code, timing,
+    or structured output.  Refactored to return `ScanResult` dataclass.
+49. **Path migration from `~/.plsec` to `~/.peerlabs/plsec` was already
+    complete in all source code.** Only PROJECT.md still described it
+    as pending, and 2 test fixtures in `test_processes.py` used the old
+    path cosmetically.  Both cleaned up.
 
 ## What Needs to Happen Next
 
@@ -528,7 +588,9 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
    logging via `plsec-audit.sh`. 41 BATS tests)
 9. ~~**Bridge CLI/bootstrap gap**~~ (DONE -- `plsec install` deploys
    wrapper scripts and shell aliases. 73 new tests, 638 total, 76% cov)
-10. **Scan result persistence** - write to logs for plsec-status
+10. ~~**Scan result persistence**~~ (DONE -- `ScanResult`/`ScanSummary` dataclasses,
+    `run_scanner()` returns structured results, `_write_scan_log()` writes daily
+    JSONL + `scan-latest.json`, `--json` CLI flag, 661 tests, 77% cov)
 11. **`plsec-status` Phase 1** - bash health checks in bootstrap
 12. **`plsec-status` Phase 2** - watch mode
 13. **Agent monitoring foundation** - `data_dir` in AgentSpec,
@@ -561,7 +623,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 
 ### Registry and core modules
 - `src/plsec/core/agents.py` - `AgentSpec`, `AGENTS`, `is_strict()`, `security_mode()`, `get_template()`, `resolve_agent_ids()`, validators
-- `src/plsec/core/scanners.py` - `ScannerSpec`, `SCANNERS`, `run_scanner()`, `_TRIVY_SKIP_DIRS`, `_TRIVY_SKIP_FILES`, `_TRIVY_IGNOREFILE`, `_add_trivy_common_flags()`
+- `src/plsec/core/scanners.py` - `ScannerSpec`, `ScanResult`, `ScanSummary`, `SCANNERS`, `run_scanner()`, `_TRIVY_SKIP_DIRS`, `_TRIVY_SKIP_FILES`, `_TRIVY_IGNOREFILE`, `_add_trivy_common_flags()`
 - `src/plsec/core/processes.py` - `ProcessSpec`, `PROCESSES`, `find_binary()`, `is_running()`, path helpers
 - `src/plsec/core/health.py` - `CheckResult`, `PLSEC_SUBDIRS`, `PLSEC_EXPECTED_FILES`, check functions including `check_scanner_configs()`, verdict helpers
 - `src/plsec/core/inventory.py` - `Artifact`, `Inventory`, `discover_global_artifacts()`, `discover_external_artifacts()`, `discover_project_artifacts()`, `discover_all()`, `format_size()`
@@ -587,7 +649,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `src/plsec/configs/templates.py` -> `TRIVY_CONFIG_YAML` - Python CLI copy (kept in sync)
 - `.trivyignore.yaml` - Per-path false positive suppression (21 files, 4 rule IDs + 1 misconfig)
 
-### Test files (638 pytest tests, all passing, 76% coverage)
+### Test files (661 pytest tests, all passing, 77% coverage)
 - `tests/conftest.py` - 3 shared fixtures
 - `tests/test_cli.py` - 4 tests (top-level app smoke tests)
 - `tests/test_config.py` - 28 tests (config + package version)
@@ -604,11 +666,11 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `tests/test_detector.py` - 34 tests
 - `tests/test_create.py` - 20 tests
 - `tests/test_agents.py` - 40 tests (registry structure + helpers)
-- `tests/test_scanners.py` - 49 tests (skip-dirs, skip-files, ignorefile)
+- `tests/test_scanners.py` - 58 tests (skip-dirs, skip-files, ignorefile, ScanResult, ScanSummary)
 - `tests/test_processes.py` - 23 tests (spec, paths, is_running)
 - `tests/test_health.py` - 55 tests (scanner config checks, wrapper script checks)
 - `tests/test_secure.py` - 39 tests (Change/ChangeSet, calculate_changes, apply_changes)
-- `tests/test_scan.py` - 15 tests (scan execution, flag resolution, pre-flight prerequisites)
+- `tests/test_scan.py` - 29 tests (scan execution, flag resolution, pre-flight, persistence, JSON output)
 - `tests/test_doctor.py` - 14 tests (render, orchestration, flags)
 - `tests/test_proxy.py` - 14 tests (start, stop, status, logs)
 

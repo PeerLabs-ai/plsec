@@ -77,7 +77,7 @@ class TestBuildPipelockRunCmd:
 
     def test_basic_command(self):
         binary = Path("/usr/local/bin/pipelock")
-        config = Path("/home/user/.plsec/pipelock.yaml")
+        config = Path("/home/user/.peerlabs/plsec/pipelock.yaml")
         cmd = _build_pipelock_run_cmd(binary, config, 8080, "balanced")
         assert cmd[0] == str(binary)
         assert "run" in cmd
@@ -101,7 +101,7 @@ class TestBuildPipelockConfigCmd:
 
     def test_basic_command(self):
         binary = Path("/usr/local/bin/pipelock")
-        output = Path("/home/user/.plsec/pipelock.yaml")
+        output = Path("/home/user/.peerlabs/plsec/pipelock.yaml")
         cmd = _build_pipelock_config_cmd(binary, "strict", output)
         assert cmd[0] == str(binary)
         assert "generate" in cmd

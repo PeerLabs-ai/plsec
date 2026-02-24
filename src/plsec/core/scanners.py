@@ -10,15 +10,66 @@ add one ScannerSpec entry to SCANNERS.
 
 import shutil
 import subprocess
+import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from plsec.core.tools import REQUIRED_TOOLS, Tool
 
 # ---------------------------------------------------------------------------
-# Dataclass
+# Dataclasses
 # ---------------------------------------------------------------------------
+
+
+@dataclass
+class ScanResult:
+    """Structured result from a single scanner run."""
+
+    # Scanner identifier (e.g., "trivy-secrets", "bandit")
+    scanner_id: str
+    # Category of scan (e.g., "secrets", "code", "misconfig")
+    scan_type: str
+    # Outcome: pass, fail, or skip (tool missing / no applicable files)
+    verdict: Literal["pass", "fail", "skip"]
+    # Subprocess exit code (None if skipped or binary not found)
+    exit_code: int | None = None
+    # Wall-clock duration in seconds
+    duration_seconds: float = 0.0
+    # Human-readable summary (e.g., "No secrets detected")
+    message: str = ""
+    # Truncated scanner output (stdout + stderr)
+    output: str = ""
+
+    @property
+    def passed(self) -> bool:
+        """Whether the scan passed (pass or skip)."""
+        return self.verdict in ("pass", "skip")
+
+
+@dataclass
+class ScanSummary:
+    """Aggregated results from a full scan run."""
+
+    # Individual scanner results
+    results: list[ScanResult] = field(default_factory=list)
+    # Target path that was scanned
+    target: str = ""
+    # Overall pass/fail
+    passed: bool = True
+
+    @property
+    def pass_count(self) -> int:
+        return sum(1 for r in self.results if r.verdict == "pass")
+
+    @property
+    def fail_count(self) -> int:
+        return sum(1 for r in self.results if r.verdict == "fail")
+
+    @property
+    def skip_count(self) -> int:
+        return sum(1 for r in self.results if r.verdict == "skip")
 
 
 @dataclass
@@ -244,29 +295,48 @@ def run_scanner(
     spec: ScannerSpec,
     target: Path,
     plsec_home: Path,
-) -> tuple[bool, str]:
+) -> ScanResult:
     """Run a single scanner against a target path.
 
     Handles binary availability checks, file filtering, command
     construction, subprocess execution, timeout, and result parsing.
 
-    Returns (passed, message).
+    Returns a ScanResult with structured outcome data.
     """
+    sid = spec.id
+    stype = spec.scan_type
+
     # Check if binary is available
     if not shutil.which(spec.tool.command):
         if spec.skip_when_missing:
-            return True, f"{spec.display_name} not installed (skipped)"
-        return False, f"{spec.display_name} not found"
+            return ScanResult(
+                scanner_id=sid,
+                scan_type=stype,
+                verdict="skip",
+                message=f"{spec.display_name} not installed (skipped)",
+            )
+        return ScanResult(
+            scanner_id=sid,
+            scan_type=stype,
+            verdict="fail",
+            message=f"{spec.display_name} not found",
+        )
 
     # Check file filter (e.g., bandit only runs if *.py files exist)
     if spec.file_filter and not spec.file_filter(target):
-        return True, f"No applicable files found for {spec.display_name}"
+        return ScanResult(
+            scanner_id=sid,
+            scan_type=stype,
+            verdict="skip",
+            message=f"No applicable files found for {spec.display_name}",
+        )
 
     # Build config path if scanner has a config file
     config_path = (plsec_home / spec.config_file) if spec.config_file else None
 
     # Build and run the command
     cmd = spec.build_command(target, config_path)
+    start = time.monotonic()
     try:
         result = subprocess.run(
             cmd,
@@ -274,11 +344,38 @@ def run_scanner(
             text=True,
             timeout=spec.timeout,
         )
+        elapsed = time.monotonic() - start
         output = result.stdout + result.stderr
-        return spec.parse_result(result.returncode, output)
+        passed, message = spec.parse_result(result.returncode, output)
+        return ScanResult(
+            scanner_id=sid,
+            scan_type=stype,
+            verdict="pass" if passed else "fail",
+            exit_code=result.returncode,
+            duration_seconds=round(elapsed, 2),
+            message=message,
+            output=output[:10_000],
+        )
     except subprocess.TimeoutExpired:
-        return False, f"{spec.display_name} timed out"
+        elapsed = time.monotonic() - start
+        return ScanResult(
+            scanner_id=sid,
+            scan_type=stype,
+            verdict="fail",
+            duration_seconds=round(elapsed, 2),
+            message=f"{spec.display_name} timed out",
+        )
     except FileNotFoundError:
         if spec.skip_when_missing:
-            return True, f"{spec.display_name} not installed (skipped)"
-        return False, f"{spec.display_name} not found"
+            return ScanResult(
+                scanner_id=sid,
+                scan_type=stype,
+                verdict="skip",
+                message=f"{spec.display_name} not installed (skipped)",
+            )
+        return ScanResult(
+            scanner_id=sid,
+            scan_type=stype,
+            verdict="fail",
+            message=f"{spec.display_name} not found",
+        )

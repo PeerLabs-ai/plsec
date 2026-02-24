@@ -128,8 +128,10 @@ of truth).
   RC file with start/end markers, removable by `plsec uninstall`.
   `--no-aliases` flag to opt out. Health checks I-8/I-9/I-10 verify
   wrapper scripts. `AgentSpec.wrapper_template` now consumed by install.
-- [ ] **Scan result persistence**: Both `plsec scan` and `wrapper-scan.sh`
-  must write results to `~/.peerlabs/plsec/logs/` for `plsec-status`.
+- [x] **Scan result persistence**: `plsec scan` writes structured results
+  to `~/.peerlabs/plsec/logs/` via `ScanResult`/`ScanSummary` dataclasses.
+  Daily JSONL log (`scan-YYYYMMDD.jsonl`) + `scan-latest.json` summary.
+  `--json` CLI flag for machine-readable output. 661 tests, 77% coverage.
 - [x] **Installation testing**: Added `make install-test` (clean install
   in isolated venv) and `make build-dist` (sdist + wheel) targets.
   Created `docs/INSTALL.md` covering all installation paths (pipx, uv,
@@ -201,41 +203,12 @@ of truth).
   now, implement when the CLI subsumes bootstrap functionality.
 - [ ] **apt packaging**: Debian/Ubuntu package for server environments.
 
-## Path Migration: `~/.plsec` to `~/.peerlabs/plsec`
+## Path Migration: `~/.plsec` to `~/.peerlabs/plsec` (COMPLETE)
 
-The bootstrap shell scripts already use `~/.peerlabs/plsec` consistently.
-The Python CLI still uses the old `~/.plsec` path. These must be unified.
-
-### Root cause
-
-`get_plsec_home()` in `src/plsec/core/config.py:187` returns
-`Path.home() / ".plsec"`. All callers resolve through this function.
-
-### Files requiring changes
-
-**Python code (functional changes):**
-
-| File                             | Lines                 | What                                                                                          |
-|----------------------------------|-----------------------|-----------------------------------------------------------------------------------------------|
-| `src/plsec/core/config.py`       | 49, 97, 113, 127, 187 | `get_plsec_home()`, `PlsecSettings`, `AuditLayerConfig` default, `find_config_file` docstring |
-| `src/plsec/configs/templates.py` | 86, 226, 298          | Hardcoded strings in CLAUDE_MD_BALANCED, PLSEC_YAML_TEMPLATE, PRE_COMMIT_HOOK                 |
-| `src/plsec/commands/init.py`     | 120, 132, 151         | Help text and display strings                                                                 |
-| `src/plsec/commands/create.py`   | 532                   | Generated YAML content                                                                        |
-| `src/plsec/commands/secure.py`   | 224                   | Generated YAML content                                                                        |
-| `src/plsec/commands/validate.py` | 202                   | User-facing hint message                                                                      |
-
-**Documentation and packaging:**
-
-| File                | What                | Lines |
-|---------------------|---------------------|-------|
-| `homebrew/plsec.rb` | Caveats text        | 81    |
-| `HANDOFF.md`        | Config search docs  | 199   |
-| `README.md`         | Example YAML config | 152   |
-
-**Already correct** (no changes needed):
-- All bootstrap templates, shell scripts, BATS tests use `~/.peerlabs/plsec`
-- `CLAUDE.md` already uses `~/.peerlabs/plsec`
-- `.plsec-manifest.json` is a per-workspace filename, not a home directory path
+All Python source code, templates, and bootstrap scripts now use
+`~/.peerlabs/plsec` consistently.  `get_plsec_home()` returns
+`Path.home() / ".peerlabs" / "plsec"`.  The `.plsec-manifest.json`
+filename is a per-workspace artifact, not a home directory path.
 
 ## Versioning
 

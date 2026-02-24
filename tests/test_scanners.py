@@ -26,6 +26,8 @@ from plsec.core.scanners import (
     _TRIVY_SKIP_FILES,
     SCANNERS,
     ScannerSpec,
+    ScanResult,
+    ScanSummary,
     _build_bandit_cmd,
     _build_semgrep_cmd,
     _build_trivy_misconfig_cmd,
@@ -324,35 +326,39 @@ def _make_scanner_spec(
 class TestRunScanner:
     """Contract: run_scanner(spec, target, plsec_home) handles binary
     availability, file filtering, subprocess execution, timeout, and result
-    parsing. Returns (passed, message).
+    parsing. Returns a ScanResult dataclass.
 
     These tests mock shutil.which and subprocess.run to avoid actual
     binary execution."""
 
     def test_skip_when_binary_missing_and_skippable(self, tmp_path: Path):
-        """Missing binary with skip_when_missing=True should pass."""
+        """Missing binary with skip_when_missing=True should skip (passes)."""
         spec = _make_scanner_spec(skip_when_missing=True)
         with patch("plsec.core.scanners.shutil.which", return_value=None):
-            ok, msg = run_scanner(spec, tmp_path, tmp_path)
-        assert ok is True
-        assert "skipped" in msg.lower()
+            result = run_scanner(spec, tmp_path, tmp_path)
+        assert isinstance(result, ScanResult)
+        assert result.passed is True
+        assert result.verdict == "skip"
+        assert "skipped" in result.message.lower()
 
     def test_fail_when_binary_missing_and_required(self, tmp_path: Path):
         """Missing binary with skip_when_missing=False should fail."""
         spec = _make_scanner_spec(skip_when_missing=False)
         with patch("plsec.core.scanners.shutil.which", return_value=None):
-            ok, msg = run_scanner(spec, tmp_path, tmp_path)
-        assert ok is False
-        assert "not found" in msg.lower()
+            result = run_scanner(spec, tmp_path, tmp_path)
+        assert result.passed is False
+        assert result.verdict == "fail"
+        assert "not found" in result.message.lower()
 
     def test_skip_when_file_filter_fails(self, tmp_path: Path):
         """Scanner with file_filter that returns False should skip."""
         spec = _make_scanner_spec()
         spec.file_filter = lambda _: False
         with patch("plsec.core.scanners.shutil.which", return_value="/usr/bin/test-tool"):
-            ok, msg = run_scanner(spec, tmp_path, tmp_path)
-        assert ok is True
-        assert "no applicable files" in msg.lower()
+            result = run_scanner(spec, tmp_path, tmp_path)
+        assert result.passed is True
+        assert result.verdict == "skip"
+        assert "no applicable files" in result.message.lower()
 
     def test_successful_scan(self, tmp_path: Path):
         """Successful scan (returncode 0) should pass."""
@@ -362,8 +368,11 @@ class TestRunScanner:
             patch("plsec.core.scanners.shutil.which", return_value="/usr/bin/test-tool"),
             patch("plsec.core.scanners.subprocess.run", return_value=mock_result),
         ):
-            ok, msg = run_scanner(spec, tmp_path, tmp_path)
-        assert ok is True
+            result = run_scanner(spec, tmp_path, tmp_path)
+        assert result.passed is True
+        assert result.verdict == "pass"
+        assert result.exit_code == 0
+        assert result.duration_seconds >= 0
 
     def test_failed_scan(self, tmp_path: Path):
         """Failed scan (nonzero returncode) should fail."""
@@ -373,8 +382,10 @@ class TestRunScanner:
             patch("plsec.core.scanners.shutil.which", return_value="/usr/bin/test-tool"),
             patch("plsec.core.scanners.subprocess.run", return_value=mock_result),
         ):
-            ok, msg = run_scanner(spec, tmp_path, tmp_path)
-        assert ok is False
+            result = run_scanner(spec, tmp_path, tmp_path)
+        assert result.passed is False
+        assert result.verdict == "fail"
+        assert result.exit_code == 1
 
     def test_timeout_returns_failure(self, tmp_path: Path):
         """Subprocess timeout should return failure."""
@@ -386,12 +397,13 @@ class TestRunScanner:
                 side_effect=subprocess.TimeoutExpired("test-tool", 1),
             ),
         ):
-            ok, msg = run_scanner(spec, tmp_path, tmp_path)
-        assert ok is False
-        assert "timed out" in msg.lower()
+            result = run_scanner(spec, tmp_path, tmp_path)
+        assert result.passed is False
+        assert result.verdict == "fail"
+        assert "timed out" in result.message.lower()
 
     def test_file_not_found_skippable(self, tmp_path: Path):
-        """FileNotFoundError with skip_when_missing=True should pass."""
+        """FileNotFoundError with skip_when_missing=True should skip (passes)."""
         spec = _make_scanner_spec(skip_when_missing=True)
         with (
             patch("plsec.core.scanners.shutil.which", return_value="/usr/bin/test-tool"),
@@ -400,9 +412,10 @@ class TestRunScanner:
                 side_effect=FileNotFoundError("test-tool"),
             ),
         ):
-            ok, msg = run_scanner(spec, tmp_path, tmp_path)
-        assert ok is True
-        assert "skipped" in msg.lower()
+            result = run_scanner(spec, tmp_path, tmp_path)
+        assert result.passed is True
+        assert result.verdict == "skip"
+        assert "skipped" in result.message.lower()
 
     def test_file_not_found_required(self, tmp_path: Path):
         """FileNotFoundError with skip_when_missing=False should fail."""
@@ -414,8 +427,9 @@ class TestRunScanner:
                 side_effect=FileNotFoundError("test-tool"),
             ),
         ):
-            ok, msg = run_scanner(spec, tmp_path, tmp_path)
-        assert ok is False
+            result = run_scanner(spec, tmp_path, tmp_path)
+        assert result.passed is False
+        assert result.verdict == "fail"
 
     def test_config_file_resolved(self, tmp_path: Path):
         """Config file path should be resolved from plsec_home."""
@@ -432,5 +446,108 @@ class TestRunScanner:
             patch("plsec.core.scanners.shutil.which", return_value="/usr/bin/test-tool"),
             patch("plsec.core.scanners.subprocess.run", return_value=mock_result),
         ):
-            run_scanner(spec, tmp_path, tmp_path)
+            result = run_scanner(spec, tmp_path, tmp_path)
         assert captured_cmd[0] == tmp_path / "configs" / "scan.yaml"
+        assert result.scanner_id == "test-scanner"
+        assert result.scan_type == "test"
+
+
+# -----------------------------------------------------------------------
+# ScanResult dataclass
+# -----------------------------------------------------------------------
+
+
+class TestScanResult:
+    """Contract: ScanResult holds structured output from a single scanner run.
+    The .passed property returns True for 'pass' and 'skip' verdicts."""
+
+    def test_pass_verdict_is_passed(self):
+        r = ScanResult(scanner_id="x", scan_type="secrets", verdict="pass")
+        assert r.passed is True
+
+    def test_skip_verdict_is_passed(self):
+        r = ScanResult(scanner_id="x", scan_type="secrets", verdict="skip")
+        assert r.passed is True
+
+    def test_fail_verdict_is_not_passed(self):
+        r = ScanResult(scanner_id="x", scan_type="secrets", verdict="fail")
+        assert r.passed is False
+
+    def test_defaults(self):
+        r = ScanResult(scanner_id="bandit", scan_type="code", verdict="pass")
+        assert r.exit_code is None
+        assert r.duration_seconds == 0.0
+        assert r.message == ""
+        assert r.output == ""
+
+    def test_all_fields_set(self):
+        r = ScanResult(
+            scanner_id="trivy-secrets",
+            scan_type="secrets",
+            verdict="fail",
+            exit_code=1,
+            duration_seconds=2.5,
+            message="Found AWS key",
+            output="line1\nline2",
+        )
+        assert r.scanner_id == "trivy-secrets"
+        assert r.scan_type == "secrets"
+        assert r.verdict == "fail"
+        assert r.exit_code == 1
+        assert r.duration_seconds == 2.5
+        assert r.message == "Found AWS key"
+        assert r.output == "line1\nline2"
+        assert r.passed is False
+
+
+# -----------------------------------------------------------------------
+# ScanSummary dataclass
+# -----------------------------------------------------------------------
+
+
+class TestScanSummary:
+    """Contract: ScanSummary aggregates ScanResult instances and provides
+    pass/fail/skip counts via computed properties."""
+
+    def test_empty_summary(self):
+        s = ScanSummary()
+        assert s.results == []
+        assert s.target == ""
+        assert s.passed is True
+        assert s.pass_count == 0
+        assert s.fail_count == 0
+        assert s.skip_count == 0
+
+    def test_counts_with_mixed_results(self):
+        results = [
+            ScanResult(scanner_id="a", scan_type="secrets", verdict="pass"),
+            ScanResult(scanner_id="b", scan_type="code", verdict="fail"),
+            ScanResult(scanner_id="c", scan_type="code", verdict="skip"),
+            ScanResult(scanner_id="d", scan_type="misconfig", verdict="pass"),
+        ]
+        s = ScanSummary(results=results, target="/home/user/project", passed=False)
+        assert s.pass_count == 2
+        assert s.fail_count == 1
+        assert s.skip_count == 1
+        assert s.passed is False
+        assert s.target == "/home/user/project"
+
+    def test_all_pass(self):
+        results = [
+            ScanResult(scanner_id="a", scan_type="secrets", verdict="pass"),
+            ScanResult(scanner_id="b", scan_type="code", verdict="pass"),
+        ]
+        s = ScanSummary(results=results, passed=True)
+        assert s.pass_count == 2
+        assert s.fail_count == 0
+        assert s.skip_count == 0
+
+    def test_all_skip(self):
+        results = [
+            ScanResult(scanner_id="a", scan_type="code", verdict="skip"),
+            ScanResult(scanner_id="b", scan_type="code", verdict="skip"),
+        ]
+        s = ScanSummary(results=results, passed=True)
+        assert s.skip_count == 2
+        assert s.pass_count == 0
+        assert s.fail_count == 0
