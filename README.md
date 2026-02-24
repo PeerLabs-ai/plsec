@@ -144,19 +144,19 @@ plsec install --no-aliases
 
 **What gets deployed to `~/.peerlabs/plsec/`:**
 
-| File | Purpose |
-|------|---------|
-| `claude-wrapper.sh` | Session logging, config auto-deploy, audit via `CLAUDE_CODE_SHELL_PREFIX` |
-| `opencode-wrapper.sh` | Session logging, config auto-deploy |
-| `plsec-audit.sh` | Per-command audit logging (every shell command Claude executes) |
+| File                  | Purpose                                                                   |
+|-----------------------|---------------------------------------------------------------------------|
+| `claude-wrapper.sh`   | Session logging, config auto-deploy, audit via `CLAUDE_CODE_SHELL_PREFIX` |
+| `opencode-wrapper.sh` | Session logging, config auto-deploy                                       |
+| `plsec-audit.sh`      | Per-command audit logging (every shell command Claude executes)           |
 
 **Shell aliases added to `~/.zshrc` (or `~/.bashrc`):**
 
-| Alias | Target |
-|-------|--------|
-| `claude-safe` | `~/.peerlabs/plsec/claude-wrapper.sh` |
+| Alias           | Target                                  |
+|-----------------|-----------------------------------------|
+| `claude-safe`   | `~/.peerlabs/plsec/claude-wrapper.sh`   |
 | `opencode-safe` | `~/.peerlabs/plsec/opencode-wrapper.sh` |
-| `plsec-logs` | `tail -f ~/.peerlabs/plsec/logs/*.log` |
+| `plsec-logs`    | `tail -f ~/.peerlabs/plsec/logs/*.log`  |
 
 The wrappers provide two tiers of logging:
 
@@ -273,12 +273,12 @@ make test-integration
 
 ### Quality Tools
 
-| Tool | Purpose | Command |
-|------|---------|---------|
-| ruff | Lint + format | `uv run ruff check .` / `uv run ruff format .` |
-| ty | Type checking | `uv run ty check src/` |
-| pytest | Python tests | `uv run pytest tests/ -v` |
-| BATS | Shell tests | `make test-unit` / `make test-integration` |
+| Tool   | Purpose       | Command                                        |
+|--------|---------------|------------------------------------------------|
+| ruff   | Lint + format | `uv run ruff check .` / `uv run ruff format .` |
+| ty     | Type checking | `uv run ty check src/`                         |
+| pytest | Python tests  | `uv run pytest tests/ -v`                      |
+| BATS   | Shell tests   | `make test-unit` / `make test-integration`     |
 
 ## License
 
