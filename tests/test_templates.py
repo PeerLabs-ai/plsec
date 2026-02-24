@@ -9,14 +9,20 @@ import json
 import yaml
 
 from plsec.configs.templates import (
+    _PLSEC_DIR_PLACEHOLDER,
     CLAUDE_MD_BALANCED,
     CLAUDE_MD_STRICT,
     OPENCODE_JSON_BALANCED,
     OPENCODE_JSON_STRICT,
+    PLSEC_AUDIT_SH,
     PLSEC_YAML_TEMPLATE,
     PRE_COMMIT_HOOK,
+    STANDALONE_SCRIPTS,
     TRIVY_CONFIG_YAML,
     TRIVY_SCAN_RULES_YAML,
+    WRAPPER_CLAUDE_SH,
+    WRAPPER_OPENCODE_SH,
+    WRAPPER_TEMPLATES,
 )
 
 
@@ -234,3 +240,126 @@ class TestPreCommitHook:
     def test_references_plsec_dir(self):
         """Hook should reference the plsec config directory."""
         assert ".peerlabs/plsec" in PRE_COMMIT_HOOK
+
+
+# -----------------------------------------------------------------------
+# Wrapper script templates
+# -----------------------------------------------------------------------
+
+
+class TestWrapperTemplatesNonEmpty:
+    """All wrapper template constants must be non-empty strings."""
+
+    def test_wrapper_claude_sh(self):
+        assert isinstance(WRAPPER_CLAUDE_SH, str) and len(WRAPPER_CLAUDE_SH) > 0
+
+    def test_wrapper_opencode_sh(self):
+        assert isinstance(WRAPPER_OPENCODE_SH, str) and len(WRAPPER_OPENCODE_SH) > 0
+
+    def test_plsec_audit_sh(self):
+        assert isinstance(PLSEC_AUDIT_SH, str) and len(PLSEC_AUDIT_SH) > 0
+
+
+class TestWrapperClaudeSh:
+    """Verify claude wrapper template has expected structural elements."""
+
+    def test_has_shebang(self):
+        assert WRAPPER_CLAUDE_SH.lstrip().startswith("#!/bin/bash")
+
+    def test_has_plsec_dir_placeholder(self):
+        assert _PLSEC_DIR_PLACEHOLDER in WRAPPER_CLAUDE_SH
+
+    def test_has_log_function(self):
+        assert "log()" in WRAPPER_CLAUDE_SH or "log () " in WRAPPER_CLAUDE_SH
+
+    def test_has_tier1_git_info(self):
+        assert "git rev-parse" in WRAPPER_CLAUDE_SH
+
+    def test_has_tier2_shell_prefix(self):
+        assert "CLAUDE_CODE_SHELL_PREFIX" in WRAPPER_CLAUDE_SH
+
+    def test_has_preset_detection(self):
+        assert "_detect_preset" in WRAPPER_CLAUDE_SH
+
+    def test_has_session_duration(self):
+        assert "SECONDS" in WRAPPER_CLAUDE_SH
+
+    def test_executes_claude(self):
+        """Wrapper must invoke the real claude binary."""
+        assert 'claude "$@"' in WRAPPER_CLAUDE_SH
+
+    def test_preserves_exit_code(self):
+        assert "EXIT_CODE" in WRAPPER_CLAUDE_SH
+        assert "exit $EXIT_CODE" in WRAPPER_CLAUDE_SH
+
+
+class TestWrapperOpencodeSh:
+    """Verify opencode wrapper template has expected structural elements."""
+
+    def test_has_shebang(self):
+        assert WRAPPER_OPENCODE_SH.lstrip().startswith("#!/bin/bash")
+
+    def test_has_plsec_dir_placeholder(self):
+        assert _PLSEC_DIR_PLACEHOLDER in WRAPPER_OPENCODE_SH
+
+    def test_has_tier1_git_info(self):
+        assert "git rev-parse" in WRAPPER_OPENCODE_SH
+
+    def test_does_not_have_shell_prefix(self):
+        """OpenCode does not support CLAUDE_CODE_SHELL_PREFIX."""
+        assert "CLAUDE_CODE_SHELL_PREFIX" not in WRAPPER_OPENCODE_SH
+
+    def test_copies_opencode_json(self):
+        assert "opencode.json" in WRAPPER_OPENCODE_SH
+
+    def test_copies_claude_md_too(self):
+        """OpenCode also reads CLAUDE.md for system prompts."""
+        assert "CLAUDE.md" in WRAPPER_OPENCODE_SH
+
+    def test_executes_opencode(self):
+        assert 'opencode "$@"' in WRAPPER_OPENCODE_SH
+
+    def test_preserves_exit_code(self):
+        assert "EXIT_CODE" in WRAPPER_OPENCODE_SH
+        assert "exit $EXIT_CODE" in WRAPPER_OPENCODE_SH
+
+
+class TestPlsecAuditSh:
+    """Verify audit script template has expected structural elements."""
+
+    def test_has_shebang(self):
+        assert PLSEC_AUDIT_SH.lstrip().startswith("#!/bin/bash")
+
+    def test_has_plsec_dir_placeholder(self):
+        assert _PLSEC_DIR_PLACEHOLDER in PLSEC_AUDIT_SH
+
+    def test_uses_exec(self):
+        """Audit script must use exec to preserve exit codes."""
+        assert 'exec "$@"' in PLSEC_AUDIT_SH
+
+    def test_fire_and_forget_logging(self):
+        """Log failures must not block command execution."""
+        assert "2>/dev/null" in PLSEC_AUDIT_SH
+
+
+class TestWrapperRegistries:
+    """Verify WRAPPER_TEMPLATES and STANDALONE_SCRIPTS are consistent."""
+
+    def test_wrapper_templates_has_both_agents(self):
+        assert "wrapper-claude.sh" in WRAPPER_TEMPLATES
+        assert "wrapper-opencode.sh" in WRAPPER_TEMPLATES
+
+    def test_wrapper_templates_values_are_nonempty(self):
+        for name, content in WRAPPER_TEMPLATES.items():
+            assert len(content) > 0, f"Empty content for {name}"
+
+    def test_standalone_scripts_has_audit(self):
+        names = [name for name, _ in STANDALONE_SCRIPTS]
+        assert "plsec-audit.sh" in names
+
+    def test_all_templates_have_placeholder(self):
+        """All wrapper templates must use @@PLSEC_DIR@@ placeholder."""
+        for name, content in WRAPPER_TEMPLATES.items():
+            assert _PLSEC_DIR_PLACEHOLDER in content, f"Missing placeholder in {name}"
+        for name, content in STANDALONE_SCRIPTS:
+            assert _PLSEC_DIR_PLACEHOLDER in content, f"Missing placeholder in {name}"

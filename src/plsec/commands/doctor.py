@@ -19,6 +19,7 @@ from plsec.core.health import (
     check_runtime,
     check_scanner_configs,
     check_tools,
+    check_wrapper_scripts,
     count_verdicts,
     exit_code_for,
 )
@@ -115,6 +116,11 @@ def doctor(
 
     # Scanner configs (trivy rules, pre-commit hook)
     results = check_scanner_configs(plsec_home)
+    _render_results(results)
+    all_results.extend(results)
+
+    # Wrapper scripts (session logging, audit)
+    results = check_wrapper_scripts(plsec_home)
     _render_results(results)
     all_results.extend(results)
 

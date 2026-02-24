@@ -33,6 +33,14 @@ PLSEC_EXPECTED_FILES: list[tuple[str, str]] = [
     ("configs/pre-commit", "Pre-commit hook template"),
 ]
 
+# Expected executable scripts deployed by plsec install.
+# Each tuple is (relative_path, human_description).
+PLSEC_EXPECTED_SCRIPTS: list[tuple[str, str]] = [
+    ("claude-wrapper.sh", "Claude Code wrapper script"),
+    ("opencode-wrapper.sh", "OpenCode wrapper script"),
+    ("plsec-audit.sh", "Audit logging script"),
+]
+
 
 @dataclass
 class CheckResult:
@@ -231,6 +239,60 @@ def check_scanner_configs(plsec_home: Path) -> list[CheckResult]:
                     verdict="warn",
                     detail=f"{rel_path} missing",
                     fix_hint="Run 'plsec install --force' to deploy",
+                )
+            )
+
+    return results
+
+
+def check_wrapper_scripts(plsec_home: Path) -> list[CheckResult]:
+    """Check that wrapper scripts exist and are executable.
+
+    Verifies claude-wrapper.sh, opencode-wrapper.sh, and plsec-audit.sh.
+    These scripts are deployed by plsec install and are required for
+    session logging and audit functionality.
+
+    Check IDs start at I-8 per the plsec-status design doc.
+    """
+    results: list[CheckResult] = []
+
+    for i, (rel_path, description) in enumerate(PLSEC_EXPECTED_SCRIPTS, start=8):
+        check_id = f"I-{i}"
+        full_path = plsec_home / rel_path
+
+        if full_path.exists():
+            import os
+
+            if os.access(full_path, os.X_OK):
+                results.append(
+                    CheckResult(
+                        id=check_id,
+                        name=description,
+                        category="installation",
+                        verdict="ok",
+                        detail=str(full_path),
+                    )
+                )
+            else:
+                results.append(
+                    CheckResult(
+                        id=check_id,
+                        name=description,
+                        category="installation",
+                        verdict="warn",
+                        detail=f"{rel_path} not executable",
+                        fix_hint="Run 'plsec install --force' to fix permissions",
+                    )
+                )
+        else:
+            results.append(
+                CheckResult(
+                    id=check_id,
+                    name=description,
+                    category="installation",
+                    verdict="warn",
+                    detail=f"{rel_path} missing",
+                    fix_hint="Run 'plsec install' to deploy wrapper scripts",
                 )
             )
 

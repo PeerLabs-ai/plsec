@@ -2,7 +2,7 @@
 
 ## Current State
 
-565 pytest tests across 22 files, 75% coverage. All three tiers are
+638 pytest tests across 22 files, 76% coverage. All three tiers are
 implemented. The original `test_plsec.py` has been redistributed:
 duplicate tests deleted, unique tests moved to `test_cli.py` and
 `test_config.py`.
@@ -12,19 +12,19 @@ duplicate tests deleted, unique tests moved to `test_cli.py` and
 | `test_cli.py` | 4 | -- | `cli.py` (top-level app smoke tests) |
 | `test_config.py` | 28 | 1 | `core/config.py` + package version |
 | `test_tools.py` | 21 | 1 | `core/tools.py` |
-| `test_templates.py` | 46 | 1 | `configs/templates.py` |
+| `test_templates.py` | 66 | 1 | `configs/templates.py` (+ wrapper cross-checks) |
 | `test_integrity.py` | 29 | 1 | `commands/integrity.py` |
 | `test_validate.py` | 18 | 1 | `commands/validate.py` |
 | `test_agents.py` | 40 | 1 | `core/agents.py` (registry) |
 | `test_scanners.py` | 49 | 1+3 | `core/scanners.py` (registry) |
 | `test_processes.py` | 23 | 1+3 | `core/processes.py` (registry) |
-| `test_health.py` | 47 | 1+2 | `core/health.py` (registry) |
+| `test_health.py` | 55 | 1+2 | `core/health.py` (+ wrapper script checks) |
 | `test_inventory.py` | 43 | 1+2 | `core/inventory.py` (artifact model) |
 | `test_detector.py` | 34 | 2 | `core/detector.py` |
 | `test_init.py` | 19 | 2 | `commands/init.py` |
 | `test_create.py` | 20 | 2 | `commands/create.py` |
 | `test_output.py` | 20 | 2 | `core/output.py` |
-| `test_install_cmd.py` | 30 | 2+3 | `commands/install.py` (lifecycle) |
+| `test_install_cmd.py` | 67 | 2+3 | `commands/install.py` (+ wrappers, aliases) |
 | `test_reset.py` | 15 | 2+3 | `commands/reset.py` (lifecycle) |
 | `test_uninstall.py` | 19 | 2+3 | `commands/uninstall.py` (lifecycle) |
 | `test_secure.py` | 39 | 3 | `commands/secure.py` |

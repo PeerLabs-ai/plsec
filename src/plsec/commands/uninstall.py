@@ -14,6 +14,7 @@ from typing import Annotated
 
 import typer
 
+from plsec.commands.install import remove_aliases
 from plsec.core.agents import AGENTS
 from plsec.core.config import get_plsec_home
 from plsec.core.inventory import (
@@ -268,6 +269,10 @@ def uninstall(
 
     # Execute removal
     _stop_managed_processes(plsec_home)
+
+    # Remove shell aliases before removing global files
+    if remove_global:
+        remove_aliases()
 
     removed_count = 0
     error_count = 0

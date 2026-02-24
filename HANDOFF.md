@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
 **Last Updated:** 2026-02-23
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 565 pytest + 75 BATS unit + 53 BATS integration + 44 assembler tests, 75% coverage
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 638 pytest + 75 BATS unit + 53 BATS integration + 44 assembler tests, 76% coverage
 
 ---
 
@@ -72,6 +72,64 @@ Items 1-12 are complete.
   (CI verify and golden-check steps will fail otherwise)
 
 ## Accomplished (this session)
+
+### Milestone 9: Bridge CLI/Bootstrap gap
+
+Made `plsec install` deploy wrapper scripts and shell aliases, closing
+the gap between the CLI and bootstrap.sh. Users can now get full
+session logging, audit trails, and `*-safe` aliases from the CLI alone.
+
+**Phase 1 -- Wrapper templates in templates.py:**
+- Added `WRAPPER_CLAUDE_SH`, `WRAPPER_OPENCODE_SH`, `PLSEC_AUDIT_SH`
+  string constants
+- Added `WRAPPER_TEMPLATES` dict and `STANDALONE_SCRIPTS` list for
+  lookup by `deploy_global_configs()`
+- `_PLSEC_DIR_PLACEHOLDER` constant for `@@PLSEC_DIR@@` substitution
+
+**Phase 2 -- Wrapper script deployment:**
+- `_deploy_script()` helper: writes content with `@@PLSEC_DIR@@`
+  substitution and chmod 755
+- `deploy_global_configs()` now deploys per-agent wrapper scripts
+  (`claude-wrapper.sh`, `opencode-wrapper.sh`) and standalone scripts
+  (`plsec-audit.sh`) with real `plsec_home` path substituted
+
+**Phase 3 -- Shell alias injection/removal:**
+- `_detect_shell_rc()`: `.zshrc` > `.bashrc` > `.profile` detection
+- `_build_alias_block()`: creates delimited block with start/end markers
+- `inject_aliases()`: appends to RC file, idempotent, `--force` replaces
+- `remove_aliases()`: strips alias block from RC file
+- `_remove_alias_block()`: handles both modern (delimited) and legacy
+  (`# Peerlabs Security aliases`) block formats
+- `plsec install` now calls `inject_aliases()` (skip with `--no-aliases`)
+- `plsec uninstall` now calls `remove_aliases()` before removing files
+
+**Phase 4 -- Health checks:**
+- `PLSEC_EXPECTED_SCRIPTS` list in health.py (3 scripts)
+- `check_wrapper_scripts()`: checks I-8, I-9, I-10 for presence +
+  executable permission
+- `check_installation()` extended to verify scripts
+- `plsec doctor` wired to call `check_wrapper_scripts()`
+
+**Phase 5 -- Tests (73 new):**
+- `test_install_cmd.py`: 37 new tests (deploy_script, wrappers,
+  aliases: detect_rc, build_block, has/remove, inject/remove, CLI)
+- `test_templates.py`: 20 new tests (wrapper structural checks,
+  registries, cross-checks)
+- `test_health.py`: 8 new tests (wrapper script health checks,
+  executable perms, check IDs)
+- Total: 638 pytest tests, 76% coverage
+
+**Files created:** None (all changes to existing files)
+
+**Files modified:**
+- `src/plsec/configs/templates.py` -- wrapper constants, registries
+- `src/plsec/commands/install.py` -- deploy_script, aliases, --no-aliases
+- `src/plsec/commands/uninstall.py` -- remove_aliases on uninstall
+- `src/plsec/commands/doctor.py` -- wire check_wrapper_scripts
+- `src/plsec/core/health.py` -- PLSEC_EXPECTED_SCRIPTS, check_wrapper_scripts
+- `tests/test_install_cmd.py` -- 37 new tests
+- `tests/test_templates.py` -- 20 new tests
+- `tests/test_health.py` -- 8 new tests
 
 ### Milestone 8: Enhanced wrapper logging
 
@@ -183,6 +241,7 @@ coverage, plus `plsec scan` pre-flight check and artifact inventory model.
 - Added HANDOFF.md to `.trivyignore.yaml` for trivy false positives
 
 **107 new tests added** (458 -> 565 pytest tests), coverage 71% -> 75%.
+*Milestone 9 added 73 more tests (565 -> 638), coverage 75% -> 76%.*
 
 ### Previous sub-session: Get `make scan` clean -- trivy false positive elimination
 
@@ -434,6 +493,21 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
     `~/.local/share/opencode/auth.json` contains OAuth access/refresh
     tokens per provider. plsec should WARN about this but NEVER read
     token values.
+44. **CLI and bootstrap wrapper templates are near-identical but not
+    byte-identical.** The Python string constants in `templates.py`
+    have slightly shortened log field names (`branch=` vs `git_branch=`)
+    to stay within the 100-char line limit.  The bootstrap assembler
+    uses `@@PLSEC_DIR@@` which maps to `_PLSEC_DIR_PLACEHOLDER` in
+    Python.  Structural cross-checks in `test_templates.py` verify
+    both copies have the same features (shebang, git info, exec,
+    exit code preservation, etc.) without requiring exact matches.
+45. **Shell alias injection needs start/end markers.** The bootstrap
+    used a single `# Peerlabs Security aliases` comment as an
+    idempotency guard, but had no end marker.  This made programmatic
+    removal impossible without heuristics.  The CLI uses delimited
+    `# --- plsec aliases (do not edit) ---` / `# --- end plsec aliases ---`
+    markers.  `_remove_alias_block()` handles both formats for
+    backward compatibility with bootstrap-injected aliases.
 
 ## What Needs to Happen Next
 
@@ -452,8 +526,8 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 8. ~~**Enhanced wrapper logging**~~ (DONE - Tier 1: git info, duration, preset,
    agent version in both wrappers. Tier 2: `CLAUDE_CODE_SHELL_PREFIX` audit
    logging via `plsec-audit.sh`. 41 BATS tests)
-9. **Bridge CLI/bootstrap gap** - `plsec init` generates wrappers +
-   shell aliases using `AgentSpec.wrapper_template`
+9. ~~**Bridge CLI/bootstrap gap**~~ (DONE -- `plsec install` deploys
+   wrapper scripts and shell aliases. 73 new tests, 638 total, 76% cov)
 10. **Scan result persistence** - write to logs for plsec-status
 11. **`plsec-status` Phase 1** - bash health checks in bootstrap
 12. **`plsec-status` Phase 2** - watch mode
@@ -513,17 +587,17 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `src/plsec/configs/templates.py` -> `TRIVY_CONFIG_YAML` - Python CLI copy (kept in sync)
 - `.trivyignore.yaml` - Per-path false positive suppression (21 files, 4 rule IDs + 1 misconfig)
 
-### Test files (565 pytest tests, all passing, 75% coverage)
+### Test files (638 pytest tests, all passing, 76% coverage)
 - `tests/conftest.py` - 3 shared fixtures
 - `tests/test_cli.py` - 4 tests (top-level app smoke tests)
 - `tests/test_config.py` - 28 tests (config + package version)
 - `tests/test_tools.py` - 21 tests
-- `tests/test_templates.py` - 46 tests (skip-dirs, skip-files, rule sync)
+- `tests/test_templates.py` - 66 tests (skip-dirs, skip-files, rule sync, wrapper cross-checks)
 - `tests/test_integrity.py` - 29 tests
 - `tests/test_validate.py` - 18 tests
 - `tests/test_output.py` - 20 tests
 - `tests/test_init.py` - 19 tests (deploy file, preset configs, scanner config deployment)
-- `tests/test_install_cmd.py` - 30 tests (deploy logic, idempotency, force, check, metadata, CLI)
+- `tests/test_install_cmd.py` - 67 tests (deploy logic, wrappers, aliases, idempotency, force, check, metadata, CLI)
 - `tests/test_reset.py` - 15 tests (wipe, external removal, dry-run, cancel, redeploy)
 - `tests/test_uninstall.py` - 19 tests (artifact removal, scope selection, dry-run, interactive, customised files)
 - `tests/test_inventory.py` - 43 tests (artifact dataclass, inventory, discover functions)
@@ -532,7 +606,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `tests/test_agents.py` - 40 tests (registry structure + helpers)
 - `tests/test_scanners.py` - 49 tests (skip-dirs, skip-files, ignorefile)
 - `tests/test_processes.py` - 23 tests (spec, paths, is_running)
-- `tests/test_health.py` - 47 tests (scanner config checks)
+- `tests/test_health.py` - 55 tests (scanner config checks, wrapper script checks)
 - `tests/test_secure.py` - 39 tests (Change/ChangeSet, calculate_changes, apply_changes)
 - `tests/test_scan.py` - 15 tests (scan execution, flag resolution, pre-flight prerequisites)
 - `tests/test_doctor.py` - 14 tests (render, orchestration, flags)

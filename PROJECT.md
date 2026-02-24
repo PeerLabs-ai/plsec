@@ -121,10 +121,13 @@ of truth).
   agent version. Tier 2: `CLAUDE_CODE_SHELL_PREFIX` for Claude Code
   command auditing via `plsec-audit.sh`. Tier 3 (future): OTEL
   integration. 41 BATS tests in `test_wrapper_logging.bats`.
-- [ ] **Bridge CLI/bootstrap gap**: `plsec init` must generate wrapper
-  scripts and shell aliases, matching bootstrap.sh. Uses existing
-  `AgentSpec.wrapper_template` field (exists but unused). Goal: CLI
-  alone provides full plsec functionality without running bootstrap.
+- [x] **Bridge CLI/bootstrap gap**: `plsec install` now deploys wrapper
+  scripts (`claude-wrapper.sh`, `opencode-wrapper.sh`, `plsec-audit.sh`)
+  with `@@PLSEC_DIR@@` substitution and executable permissions. Shell
+  aliases (`claude-safe`, `opencode-safe`, `plsec-logs`) injected into
+  RC file with start/end markers, removable by `plsec uninstall`.
+  `--no-aliases` flag to opt out. Health checks I-8/I-9/I-10 verify
+  wrapper scripts. `AgentSpec.wrapper_template` now consumed by install.
 - [ ] **Scan result persistence**: Both `plsec scan` and `wrapper-scan.sh`
   must write results to `~/.peerlabs/plsec/logs/` for `plsec-status`.
 - [x] **Installation testing**: Added `make install-test` (clean install

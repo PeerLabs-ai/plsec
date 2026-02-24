@@ -29,16 +29,18 @@ Upgrade wrapper templates from 3-line session bookends to full audit:
   Enable `CLAUDE_CODE_ENABLE_TELEMETRY=1` and configure OTEL exporters
   to write to local files or a lightweight collector.
 
-### Milestone 3: Bridge CLI/Bootstrap Gap
+### Milestone 3: Bridge CLI/Bootstrap Gap (DONE)
 
-Make `plsec init` generate wrapper scripts and shell aliases, matching
-bootstrap.sh capabilities. Uses existing `AgentSpec.wrapper_template`
-field (exists in the agent registry but is currently unused by any CLI
-command).
+`plsec install` now deploys wrapper scripts (`claude-wrapper.sh`,
+`opencode-wrapper.sh`, `plsec-audit.sh`) and injects shell aliases
+(`claude-safe`, `opencode-safe`, `plsec-logs`) into the shell RC file.
+`plsec uninstall` removes the alias block. Health checks I-8/I-9/I-10
+verify wrapper scripts are present and executable. `--no-aliases` flag
+to opt out of RC file modification.
 
-After this milestone, users can get full plsec functionality from the
-CLI alone, without needing to run bootstrap.sh first. Bootstrap remains
-available as a quick-start for environments without Python.
+Users can now get full plsec functionality from the CLI alone, without
+needing to run bootstrap.sh first. Bootstrap remains available as a
+quick-start for environments without Python.
 
 ### Milestone 4: plsec-status Phase 1 (Bash Health Checks)
 

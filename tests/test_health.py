@@ -22,6 +22,7 @@ from unittest.mock import patch
 from plsec.core.agents import AGENTS, AgentSpec
 from plsec.core.health import (
     PLSEC_EXPECTED_FILES,
+    PLSEC_EXPECTED_SCRIPTS,
     PLSEC_SUBDIRS,
     CheckResult,
     check_agent_configs,
@@ -31,6 +32,7 @@ from plsec.core.health import (
     check_runtime,
     check_scanner_configs,
     check_tools,
+    check_wrapper_scripts,
     count_verdicts,
     exit_code_for,
 )
@@ -533,3 +535,87 @@ class TestCheckScannerConfigs:
         verdicts = [r.verdict for r in results]
         assert "ok" in verdicts
         assert "warn" in verdicts
+
+
+# -----------------------------------------------------------------------
+# check_wrapper_scripts
+# -----------------------------------------------------------------------
+
+
+class TestCheckWrapperScripts:
+    """Contract: check_wrapper_scripts checks that wrapper scripts
+    exist and are executable under plsec_home.
+
+    Why tested directly: This function implements health checks I-8
+    through I-10 for wrapper scripts.  It verifies both presence and
+    executable permission.  Fix by updating the corresponding
+    PLSEC_EXPECTED_SCRIPTS list in health.py.
+    """
+
+    def test_all_present_and_executable(self, tmp_path: Path):
+        """All scripts present and executable -- all ok."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        for rel_path, _ in PLSEC_EXPECTED_SCRIPTS:
+            script = home / rel_path
+            script.write_text("#!/bin/bash\n")
+            script.chmod(0o755)
+        results = check_wrapper_scripts(home)
+        assert len(results) == len(PLSEC_EXPECTED_SCRIPTS)
+        assert all(r.verdict == "ok" for r in results)
+
+    def test_all_missing(self, tmp_path: Path):
+        """No scripts present -- all results should be warn."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        results = check_wrapper_scripts(home)
+        assert len(results) == len(PLSEC_EXPECTED_SCRIPTS)
+        assert all(r.verdict == "warn" for r in results)
+
+    def test_present_but_not_executable(self, tmp_path: Path):
+        """Scripts present but not executable -- warn."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        for rel_path, _ in PLSEC_EXPECTED_SCRIPTS:
+            script = home / rel_path
+            script.write_text("#!/bin/bash\n")
+            script.chmod(0o644)
+        results = check_wrapper_scripts(home)
+        assert all(r.verdict == "warn" for r in results)
+        assert all("not executable" in r.detail for r in results)
+
+    def test_check_ids_start_at_i8(self, tmp_path: Path):
+        """Check IDs should start at I-8 per plsec-status design doc."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        results = check_wrapper_scripts(home)
+        assert results[0].id == "I-8"
+
+    def test_fix_hint_references_install(self, tmp_path: Path):
+        """Fix hints should direct to plsec install."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        results = check_wrapper_scripts(home)
+        for r in results:
+            assert "plsec install" in r.fix_hint
+
+    def test_partial_scripts(self, tmp_path: Path):
+        """Some scripts present, others missing -- mixed verdicts."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        # Only create the first expected script
+        first_path, _ = PLSEC_EXPECTED_SCRIPTS[0]
+        script = home / first_path
+        script.write_text("#!/bin/bash\n")
+        script.chmod(0o755)
+        results = check_wrapper_scripts(home)
+        verdicts = [r.verdict for r in results]
+        assert "ok" in verdicts
+        assert "warn" in verdicts
+
+    def test_expected_scripts_constant(self):
+        """PLSEC_EXPECTED_SCRIPTS should contain all three scripts."""
+        names = [name for name, _ in PLSEC_EXPECTED_SCRIPTS]
+        assert "claude-wrapper.sh" in names
+        assert "opencode-wrapper.sh" in names
+        assert "plsec-audit.sh" in names

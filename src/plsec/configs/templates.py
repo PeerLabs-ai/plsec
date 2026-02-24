@@ -346,6 +346,200 @@ format: table
 exit-code: 1
 """
 
+# ---------------------------------------------------------------------------
+# Wrapper scripts -- deployed by plsec install to ~/.peerlabs/plsec/
+#
+# These templates use {plsec_dir} as a format placeholder, substituted at
+# deploy time with the actual plsec home path.  Content must stay in sync
+# with the corresponding files in templates/bootstrap/.
+# ---------------------------------------------------------------------------
+
+# Placeholder sentinel -- deploy code replaces this with the real path.
+_PLSEC_DIR_PLACEHOLDER = "@@PLSEC_DIR@@"
+
+WRAPPER_CLAUDE_SH = """#!/bin/bash
+# claude-wrapper.sh - Logging wrapper for Claude Code
+#
+# Tier 1: Session enrichment (git info, duration, preset, agent version)
+# Tier 2: CLAUDE_CODE_SHELL_PREFIX audit logging
+
+PLSEC_DIR="@@PLSEC_DIR@@"
+LOG_FILE="${PLSEC_DIR}/logs/claude-$(date +%Y%m%d).log"
+
+log() {
+    echo "[$(date -u +\\"%Y-%m-%dT%H:%M:%SZ\\")] [$$] $*" >> "$LOG_FILE"
+}
+
+# ---------------------------------------------------------------------------
+# Tier 1: Gather session context (best-effort, never block startup)
+# ---------------------------------------------------------------------------
+
+_git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "n/a")
+_git_sha=$(git rev-parse --short HEAD 2>/dev/null || echo "n/a")
+_agent_version=$(claude --version 2>/dev/null | head -1 || echo "n/a")
+
+# Detect preset from plsec.yaml or CLAUDE.md heuristic
+_detect_preset() {
+    local yaml="${PLSEC_DIR}/configs/plsec.yaml"
+    if [[ -f "$yaml" ]]; then
+        local val
+        val=$(awk '/^preset:/ { print $2 }' "$yaml" 2>/dev/null)
+        if [[ -n "$val" ]]; then echo "$val"; return; fi
+    fi
+    local claude_md="${PLSEC_DIR}/configs/CLAUDE.md"
+    if [[ -f "$claude_md" ]]; then
+        if grep -q "Strict Security" "$claude_md" 2>/dev/null; then
+            echo "strict"
+        else
+            echo "balanced"
+        fi
+        return
+    fi
+    echo "unknown"
+}
+_preset=$(_detect_preset)
+
+START_SECONDS=$SECONDS
+
+log "=== Session started: $(pwd) ==="
+log "branch=${_git_branch} sha=${_git_sha} preset=${_preset} agent=${_agent_version}"
+log "Args: $*"
+
+# Copy CLAUDE.md to project if not present
+if [[ ! -f "./CLAUDE.md" ]] && [[ -f "${PLSEC_DIR}/configs/CLAUDE.md" ]]; then
+    cp "${PLSEC_DIR}/configs/CLAUDE.md" ./CLAUDE.md
+    log "Copied CLAUDE.md to project"
+fi
+
+# ---------------------------------------------------------------------------
+# Tier 2: CLAUDE_CODE_SHELL_PREFIX audit logging
+# ---------------------------------------------------------------------------
+
+AUDIT_SCRIPT="${PLSEC_DIR}/plsec-audit.sh"
+if [[ -x "$AUDIT_SCRIPT" ]]; then
+    export CLAUDE_CODE_SHELL_PREFIX="$AUDIT_SCRIPT"
+    log "Audit logging enabled via CLAUDE_CODE_SHELL_PREFIX"
+fi
+
+# Run Claude Code
+claude "$@"
+EXIT_CODE=$?
+
+ELAPSED=$(( SECONDS - START_SECONDS ))
+log "=== Session ended: exit code ${EXIT_CODE} duration=${ELAPSED}s ==="
+exit $EXIT_CODE
+"""
+
+WRAPPER_OPENCODE_SH = """#!/bin/bash
+# opencode-wrapper.sh - Logging wrapper for Opencode
+#
+# Tier 1: Session enrichment (git info, duration, preset, agent version)
+
+PLSEC_DIR="@@PLSEC_DIR@@"
+LOG_FILE="${PLSEC_DIR}/logs/opencode-$(date +%Y%m%d).log"
+
+log() {
+    echo "[$(date -u +\\"%Y-%m-%dT%H:%M:%SZ\\")] [$$] $*" >> "$LOG_FILE"
+}
+
+# ---------------------------------------------------------------------------
+# Tier 1: Gather session context (best-effort, never block startup)
+# ---------------------------------------------------------------------------
+
+_git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "n/a")
+_git_sha=$(git rev-parse --short HEAD 2>/dev/null || echo "n/a")
+_agent_version=$(opencode --version 2>/dev/null | head -1 || echo "n/a")
+
+# Detect preset from plsec.yaml or CLAUDE.md heuristic
+_detect_preset() {
+    local yaml="${PLSEC_DIR}/configs/plsec.yaml"
+    if [[ -f "$yaml" ]]; then
+        local val
+        val=$(awk '/^preset:/ { print $2 }' "$yaml" 2>/dev/null)
+        if [[ -n "$val" ]]; then echo "$val"; return; fi
+    fi
+    local claude_md="${PLSEC_DIR}/configs/CLAUDE.md"
+    if [[ -f "$claude_md" ]]; then
+        if grep -q "Strict Security" "$claude_md" 2>/dev/null; then
+            echo "strict"
+        else
+            echo "balanced"
+        fi
+        return
+    fi
+    echo "unknown"
+}
+_preset=$(_detect_preset)
+
+START_SECONDS=$SECONDS
+
+log "=== Session started: $(pwd) ==="
+log "branch=${_git_branch} sha=${_git_sha} preset=${_preset} agent=${_agent_version}"
+log "Args: $*"
+
+# Copy opencode.json to project if not present
+if [[ ! -f "./opencode.json" ]] && [[ -f "${PLSEC_DIR}/configs/opencode.json" ]]; then
+    cp "${PLSEC_DIR}/configs/opencode.json" ./opencode.json
+    log "Copied opencode.json to project"
+fi
+
+# Check for CLAUDE.md as well (Opencode respects it for system prompts)
+if [[ ! -f "./CLAUDE.md" ]] && [[ -f "${PLSEC_DIR}/configs/CLAUDE.md" ]]; then
+    cp "${PLSEC_DIR}/configs/CLAUDE.md" ./CLAUDE.md
+    log "Copied CLAUDE.md to project (Opencode reads this too)"
+fi
+
+# Run Opencode
+opencode "$@"
+EXIT_CODE=$?
+
+ELAPSED=$(( SECONDS - START_SECONDS ))
+log "=== Session ended: exit code ${EXIT_CODE} duration=${ELAPSED}s ==="
+exit $EXIT_CODE
+"""
+
+PLSEC_AUDIT_SH = """#!/bin/bash
+# plsec-audit.sh - Audit logging for CLAUDE_CODE_SHELL_PREFIX
+#
+# Claude Code sets CLAUDE_CODE_SHELL_PREFIX to this script. When Claude
+# executes a shell command, it becomes:
+#   /path/to/plsec-audit.sh <original-command...>
+#
+# This script logs the command to a daily audit log, then executes it.
+# The audit log is separate from the session log to avoid mixing concerns.
+#
+# Design constraints:
+#   - Must be fast (runs on EVERY shell command Claude executes)
+#   - Must preserve exit codes exactly
+#   - Must not interfere with stdin/stdout/stderr of the wrapped command
+#   - Logging failures must never prevent command execution
+
+PLSEC_DIR="@@PLSEC_DIR@@"
+AUDIT_LOG="${PLSEC_DIR}/logs/claude-audit-$(date +%Y%m%d).log"
+
+# Log to audit file (append, fire-and-forget)
+{
+    echo "[$(date -u +\\"%Y-%m-%dT%H:%M:%SZ\\")] [$$] cwd=$(pwd) cmd=$*"
+} >> "$AUDIT_LOG" 2>/dev/null
+
+# Execute the original command, preserving exit code
+exec "$@"
+"""
+
+# Map from wrapper template name (in AgentSpec) to template constant.
+# Used by deploy_global_configs() to resolve wrapper content.
+WRAPPER_TEMPLATES: dict[str, str] = {
+    "wrapper-claude.sh": WRAPPER_CLAUDE_SH,
+    "wrapper-opencode.sh": WRAPPER_OPENCODE_SH,
+}
+
+# Scripts deployed alongside wrappers (not agent-specific).
+# Each tuple is (filename, content).
+STANDALONE_SCRIPTS: list[tuple[str, str]] = [
+    ("plsec-audit.sh", PLSEC_AUDIT_SH),
+]
+
+
 PRE_COMMIT_HOOK = """#!/bin/bash
 # Pre-commit hook for secret scanning
 
