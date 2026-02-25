@@ -379,6 +379,12 @@ write_file "${PLSEC_DIR}/plsec-audit.sh" << EOF
 EOF
 make_executable "${PLSEC_DIR}/plsec-audit.sh"
 
+# Status script (health check dashboard)
+write_file "${PLSEC_DIR}/plsec-status.sh" << EOF
+@@INCLUDE_SCRIPT:plsec-status.sh@@
+EOF
+make_executable "${PLSEC_DIR}/plsec-status.sh"
+
 log_ok "Created wrapper scripts"
 
 # -----------------------------------------------------------------------------
@@ -443,6 +449,7 @@ log_info "Setting up shell aliases..."
 ALIASES="
 # Peerlabs Security aliases
 alias plsec-scan=\"${PLSEC_DIR}/scan.sh\"
+alias plsec-status=\"${PLSEC_DIR}/plsec-status.sh\"
 alias plsec-logs=\"tail -f ${PLSEC_DIR}/logs/*.log\"
 "
 
@@ -515,6 +522,7 @@ if [[ "$AGENT_TYPE" == "opencode" ]] || [[ "$AGENT_TYPE" == "both" ]]; then
 fi
 echo ""
 echo "  Run 'plsec-scan' to check for secrets before commits"
+echo "  Run 'plsec-status' to check system health"
 echo ""
 echo "To install pre-commit hook in a project:"
 echo "  cp ${PLSEC_DIR}/configs/pre-commit .git/hooks/"
