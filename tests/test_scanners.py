@@ -551,3 +551,131 @@ class TestScanSummary:
         assert s.skip_count == 2
         assert s.pass_count == 0
         assert s.fail_count == 0
+
+
+# ---------------------------------------------------------------------------
+# Preset integration tests
+# ---------------------------------------------------------------------------
+
+
+class TestPresetIntegration:
+    """Test scanner command builders with preset customization."""
+
+    def test_trivy_secrets_uses_preset_skip_dirs(self):
+        """Trivy secrets command uses skip_dirs from preset."""
+        from plsec.core.presets import ScannerPreset
+        from plsec.core.scanners import _build_trivy_secrets_cmd
+
+        preset = ScannerPreset(skip_dirs=["custom_dir", "another_dir"], skip_files=[])
+        cmd = _build_trivy_secrets_cmd(Path("."), None, preset)
+
+        assert "--skip-dirs" in cmd
+        skip_idx = cmd.index("--skip-dirs")
+        assert cmd[skip_idx + 1] == "custom_dir"
+        # Find next --skip-dirs
+        skip_idx2 = cmd.index("--skip-dirs", skip_idx + 1)
+        assert cmd[skip_idx2 + 1] == "another_dir"
+
+    def test_trivy_secrets_uses_preset_skip_files(self):
+        """Trivy secrets command uses skip_files from preset."""
+        from plsec.core.presets import ScannerPreset
+        from plsec.core.scanners import _build_trivy_secrets_cmd
+
+        preset = ScannerPreset(skip_dirs=[], skip_files=["**/*.log", "**/*.tmp"])
+        cmd = _build_trivy_secrets_cmd(Path("."), None, preset)
+
+        assert "--skip-files" in cmd
+        skip_idx = cmd.index("--skip-files")
+        assert cmd[skip_idx + 1] == "**/*.log"
+
+    def test_trivy_misconfig_uses_preset_skip_dirs(self):
+        """Trivy misconfig command uses skip_dirs from preset."""
+        from plsec.core.presets import ScannerPreset
+        from plsec.core.scanners import _build_trivy_misconfig_cmd
+
+        preset = ScannerPreset(skip_dirs=["dist", "build"], skip_files=[])
+        cmd = _build_trivy_misconfig_cmd(Path("."), None, preset)
+
+        assert "--skip-dirs" in cmd
+        skip_idx = cmd.index("--skip-dirs")
+        assert cmd[skip_idx + 1] == "dist"
+
+    def test_bandit_uses_preset_skip_dirs(self, tmp_path):
+        """Bandit command uses skip_dirs from preset."""
+        from plsec.core.presets import ScannerPreset
+        from plsec.core.scanners import _build_bandit_cmd
+
+        preset = ScannerPreset(skip_dirs=["venv", "cache"], skip_files=[])
+        cmd = _build_bandit_cmd(tmp_path, None, preset)
+
+        assert "--exclude" in cmd
+        exclude_idx = cmd.index("--exclude")
+        excludes = cmd[exclude_idx + 1]
+        assert "venv" in excludes
+        assert "cache" in excludes
+
+    def test_trivy_secrets_without_preset_uses_defaults(self):
+        """Trivy secrets without preset uses default skip lists."""
+        from plsec.core.scanners import _TRIVY_SKIP_DIRS, _build_trivy_secrets_cmd
+
+        cmd = _build_trivy_secrets_cmd(Path("."), None, None)
+
+        # Should contain default skip dirs
+        assert "--skip-dirs" in cmd
+        skip_idx = cmd.index("--skip-dirs")
+        assert cmd[skip_idx + 1] in _TRIVY_SKIP_DIRS
+
+    def test_bandit_without_preset_uses_defaults(self, tmp_path):
+        """Bandit without preset uses default exclude dirs."""
+        from plsec.core.scanners import _BANDIT_EXCLUDE_DIRS, _build_bandit_cmd
+
+        cmd = _build_bandit_cmd(tmp_path, None, None)
+
+        assert "--exclude" in cmd
+        exclude_idx = cmd.index("--exclude")
+        excludes = cmd[exclude_idx + 1]
+
+        # Should contain at least one default exclude dir
+        assert any(d in excludes for d in _BANDIT_EXCLUDE_DIRS)
+
+    def test_preset_with_empty_skip_lists(self):
+        """Preset with empty skip lists scans everything."""
+        from plsec.core.presets import ScannerPreset
+        from plsec.core.scanners import _build_trivy_secrets_cmd
+
+        preset = ScannerPreset(skip_dirs=[], skip_files=[])
+        cmd = _build_trivy_secrets_cmd(Path("."), None, preset)
+
+        # Count occurrences of --skip-dirs and --skip-files
+        skip_dirs_count = cmd.count("--skip-dirs")
+        skip_files_count = cmd.count("--skip-files")
+
+        # Should have zero skip flags (empty lists)
+        assert skip_dirs_count == 0
+        assert skip_files_count == 0
+
+    def test_minimal_preset_reduces_scanned_files(self):
+        """Minimal preset skips more directories than balanced."""
+        from plsec.core.presets import BALANCED_PRESET, MINIMAL_PRESET
+        from plsec.core.scanners import _build_trivy_secrets_cmd
+
+        minimal_cmd = _build_trivy_secrets_cmd(Path("."), None, MINIMAL_PRESET.scanner)
+        balanced_cmd = _build_trivy_secrets_cmd(Path("."), None, BALANCED_PRESET.scanner)
+
+        # Count skip-dirs flags
+        minimal_skips = minimal_cmd.count("--skip-dirs")
+        balanced_skips = balanced_cmd.count("--skip-dirs")
+
+        # Minimal should skip more directories
+        assert minimal_skips >= balanced_skips
+
+    def test_paranoid_preset_scans_everything(self):
+        """Paranoid preset scans all directories and files."""
+        from plsec.core.presets import PARANOID_PRESET
+        from plsec.core.scanners import _build_trivy_secrets_cmd
+
+        cmd = _build_trivy_secrets_cmd(Path("."), None, PARANOID_PRESET.scanner)
+
+        # Paranoid should have no skip flags
+        assert "--skip-dirs" not in cmd
+        assert "--skip-files" not in cmd

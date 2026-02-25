@@ -288,3 +288,348 @@ class TestConfigBoundaryValidation:
         # Dynamic agent_type constraint
         agent_types = _resolve_constraint("agent_type")
         assert len(agent_types) >= 2, "agent_type constraint has fewer than 2 values"
+
+
+# ---------------------------------------------------------------------------
+# TOML support tests
+# ---------------------------------------------------------------------------
+
+
+class TestTomlSupport:
+    """Test TOML file format support."""
+
+    def test_load_toml_config(self, tmp_path):
+        """Load configuration from TOML file."""
+        config_file = tmp_path / "plsec.toml"
+        config_file.write_text("""
+version = 1
+preset = "strict"
+
+[project]
+name = "test-project"
+type = "python"
+
+[agent]
+type = "claude-code"
+config_path = "./CLAUDE.md"
+""")
+        config = load_config(config_file)
+        assert config.version == 1
+        assert config.preset == "strict"
+        assert config.project.name == "test-project"
+        assert config.project.type == "python"
+
+    def test_save_toml_config(self, tmp_path):
+        """Save configuration to TOML file."""
+        config = PlsecConfig(version=1, preset="paranoid")
+        config.project.name = "test-project"
+
+        config_file = tmp_path / "plsec.toml"
+        save_config(config, config_file)
+
+        assert config_file.exists()
+        content = config_file.read_text()
+        assert "version = 1" in content
+        assert 'preset = "paranoid"' in content
+        assert 'name = "test-project"' in content
+
+    def test_toml_roundtrip(self, tmp_path):
+        """Save and load TOML produces equivalent config."""
+        original = PlsecConfig(version=1, preset="minimal")
+        original.project.name = "roundtrip-test"
+        original.project.type = "node"
+
+        config_file = tmp_path / "plsec.toml"
+        save_config(original, config_file)
+        loaded = load_config(config_file)
+
+        assert loaded.version == original.version
+        assert loaded.preset == original.preset
+        assert loaded.project.name == original.project.name
+        assert loaded.project.type == original.project.type
+
+    def test_save_format_autodetect_toml(self, tmp_path):
+        """save_config autodetects TOML format from .toml extension."""
+        config = PlsecConfig(preset="balanced")
+        config_file = tmp_path / "config.toml"
+        save_config(config, config_file)
+
+        content = config_file.read_text()
+        assert 'preset = "balanced"' in content  # TOML format
+
+    def test_save_format_autodetect_yaml(self, tmp_path):
+        """save_config autodetects YAML format from .yaml extension."""
+        config = PlsecConfig(preset="strict")
+        config_file = tmp_path / "config.yaml"
+        save_config(config, config_file)
+
+        content = config_file.read_text()
+        assert "preset: strict" in content  # YAML format
+
+    def test_save_format_explicit_toml(self, tmp_path):
+        """save_config respects explicit format=toml."""
+        config = PlsecConfig(preset="paranoid")
+        config_file = tmp_path / "config.txt"  # Non-standard extension
+        save_config(config, config_file, format="toml")
+
+        content = config_file.read_text()
+        assert 'preset = "paranoid"' in content
+
+    def test_save_format_explicit_yaml(self, tmp_path):
+        """save_config respects explicit format=yaml."""
+        config = PlsecConfig(preset="minimal")
+        config_file = tmp_path / "config.txt"  # Non-standard extension
+        save_config(config, config_file, format="yaml")
+
+        content = config_file.read_text()
+        assert "preset: minimal" in content
+
+    def test_save_format_unknown_extension_raises(self, tmp_path):
+        """save_config raises for unknown extension without explicit format."""
+        config = PlsecConfig()
+        config_file = tmp_path / "config.txt"
+        with pytest.raises(ValueError, match="Cannot determine format"):
+            save_config(config, config_file)
+
+    def test_save_format_invalid_format_raises(self, tmp_path):
+        """save_config raises for invalid format parameter."""
+        config = PlsecConfig()
+        config_file = tmp_path / "config.toml"
+        with pytest.raises(ValueError, match="Unsupported format"):
+            save_config(config, config_file, format="json")
+
+
+class TestFindConfigFile:
+    """Test config file discovery with TOML preference."""
+
+    def test_prefers_toml_over_yaml_in_cwd(self, tmp_path, monkeypatch):
+        """When both exist in cwd, prefer TOML."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "plsec.toml").write_text("version = 1")
+        (tmp_path / "plsec.yaml").write_text("version: 1")
+
+        from plsec.core.config import find_config_file
+
+        found = find_config_file()
+        assert found == tmp_path / "plsec.toml"
+
+    def test_finds_yaml_when_no_toml(self, tmp_path, monkeypatch):
+        """Find YAML when no TOML exists."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "plsec.yaml").write_text("version: 1")
+
+        from plsec.core.config import find_config_file
+
+        found = find_config_file()
+        assert found == tmp_path / "plsec.yaml"
+
+    def test_finds_toml_in_parent(self, tmp_path, monkeypatch):
+        """Find TOML in parent directory."""
+        (tmp_path / "plsec.toml").write_text("version = 1")
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+        monkeypatch.chdir(subdir)
+
+        from plsec.core.config import find_config_file
+
+        found = find_config_file()
+        assert found == tmp_path / "plsec.toml"
+
+    def test_finds_global_toml(self, tmp_path, monkeypatch):
+        """Find global TOML config."""
+        global_home = tmp_path / ".peerlabs" / "plsec"
+        global_home.mkdir(parents=True)
+        (global_home / "plsec.toml").write_text("version = 1")
+
+        # Mock home directory and change to a subdirectory without config
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        project_dir = tmp_path / "some" / "project"
+        project_dir.mkdir(parents=True)
+        monkeypatch.chdir(project_dir)
+
+        from plsec.core.config import find_config_file
+
+        found = find_config_file()
+        assert found == global_home / "plsec.toml"
+
+
+class TestLoadConfig:
+    """Test load_config with TOML support."""
+
+    def test_loads_toml_file(self, tmp_path):
+        """load_config detects and loads TOML files."""
+        config_file = tmp_path / "test.toml"
+        config_file.write_text("""
+version = 1
+preset = "balanced"
+
+[project]
+name = "toml-test"
+type = "go"
+""")
+        config = load_config(config_file)
+        assert config.version == 1
+        assert config.preset == "balanced"
+        assert config.project.name == "toml-test"
+        assert config.project.type == "go"
+
+    def test_loads_yaml_file(self, tmp_path):
+        """load_config still loads YAML files."""
+        config_file = tmp_path / "test.yaml"
+        config_file.write_text("""
+version: 1
+preset: strict
+
+project:
+  name: yaml-test
+  type: python
+""")
+        config = load_config(config_file)
+        assert config.version == 1
+        assert config.preset == "strict"
+        assert config.project.name == "yaml-test"
+        assert config.project.type == "python"
+
+    def test_unsupported_extension_raises(self, tmp_path):
+        """load_config raises for unsupported file extensions."""
+        config_file = tmp_path / "config.json"
+        config_file.write_text('{"version": 1}')
+        with pytest.raises(ValueError, match="Unsupported config file format"):
+            load_config(config_file)
+
+
+# ---------------------------------------------------------------------------
+# Configuration hierarchy tests
+# ---------------------------------------------------------------------------
+
+
+class TestResolveConfig:
+    """Test configuration hierarchy resolution."""
+
+    def test_cli_preset_overrides_all(self, tmp_path):
+        """CLI preset has highest priority."""
+        from plsec.core.config import resolve_config
+
+        # Create project config with balanced preset
+        project_config = tmp_path / "plsec.toml"
+        project_config.write_text('preset = "balanced"')
+
+        # CLI preset should override
+        config, preset = resolve_config(
+            cli_preset="strict",
+            project_config_path=project_config,
+        )
+        assert preset == "strict"
+        assert config.preset == "strict"
+
+    def test_project_preset_overrides_global(self, tmp_path):
+        """Project config overrides global config."""
+        from plsec.core.config import resolve_config
+
+        # Create global config
+        global_config = tmp_path / "global.toml"
+        global_config.write_text('preset = "minimal"')
+
+        # Create project config
+        project_config = tmp_path / "project.toml"
+        project_config.write_text('preset = "paranoid"')
+
+        config, preset = resolve_config(
+            project_config_path=project_config,
+            global_config_path=global_config,
+        )
+        assert preset == "paranoid"
+        assert config.preset == "paranoid"
+
+    def test_global_preset_when_no_project(self, tmp_path):
+        """Global config used when no project config."""
+        from plsec.core.config import resolve_config
+
+        global_config = tmp_path / "global.toml"
+        global_config.write_text('preset = "strict"')
+
+        config, preset = resolve_config(
+            global_config_path=global_config,
+        )
+        assert preset == "strict"
+        assert config.preset == "strict"
+
+    def test_default_preset_when_none_specified(self):
+        """Falls back to 'balanced' when no config found."""
+        from plsec.core.config import resolve_config
+
+        config, preset = resolve_config()
+        assert preset == "balanced"
+        assert config.preset == "balanced"
+
+    def test_merges_project_and_global_config(self, tmp_path):
+        """Project config values override global config values."""
+        from plsec.core.config import resolve_config
+
+        # Global config has project name
+        global_config = tmp_path / "global.toml"
+        global_config.write_text("""
+preset = "balanced"
+
+[project]
+name = "global-project"
+type = "python"
+""")
+
+        # Project config overrides name but not type
+        project_config = tmp_path / "project.toml"
+        project_config.write_text("""
+preset = "strict"
+
+[project]
+name = "local-project"
+""")
+
+        config, preset = resolve_config(
+            project_config_path=project_config,
+            global_config_path=global_config,
+        )
+        # Project preset wins
+        assert preset == "strict"
+        # Project name wins
+        assert config.project.name == "local-project"
+        # Note: Full merging of nested fields is not implemented yet,
+        # so type will come from whichever config is loaded
+
+
+class TestPresetField:
+    """Test preset field in PlsecConfig."""
+
+    def test_default_preset_is_balanced(self):
+        """Default preset should be 'balanced'."""
+        config = PlsecConfig()
+        assert config.preset == "balanced"
+
+    def test_preset_in_dict_roundtrip(self):
+        """Preset field survives dict conversion."""
+        config = PlsecConfig(preset="paranoid")
+        data = _to_dict(config)
+        assert data["preset"] == "paranoid"
+
+        restored = _from_dict(PlsecConfig, data)
+        assert restored.preset == "paranoid"
+
+    def test_preset_saved_to_yaml(self, tmp_path):
+        """Preset field is saved to YAML."""
+        config = PlsecConfig(preset="minimal")
+        config_file = tmp_path / "test.yaml"
+        save_config(config, config_file)
+
+        content = config_file.read_text()
+        assert "preset:" in content
+        assert "minimal" in content
+
+    def test_preset_saved_to_toml(self, tmp_path):
+        """Preset field is saved to TOML."""
+        config = PlsecConfig(preset="strict")
+        config_file = tmp_path / "test.toml"
+        save_config(config, config_file)
+
+        content = config_file.read_text()
+        assert "preset" in content
+        assert "strict" in content

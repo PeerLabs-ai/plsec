@@ -243,6 +243,11 @@ def scan(
     # Summary
     print_summary("Scan complete", ok=ok_count, warnings=warn_count, errors=error_count)
 
+    # Scanner limitations notice
+    print()
+    print_info("Scanner limitations: docs/scanner-limitations.md")
+    print_info("Report issues: https://github.com/peerlabs/plsec/issues")
+
     if error_count > 0:
         console.print("\n[red]Critical issues found. Review and fix before committing.[/red]")
         raise typer.Exit(1)

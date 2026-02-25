@@ -513,15 +513,17 @@ print_summary() {
     printf "\n  Overall: %s" "$verdict_str"
     if [[ $WARNING_COUNT -gt 0 ]] || [[ $ERROR_COUNT -gt 0 ]]; then
         printf " ("
-        local parts=()
+        local first=true
         if [[ $ERROR_COUNT -gt 0 ]]; then
-            parts+=("${ERROR_COUNT} error(s)")
+            printf "%s" "${ERROR_COUNT} error(s)"
+            first=false
         fi
         if [[ $WARNING_COUNT -gt 0 ]]; then
-            parts+=("${WARNING_COUNT} warning(s)")
+            if [[ $first == false ]]; then
+                printf ", "
+            fi
+            printf "%s" "${WARNING_COUNT} warning(s)"
         fi
-        local IFS=", "
-        printf "%s" "${parts[*]}"
         printf ")"
     fi
     printf "\n\n"

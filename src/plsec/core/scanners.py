@@ -6,6 +6,9 @@ iterates the SCANNERS registry rather than hardcoding per-tool functions.
 Adding a new scanner: add a Tool entry to core/tools.py if needed, write
 command-builder and result-parser functions (or reuse generic ones), then
 add one ScannerSpec entry to SCANNERS.
+
+Preset integration: Command builders can optionally accept a ScannerPreset
+to customize skip_dirs, skip_files, and other scanner-specific parameters.
 """
 
 import shutil
@@ -17,6 +20,12 @@ from pathlib import Path
 from typing import Literal
 
 from plsec.core.tools import REQUIRED_TOOLS, Tool
+
+# Import ScannerPreset for type hints (avoid circular import)
+try:
+    from plsec.core.presets import ScannerPreset
+except ImportError:
+    ScannerPreset = None  # type: ignore[misc,assignment]
 
 # ---------------------------------------------------------------------------
 # Dataclasses
@@ -139,31 +148,59 @@ _TRIVY_SKIP_FILES: list[str] = [
 _TRIVY_IGNOREFILE = ".trivyignore.yaml"
 
 
-def _add_trivy_common_flags(cmd: list[str], target: Path) -> None:
-    """Append --skip-dirs, --skip-files, and --ignorefile flags shared by all trivy commands."""
-    for skip_dir in _TRIVY_SKIP_DIRS:
+def _add_trivy_common_flags(
+    cmd: list[str], target: Path, preset: "ScannerPreset | None" = None
+) -> None:
+    """Append --skip-dirs, --skip-files, and --ignorefile flags shared by all trivy commands.
+
+    Args:
+        cmd: Command list to append flags to
+        target: Scan target directory
+        preset: Optional ScannerPreset to customize skip lists
+    """
+    # Use preset skip lists if provided, otherwise use defaults
+    skip_dirs = preset.skip_dirs if preset else _TRIVY_SKIP_DIRS
+    skip_files = preset.skip_files if preset else _TRIVY_SKIP_FILES
+
+    for skip_dir in skip_dirs:
         cmd.extend(["--skip-dirs", skip_dir])
-    for skip_file in _TRIVY_SKIP_FILES:
+    for skip_file in skip_files:
         cmd.extend(["--skip-files", skip_file])
     ignorefile = target / _TRIVY_IGNOREFILE
     if ignorefile.is_file():
         cmd.extend(["--ignorefile", str(ignorefile)])
 
 
-def _build_trivy_secrets_cmd(target: Path, config: Path | None) -> list[str]:
-    """Build trivy secret scanning command."""
+def _build_trivy_secrets_cmd(
+    target: Path, config: Path | None, preset: "ScannerPreset | None" = None
+) -> list[str]:
+    """Build trivy secret scanning command.
+
+    Args:
+        target: Directory to scan
+        config: Path to trivy secret config file
+        preset: Optional ScannerPreset to customize scanning behavior
+    """
     cmd = ["trivy", "fs", "--scanners", "secret"]
     if config and config.exists():
         cmd.extend(["--secret-config", str(config)])
-    _add_trivy_common_flags(cmd, target)
+    _add_trivy_common_flags(cmd, target, preset)
     cmd.extend(["--exit-code", "1", str(target)])
     return cmd
 
 
-def _build_trivy_misconfig_cmd(target: Path, config: Path | None) -> list[str]:
-    """Build trivy misconfiguration scanning command."""
+def _build_trivy_misconfig_cmd(
+    target: Path, config: Path | None, preset: "ScannerPreset | None" = None
+) -> list[str]:
+    """Build trivy misconfiguration scanning command.
+
+    Args:
+        target: Directory to scan
+        config: Path to trivy config file (unused, for signature compatibility)
+        preset: Optional ScannerPreset to customize scanning behavior
+    """
     cmd = ["trivy", "config", "--exit-code", "1"]
-    _add_trivy_common_flags(cmd, target)
+    _add_trivy_common_flags(cmd, target, preset)
     cmd.append(str(target))
     return cmd
 
@@ -180,19 +217,36 @@ _BANDIT_EXCLUDE_DIRS: list[str] = [
 ]
 
 
-def _build_bandit_cmd(target: Path, config: Path | None) -> list[str]:
+def _build_bandit_cmd(
+    target: Path, config: Path | None, preset: "ScannerPreset | None" = None
+) -> list[str]:
     """Build bandit Python security scanner command.
+
+    Args:
+        target: Directory to scan
+        config: Path to bandit config file (unused, for signature compatibility)
+        preset: Optional ScannerPreset to customize scanning behavior
 
     Exclude paths are resolved relative to the target directory because
     bandit's --exclude matching requires paths that align with its
     internal file discovery (bare directory names like '.venv' don't match).
     """
-    excludes = ",".join(str(target / d) for d in _BANDIT_EXCLUDE_DIRS)
+    # Use preset skip_dirs if provided, otherwise use defaults
+    skip_dirs = preset.skip_dirs if preset else _BANDIT_EXCLUDE_DIRS
+    excludes = ",".join(str(target / d) for d in skip_dirs)
     return ["bandit", "-r", "-ll", "-q", "--exclude", excludes, str(target)]
 
 
-def _build_semgrep_cmd(target: Path, config: Path | None) -> list[str]:
-    """Build semgrep multi-language scanner command."""
+def _build_semgrep_cmd(
+    target: Path, config: Path | None, preset: "ScannerPreset | None" = None
+) -> list[str]:
+    """Build semgrep multi-language scanner command.
+
+    Args:
+        target: Directory to scan
+        config: Path to semgrep config file (unused, for signature compatibility)
+        preset: Optional ScannerPreset to customize scanning behavior
+    """
     return ["semgrep", "--config", "auto", "--quiet", "--error", str(target)]
 
 

@@ -360,12 +360,32 @@ rules:
     keywords: [api_key, apikey, api-key, API_KEY]
     regex: (?i)(api[_-]?key|apikey)['\''":\s]*[=:]\s*['\''"]?([A-Za-z0-9_\-\/+=]{20,})['\''"]?
 
+  # IMPORTANT: generic-secret rule limitations
+  #
+  # This rule requires assignment context (= or :) to reduce false positives
+  # in documentation and test files. This means:
+  #
+  # WILL DETECT:
+  #   - SECRET_KEY = "abc123..."
+  #   - "secret": "abc123..."
+  #   - export SECRET=abc123
+  #
+  # WILL NOT DETECT:
+  #   - Secrets without assignment operators (e.g., "secret_value abc123")
+  #   - Secrets in unusual formats or comment-only contexts
+  #   - Hard-coded secrets in string concatenation without clear assignment
+  #
+  # If you suspect missed secrets, run: trivy fs --scanners secret --severity HIGH,CRITICAL
+  # with a custom config that removes the assignment requirement.
+  #
+  # See: docs/scanner-limitations.md for full details
+  #
   - id: generic-secret
     category: generic
     title: Generic Secret/Token
     severity: HIGH
     keywords: [secret, token, password, auth]
-    regex: (?i)(secret|token|password|auth[_-]?token)\b.{0,40}['\''"]?[A-Za-z0-9_\-\/+=]{12,}['\''"]?
+    regex: (?i)(secret|token|password|auth[_-]?token)\s*[=:]\s*['\''"]?[A-Za-z0-9_\-\/+=]{12,}['\''"]?
 
   - id: private-key
     category: generic
@@ -1350,15 +1370,17 @@ print_summary() {
     printf "\n  Overall: %s" "\$verdict_str"
     if [[ \$WARNING_COUNT -gt 0 ]] || [[ \$ERROR_COUNT -gt 0 ]]; then
         printf " ("
-        local parts=()
+        local first=true
         if [[ \$ERROR_COUNT -gt 0 ]]; then
-            parts+=("\${ERROR_COUNT} error(s)")
+            printf "%s" "\${ERROR_COUNT} error(s)"
+            first=false
         fi
         if [[ \$WARNING_COUNT -gt 0 ]]; then
-            parts+=("\${WARNING_COUNT} warning(s)")
+            if [[ \$first == false ]]; then
+                printf ", "
+            fi
+            printf "%s" "\${WARNING_COUNT} warning(s)"
         fi
-        local IFS=", "
-        printf "%s" "\${parts[*]}"
         printf ")"
     fi
     printf "\n\n"

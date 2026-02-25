@@ -101,7 +101,7 @@ opencode-safe              # wrapper around opencode with logging
 | `plsec secure`      | Add security to an existing project                |
 | `plsec doctor`      | Check system dependencies and configuration        |
 | `plsec init`        | Initialize project security configuration          |
-| `plsec scan`        | Run security scanners (Trivy, Bandit, Semgrep)     |
+| `plsec scan`        | Run security scanners (Trivy, Bandit, Semgrep). See [Scanner Limitations](docs/scanner-limitations.md) |
 | `plsec validate`    | Validate configuration files                       |
 | `plsec proxy`       | Manage Pipelock runtime proxy                      |
 | `plsec integrity`   | Workspace integrity monitoring                     |
@@ -157,6 +157,7 @@ plsec install --no-aliases
 | `claude-safe`   | `~/.peerlabs/plsec/claude-wrapper.sh`   |
 | `opencode-safe` | `~/.peerlabs/plsec/opencode-wrapper.sh` |
 | `plsec-logs`    | `tail -f ~/.peerlabs/plsec/logs/*.log`  |
+| `plsec-status`  | `~/.peerlabs/plsec/plsec-status.sh`     |
 
 The wrappers provide two tiers of logging:
 
@@ -283,6 +284,22 @@ make test-integration
 | ty     | Type checking | `uv run ty check src/`                         |
 | pytest | Python tests  | `uv run pytest tests/ -v`                      |
 | BATS   | Shell tests   | `make test-unit` / `make test-integration`     |
+
+## Documentation
+
+Comprehensive guides and references:
+
+- [Scanner Limitations](docs/scanner-limitations.md) - Detection tradeoffs and false positive/negative rates
+- [CI/CD Integration](docs/ci-cd-integration.md) - Integrating plsec-status into your pipeline
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+- [plsec-status Command](docs/commands/plsec-status.md) - Health check reference
+
+For command-specific help:
+```bash
+plsec --help
+plsec scan --help
+plsec-status --help
+```
 
 ## License
 

@@ -44,64 +44,64 @@ automated compatibility validation.
 
 ### OpenCode (`~/.local/share/opencode/`)
 
-| Component | Format | Contents |
-|-----------|--------|----------|
-| `opencode.db` | SQLite 3 (Drizzle ORM) | Sessions, messages, parts, todos, permissions, projects |
-| `storage/session_diff/` | JSON per session | Full file diffs (before/after, additions/deletions) |
-| `storage/message/` | JSON per message | Message metadata (role, model, agent, timestamps) |
-| `storage/part/` | JSON per part | Tool calls, text, patches, token usage, step lifecycle |
-| `snapshot/` | Bare git repos | Content-addressable workspace snapshots per step |
-| `log/` | Structured text | Service logs with timestamps, durations, errors |
-| `tool-output/` | Plain text | Full output of truncated tool calls |
-| `auth.json` | JSON | OAuth tokens per provider (security concern) |
+| Component               | Format                 | Contents                                                |
+|-------------------------|------------------------|---------------------------------------------------------|
+| `opencode.db`           | SQLite 3 (Drizzle ORM) | Sessions, messages, parts, todos, permissions, projects |
+| `storage/session_diff/` | JSON per session       | Full file diffs (before/after, additions/deletions)     |
+| `storage/message/`      | JSON per message       | Message metadata (role, model, agent, timestamps)       |
+| `storage/part/`         | JSON per part          | Tool calls, text, patches, token usage, step lifecycle  |
+| `snapshot/`             | Bare git repos         | Content-addressable workspace snapshots per step        |
+| `log/`                  | Structured text        | Service logs with timestamps, durations, errors         |
+| `tool-output/`          | Plain text             | Full output of truncated tool calls                     |
+| `auth.json`             | JSON                   | OAuth tokens per provider (security concern)            |
 
 **Key tables in `opencode.db`:**
 
-| Table | Records (observed) | Monitoring value |
-|-------|-------------------|-----------------|
-| `session` | 46 | Session metadata, project tracking, change summaries |
-| `message` | 4,328 | API errors, model selection, role tracking |
-| `part` | 16,662 | Tool calls (4,670), token usage (3,922 step-finish), patches (1,278) |
-| `project` | 3+ | Project registration, worktree paths |
-| `todo` | 22 | Task tracking per session |
-| `permission` | 0 | Per-project permission rules (future) |
+| Table        | Records (observed) | Monitoring value                                                     |
+|--------------|--------------------|----------------------------------------------------------------------|
+| `session`    | 46                 | Session metadata, project tracking, change summaries                 |
+| `message`    | 4,328              | API errors, model selection, role tracking                           |
+| `part`       | 16,662             | Tool calls (4,670), token usage (3,922 step-finish), patches (1,278) |
+| `project`    | 3+                 | Project registration, worktree paths                                 |
+| `todo`       | 22                 | Task tracking per session                                            |
+| `permission` | 0                  | Per-project permission rules (future)                                |
 
 **Part type distribution:**
 
-| Type | Count | Security relevance |
-|------|-------|--------------------|
-| `tool` | 4,670 | **HIGH** -- every tool call with full input/output (bash commands especially) |
-| `step-finish` | 3,922 | Token breakdown (input/output/reasoning/cache), cost tracking |
-| `text` | 2,826 | Assistant output |
-| `patch` | 1,278 | File modifications with diffs |
-| `step-start` | 3,926 | Git snapshot references |
-| `reasoning` | 38 | Extended thinking blocks |
-| `compaction` | 30 | Context window pressure events |
+| Type          | Count | Security relevance                                                            |
+|---------------|-------|-------------------------------------------------------------------------------|
+| `tool`        | 4,670 | **HIGH** -- every tool call with full input/output (bash commands especially) |
+| `step-finish` | 3,922 | Token breakdown (input/output/reasoning/cache), cost tracking                 |
+| `text`        | 2,826 | Assistant output                                                              |
+| `patch`       | 1,278 | File modifications with diffs                                                 |
+| `step-start`  | 3,926 | Git snapshot references                                                       |
+| `reasoning`   | 38    | Extended thinking blocks                                                      |
+| `compaction`  | 30    | Context window pressure events                                                |
 
 **Tool usage distribution (all sessions):**
 
-| Tool | Calls | Notes |
-|------|-------|-------|
-| `read` | 1,499 | File reading |
-| `edit` | 1,130 | File editing |
-| `bash` | 837 | **Command execution -- primary audit target** |
-| `todowrite` | 480 | Task management |
-| `grep` | 267 | Code search |
-| `write` | 225 | File creation |
-| `glob` | 134 | File discovery |
-| `task` | 40 | Subagent launches |
+| Tool        | Calls | Notes                                         |
+|-------------|-------|-----------------------------------------------|
+| `read`      | 1,499 | File reading                                  |
+| `edit`      | 1,130 | File editing                                  |
+| `bash`      | 837   | **Command execution -- primary audit target** |
+| `todowrite` | 480   | Task management                               |
+| `grep`      | 267   | Code search                                   |
+| `write`     | 225   | File creation                                 |
+| `glob`      | 134   | File discovery                                |
+| `task`      | 40    | Subagent launches                             |
 
 ### Claude Code (`~/.claude/`)
 
-| Component | Format | Contents |
-|-----------|--------|----------|
-| `projects/{path-hash}/*.jsonl` | JSONL per session | Complete message history with tool calls, thinking |
-| `stats-cache.json` | JSON (versioned) | Aggregated daily metrics: messages, sessions, tools, tokens, cost |
-| `debug/*.txt` | Text | Per-session debug logs |
-| `history.jsonl` | JSONL | Command history |
-| `todos/` | JSON | Task tracking |
-| `file-history/` | JSON snapshots | File state tracking per message |
-| `shell-snapshots/` | Snapshots | Shell state tracking |
+| Component                      | Format            | Contents                                                          |
+|--------------------------------|-------------------|-------------------------------------------------------------------|
+| `projects/{path-hash}/*.jsonl` | JSONL per session | Complete message history with tool calls, thinking                |
+| `stats-cache.json`             | JSON (versioned)  | Aggregated daily metrics: messages, sessions, tools, tokens, cost |
+| `debug/*.txt`                  | Text              | Per-session debug logs                                            |
+| `history.jsonl`                | JSONL             | Command history                                                   |
+| `todos/`                       | JSON              | Task tracking                                                     |
+| `file-history/`                | JSON snapshots    | File state tracking per message                                   |
+| `shell-snapshots/`             | Snapshots         | Shell state tracking                                              |
 
 **JSONL message structure:**
 
@@ -128,28 +128,28 @@ Each line is a JSON object with:
 
 ### Comparison
 
-| Capability | OpenCode | Claude Code |
-|-----------|----------|-------------|
-| Storage format | SQLite + JSON (dual-write) | JSONL files |
-| Tool call audit | SQLite `part` table (`type=tool`) | JSONL `content[].type = "tool_use"` |
-| Token tracking | Per-step in `step-finish` parts | Aggregated in `stats-cache.json` |
-| File changes | `session_diff/` JSON + git snapshots | `file-history/` snapshots |
-| Error logging | Structured logs + message error data | Debug logs |
-| Aggregated stats | Must compute from raw data | Pre-computed in `stats-cache.json` |
-| Query interface | SQL (easy) | File parsing (JSONL) |
-| Version tracking | Stored per session | Stored per message |
+| Capability       | OpenCode                             | Claude Code                         |
+|------------------|--------------------------------------|-------------------------------------|
+| Storage format   | SQLite + JSON (dual-write)           | JSONL files                         |
+| Tool call audit  | SQLite `part` table (`type=tool`)    | JSONL `content[].type = "tool_use"` |
+| Token tracking   | Per-step in `step-finish` parts      | Aggregated in `stats-cache.json`    |
+| File changes     | `session_diff/` JSON + git snapshots | `file-history/` snapshots           |
+| Error logging    | Structured logs + message error data | Debug logs                          |
+| Aggregated stats | Must compute from raw data           | Pre-computed in `stats-cache.json`  |
+| Query interface  | SQL (easy)                           | File parsing (JSONL)                |
+| Version tracking | Stored per session                   | Stored per message                  |
 
 ### Other Agents (Future)
 
 The following agents are on the plsec roadmap but do not yet have
 data source analysis:
 
-| Agent | Data location (expected) | Status |
-|-------|-------------------------|--------|
-| Gemini CLI | TBD | Roadmap (v0.3+) |
-| Codex (OpenAI) | TBD | Roadmap (v0.3+) |
-| CoPilot (GitHub) | TBD | Roadmap (v0.3+) |
-| ollama (local) | TBD | Roadmap (v0.3+) |
+| Agent            | Data location (expected) | Status          |
+|------------------|--------------------------|-----------------|
+| Gemini CLI       | TBD                      | Roadmap (v0.3+) |
+| Codex (OpenAI)   | TBD                      | Roadmap (v0.3+) |
+| CoPilot (GitHub) | TBD                      | Roadmap (v0.3+) |
+| ollama (local)   | TBD                      | Roadmap (v0.3+) |
 
 When adding support for new agents, the same adapter + compatibility
 registry pattern applies. Community contributions for data source
@@ -379,21 +379,21 @@ plsec doctor / plsec status / plsec monitor
 
 ### 1. `plsec doctor` -- New Health Checks
 
-| Check | ID | Description |
-|-------|----|-------------|
-| OpenCode data adapter | D-1 | OpenCode data detected and adapter compatible |
-| Claude Code data adapter | D-2 | Claude Code data detected and adapter compatible |
-| Agent version untested | D-3 | WARN if agent version not in validated list |
-| Auth token exposure | D-4 | WARN if plaintext auth tokens found (e.g., `auth.json`) |
+| Check                    | ID  | Description                                             |
+|--------------------------|-----|---------------------------------------------------------|
+| OpenCode data adapter    | D-1 | OpenCode data detected and adapter compatible           |
+| Claude Code data adapter | D-2 | Claude Code data detected and adapter compatible        |
+| Agent version untested   | D-3 | WARN if agent version not in validated list             |
+| Auth token exposure      | D-4 | WARN if plaintext auth tokens found (e.g., `auth.json`) |
 
 ### 2. `plsec status` -- Agent Activity Checks
 
-| Check | Category | Description |
-|-------|----------|-------------|
+| Check          | Category | Description                            |
+|----------------|----------|----------------------------------------|
 | Active session | Activity | Is an agent session currently running? |
-| Token budget | Activity | Token usage in current session / today |
-| Error rate | Activity | API errors in recent sessions |
-| Last scan | Activity | When was the last security scan? |
+| Token budget   | Activity | Token usage in current session / today |
+| Error rate     | Activity | API errors in recent sessions          |
+| Last scan      | Activity | When was the last security scan?       |
 
 ### 3. `plsec monitor [agent]` -- Dedicated Command
 

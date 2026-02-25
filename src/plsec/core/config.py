@@ -1,14 +1,19 @@
 """
 Configuration management for plsec.
 
-Handles loading, validating, and accessing plsec.yaml configuration.
+Handles loading, validating, and accessing configuration files.
+Supports both TOML (plsec.toml) and YAML (plsec.yaml) formats.
+TOML is preferred when both exist.
+
 Uses plain dataclasses - Pydantic is not needed for this use case.
 """
 
+import tomllib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
+import tomli_w
 import yaml
 
 # ---------------------------------------------------------------------------
@@ -142,6 +147,7 @@ class PlsecConfig:
     """Main plsec configuration model."""
 
     version: int = 1
+    preset: str = "balanced"  # Preset level: minimal, balanced, strict, paranoid
     project: ProjectConfig = field(default_factory=ProjectConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)
     layers: LayersConfig = field(default_factory=LayersConfig)
@@ -229,35 +235,45 @@ def _validate_config(data: dict) -> None:
 
 def find_config_file() -> Path | None:
     """
-    Find plsec.yaml in current directory or parents.
+    Find plsec config file (TOML or YAML) in current directory or parents.
 
-    Search order:
-    1. ./plsec.yaml
+    Search order (TOML preferred over YAML):
+    1. ./plsec.toml or ./plsec.yaml
     2. Parent directories up to home
-    3. ~/.peerlabs/plsec/plsec.yaml
+    3. ~/.peerlabs/plsec/plsec.toml or ~/.peerlabs/plsec/plsec.yaml
     """
     cwd = Path.cwd()
 
     # Check current and parent directories
     for parent in [cwd, *cwd.parents]:
-        config_path = parent / "plsec.yaml"
-        if config_path.exists():
-            return config_path
+        # Prefer TOML over YAML
+        toml_path = parent / "plsec.toml"
+        if toml_path.exists():
+            return toml_path
+
+        yaml_path = parent / "plsec.yaml"
+        if yaml_path.exists():
+            return yaml_path
+
         # Stop at home directory
         if parent == Path.home():
             break
 
-    # Check global config
-    global_config = Path.home() / ".peerlabs" / "plsec" / "plsec.yaml"
-    if global_config.exists():
-        return global_config
+    # Check global config (prefer TOML)
+    global_toml = Path.home() / ".peerlabs" / "plsec" / "plsec.toml"
+    if global_toml.exists():
+        return global_toml
+
+    global_yaml = Path.home() / ".peerlabs" / "plsec" / "plsec.yaml"
+    if global_yaml.exists():
+        return global_yaml
 
     return None
 
 
 def load_config(config_path: Path | str | None = None) -> PlsecConfig:
     """
-    Load and validate plsec configuration.
+    Load and validate plsec configuration from TOML or YAML.
 
     Args:
         config_path: Explicit path to config file, or None to search.
@@ -280,8 +296,15 @@ def load_config(config_path: Path | str | None = None) -> PlsecConfig:
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
 
-    with open(path) as f:
-        data = yaml.safe_load(f)
+    # Determine format from extension
+    if path.suffix == ".toml":
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+    elif path.suffix in {".yaml", ".yml"}:
+        with open(path) as f:
+            data = yaml.safe_load(f)
+    else:
+        raise ValueError(f"Unsupported config file format: {path.suffix} (use .toml or .yaml)")
 
     if data is None:
         return PlsecConfig()
@@ -290,21 +313,125 @@ def load_config(config_path: Path | str | None = None) -> PlsecConfig:
     return _from_dict(PlsecConfig, data)
 
 
-def save_config(config: PlsecConfig, path: Path | str) -> None:
+def save_config(config: PlsecConfig, path: Path | str, *, format: str | None = None) -> None:
     """
-    Save configuration to file.
+    Save configuration to file in TOML or YAML format.
 
     Args:
         config: PlsecConfig object to save.
         path: Destination path.
+        format: Output format ("toml" or "yaml"). If None, determined from path extension.
+
+    Raises:
+        ValueError: If format cannot be determined or is unsupported.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     data = _to_dict(config)
 
-    with open(path, "w") as f:
-        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+    # Determine format
+    if format is None:
+        if path.suffix == ".toml":
+            format = "toml"
+        elif path.suffix in {".yaml", ".yml"}:
+            format = "yaml"
+        else:
+            raise ValueError(f"Cannot determine format from extension: {path.suffix}")
+
+    # Write in requested format
+    if format == "toml":
+        with open(path, "wb") as f:
+            tomli_w.dump(data, f)
+    elif format == "yaml":
+        with open(path, "w") as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+    else:
+        raise ValueError(f"Unsupported format: {format!r} (use 'toml' or 'yaml')")
+
+
+def resolve_config(
+    *,
+    cli_preset: str | None = None,
+    project_config_path: Path | None = None,
+    global_config_path: Path | None = None,
+) -> tuple[PlsecConfig, str]:
+    """
+    Resolve configuration hierarchy: CLI > Project > Global > Preset defaults.
+
+    Args:
+        cli_preset: Preset level from CLI --preset flag (highest priority)
+        project_config_path: Path to project config file (or None to search cwd)
+        global_config_path: Path to global config file (or None to use default)
+
+    Returns:
+        Tuple of (resolved PlsecConfig, effective preset level string)
+
+    Resolution order:
+    1. If cli_preset provided, use that preset level
+    2. Else if project config exists and has preset field, use that
+    3. Else if global config exists and has preset field, use that
+    4. Else use "balanced" (default)
+
+    The returned PlsecConfig contains the merged configuration with the
+    effective preset level set in the .preset field.
+    """
+    # Load project config (search from cwd if not specified)
+    if project_config_path is None:
+        # Find config starting from cwd, but stop before going to global
+        cwd = Path.cwd()
+        for parent in [cwd, *cwd.parents]:
+            toml_path = parent / "plsec.toml"
+            if toml_path.exists():
+                project_config_path = toml_path
+                break
+            yaml_path = parent / "plsec.yaml"
+            if yaml_path.exists():
+                project_config_path = yaml_path
+                break
+            if parent == Path.home():
+                break
+
+    project_config = None
+    if project_config_path and Path(project_config_path).exists():
+        project_config = load_config(project_config_path)
+
+    # Load global config
+    if global_config_path is None:
+        global_home = get_plsec_home()
+        global_toml = global_home / "plsec.toml"
+        global_yaml = global_home / "plsec.yaml"
+        if global_toml.exists():
+            global_config_path = global_toml
+        elif global_yaml.exists():
+            global_config_path = global_yaml
+
+    global_config = None
+    if global_config_path and Path(global_config_path).exists():
+        global_config = load_config(global_config_path)
+
+    # Resolve preset level (CLI > Project > Global > Default)
+    if cli_preset is not None:
+        effective_preset = cli_preset
+    elif project_config is not None and project_config.preset:
+        effective_preset = project_config.preset
+    elif global_config is not None and global_config.preset:
+        effective_preset = global_config.preset
+    else:
+        effective_preset = "balanced"
+
+    # Start with project config or global config or defaults
+    if project_config is not None:
+        resolved = project_config
+    elif global_config is not None:
+        resolved = global_config
+    else:
+        resolved = PlsecConfig()
+
+    # Set the effective preset
+    resolved.preset = effective_preset
+
+    return resolved, effective_preset
 
 
 def get_plsec_home() -> Path:

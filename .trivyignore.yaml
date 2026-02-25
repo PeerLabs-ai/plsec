@@ -16,6 +16,7 @@ secrets:
       - "build/bootstrap.sh"
       - "scripts/test-assembler-escaping.sh"
       - "templates/bootstrap/hook-pre-commit.sh"
+      - "templates/bootstrap/plsec-status.sh"
       - "templates/bootstrap/skeleton.bash"
       - "templates/bootstrap/wrapper-scan.sh"
       - "src/plsec/commands/create.py"
@@ -24,9 +25,12 @@ secrets:
       - "src/plsec/core/detector.py"
       - "HANDOFF.md"
       - "PROJECT.md"
+      - "docs/DESIGN-AGENT-MONITORING.md"
       - "docs/DESIGN-CREATE-SECURE.md"
       - "docs/build-process-design.md"
+      - "docs/commands/plsec-status.md"
       - "docs/roadmap.md"
+      - "docs/scanner-limitations.md"
       - "homebrew/README.md"
       - "tests/test_detector.py"
       - "tests/test_scanners.py"
@@ -36,11 +40,12 @@ secrets:
       Source code that references scanner configs, detection patterns,
       or test fixtures.
 
-  # Test fixtures with intentional dummy API keys for detection testing.
+  # Test fixtures and documentation with intentional example API keys
   - id: generic-api-key
     paths:
       - "tests/test_detector.py"
-    statement: "Test fixture with intentional dummy API key"
+      - "docs/scanner-limitations.md"
+    statement: "Test fixtures and documentation with example API keys for illustration"
 
   # Test fixtures with intentional dummy Stripe key for detection testing.
   - id: stripe-secret-token
