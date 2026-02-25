@@ -15,6 +15,7 @@ from plsec.configs.templates import (
     OPENCODE_JSON_BALANCED,
     OPENCODE_JSON_STRICT,
     PLSEC_AUDIT_SH,
+    PLSEC_STATUS_SH,
     PLSEC_YAML_TEMPLATE,
     PRE_COMMIT_HOOK,
     STANDALONE_SCRIPTS,
@@ -259,6 +260,9 @@ class TestWrapperTemplatesNonEmpty:
     def test_plsec_audit_sh(self):
         assert isinstance(PLSEC_AUDIT_SH, str) and len(PLSEC_AUDIT_SH) > 0
 
+    def test_plsec_status_sh(self):
+        assert isinstance(PLSEC_STATUS_SH, str) and len(PLSEC_STATUS_SH) > 0
+
 
 class TestWrapperClaudeSh:
     """Verify claude wrapper template has expected structural elements."""
@@ -342,6 +346,51 @@ class TestPlsecAuditSh:
         assert "2>/dev/null" in PLSEC_AUDIT_SH
 
 
+class TestPlsecStatusSh:
+    """Verify status script template has expected structural elements."""
+
+    def test_has_shebang(self):
+        assert PLSEC_STATUS_SH.lstrip().startswith("#!/bin/bash")
+
+    def test_has_plsec_dir_placeholder(self):
+        assert _PLSEC_DIR_PLACEHOLDER in PLSEC_STATUS_SH
+
+    def test_has_help_flag(self):
+        assert "--help" in PLSEC_STATUS_SH
+
+    def test_has_json_mode(self):
+        assert "--json" in PLSEC_STATUS_SH
+        assert "print_json" in PLSEC_STATUS_SH
+
+    def test_has_quiet_mode(self):
+        assert "--quiet" in PLSEC_STATUS_SH
+
+    def test_has_check_functions(self):
+        """Status script must have health check functions."""
+        assert "check_plsec_dir" in PLSEC_STATUS_SH
+        assert "check_agent_config" in PLSEC_STATUS_SH
+        assert "check_tool" in PLSEC_STATUS_SH
+        assert "check_log_freshness" in PLSEC_STATUS_SH
+
+    def test_has_verdict_helpers(self):
+        """Status script must have verdict computation logic."""
+        assert "compute_overall" in PLSEC_STATUS_SH
+        assert "format_verdict" in PLSEC_STATUS_SH
+
+    def test_has_json_escape(self):
+        """Status script must have JSON escaping for safe output."""
+        assert "json_escape" in PLSEC_STATUS_SH
+
+    def test_has_source_guard(self):
+        """Status script must have source guard to allow unit testing."""
+        assert 'if [[ "${BASH_SOURCE[0]}" == "${0}" ]]' in PLSEC_STATUS_SH
+
+    def test_has_exit_codes(self):
+        """Status script must exit 0 for ok, 1 for fail."""
+        assert "exit 0" in PLSEC_STATUS_SH
+        assert "exit 1" in PLSEC_STATUS_SH
+
+
 class TestWrapperRegistries:
     """Verify WRAPPER_TEMPLATES and STANDALONE_SCRIPTS are consistent."""
 
@@ -356,6 +405,10 @@ class TestWrapperRegistries:
     def test_standalone_scripts_has_audit(self):
         names = [name for name, _ in STANDALONE_SCRIPTS]
         assert "plsec-audit.sh" in names
+
+    def test_standalone_scripts_has_status(self):
+        names = [name for name, _ in STANDALONE_SCRIPTS]
+        assert "plsec-status.sh" in names
 
     def test_all_templates_have_placeholder(self):
         """All wrapper templates must use @@PLSEC_DIR@@ placeholder."""

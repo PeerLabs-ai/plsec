@@ -2,7 +2,8 @@
 
 ## Current State
 
-666 pytest tests across 22 files, 77% coverage. All three tiers are
+666 pytest tests across 22 files, 77% coverage. 83 BATS tests across 2 files
+for plsec-status (58 unit + 25 integration). All three pytest tiers are
 implemented. The original `test_plsec.py` has been redistributed:
 duplicate tests deleted, unique tests moved to `test_cli.py` and
 `test_config.py`.
@@ -32,6 +33,13 @@ duplicate tests deleted, unique tests moved to `test_cli.py` and
 | `test_doctor.py` | 14 | 3 | `commands/doctor.py` |
 | `test_proxy.py` | 14 | 3 | `commands/proxy.py` |
 
+### BATS Tests (Bootstrap Scripts)
+
+| Test file | Tests | Target module |
+|-----------|-------|---------------|
+| `bats/unit/test_status.bats` | 58 | `plsec-status.sh` (health check functions) |
+| `bats/integration/test_status.bats` | 25 | `plsec-status.sh` (full execution, JSON, flags) |
+
 ## Test Structure (implemented)
 
 Per-module test files plus registry module tests:
@@ -59,7 +67,12 @@ tests/
 ├── test_agents.py             # core/agents.py - agent registry
 ├── test_scanners.py           # core/scanners.py - scanner registry
 ├── test_processes.py          # core/processes.py - process registry
-└── test_health.py             # core/health.py - health check functions
+├── test_health.py             # core/health.py - health check functions
+└── bats/                      # BATS shell script tests
+    ├── unit/
+    │   └── test_status.bats   # plsec-status.sh unit tests (58 tests)
+    └── integration/
+        └── test_status.bats   # plsec-status.sh integration tests (25 tests)
 ```
 
 ## Priority Tiers

@@ -39,6 +39,7 @@ PLSEC_EXPECTED_SCRIPTS: list[tuple[str, str]] = [
     ("claude-wrapper.sh", "Claude Code wrapper script"),
     ("opencode-wrapper.sh", "OpenCode wrapper script"),
     ("plsec-audit.sh", "Audit logging script"),
+    ("plsec-status.sh", "Health status script"),
 ]
 
 

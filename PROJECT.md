@@ -136,11 +136,11 @@ of truth).
   in isolated venv) and `make build-dist` (sdist + wheel) targets.
   Created `docs/INSTALL.md` covering all installation paths (pipx, uv,
   homebrew, bootstrap).
-- [ ] **`plsec-status` Phase 1**: Bash status script in bootstrap.
-  The status design doc (`docs/plsec-status-design.md`) has been updated
-  to APPROVED v0.2 with registry-driven check generation, `CheckResult`
-  data contract, lifecycle commands integration, and all 5 open questions
-  resolved.
+- [x] **`plsec-status` Phase 1**: Bash status script in bootstrap,
+  Python integration via health.py + templates.py, CI/CD + user docs.
+  83 BATS tests (58 unit + 25 integration). Bootstrap-only deployment
+  per Option A. The status design doc (`docs/plsec-status-design.md`)
+  is APPROVED v0.2.
   (see [docs/plsec-status-design.md](docs/plsec-status-design.md))
 
 ### Medium Priority

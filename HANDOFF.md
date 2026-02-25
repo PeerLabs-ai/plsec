@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-02-24
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 666 pytest + 75 BATS unit + 53 BATS integration + 44 assembler tests, 77% coverage
+**Last Updated:** 2026-02-25
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 666 pytest + 133 BATS unit + 78 BATS integration + 44 assembler tests, 77% coverage
 
 ---
 
@@ -72,6 +72,49 @@ Items 1-12 are complete.
   (CI verify and golden-check steps will fail otherwise)
 
 ## Accomplished (this session)
+
+### Milestone 13: plsec-status Phase 1 Integration
+
+Integrated `plsec-status` bash script into Python CLI health checks and added
+comprehensive user documentation for CI/CD integration and troubleshooting.
+
+**Python integration (Tasks 1-2)**:
+- Added `plsec-status.sh` to `PLSEC_EXPECTED_SCRIPTS` in `health.py` (check I-11)
+- Added `PLSEC_STATUS_SH` constant to `templates.py` (~790 lines, extracted from
+  bootstrap template)
+- Registered in `STANDALONE_SCRIPTS` for future Python deployment
+- `plsec doctor` now verifies status script is deployed (WARN if missing)
+
+**Documentation updates (Task 3)**:
+- TESTING.md: Added BATS test counts (58 unit + 25 integration = 83 tests)
+- HANDOFF.md: Marked milestone #11 complete, updated test counts
+- PROJECT.md: Marked plsec-status Phase 1 TODO as `[x]` complete
+
+**User documentation (Tasks 5-7)**:
+- `docs/ci-cd-integration.md`: GitHub Actions, GitLab CI, Jenkins examples with
+  JSON parsing, quiet mode, exit code handling
+- `docs/commands/plsec-status.md`: Full command reference with usage examples,
+  check inventory, exit codes, troubleshooting cross-refs
+- `docs/troubleshooting.md`: Common issues and fixes (command not found, missing
+  PLSEC_DIR, stale logs, secrets detected, permission errors)
+
+**Deployment strategy (Task 4)**:
+- Confirmed Option A: Bootstrap-only deployment for v0.1.x
+- `plsec install` (Python CLI) does NOT deploy plsec-status in this release
+- Documented rationale: separation of concerns (bootstrap = runtime layer,
+  CLI = analysis layer), zero dependencies, natural evolution to v0.2.0 `plsec run`
+
+**Files created** (3):
+- `docs/ci-cd-integration.md` — CI/CD integration examples
+- `docs/commands/plsec-status.md` — User command reference
+- `docs/troubleshooting.md` — Troubleshooting guide
+
+**Files modified** (5):
+- `src/plsec/core/health.py` — Added plsec-status.sh to expected scripts
+- `src/plsec/configs/templates.py` — Added PLSEC_STATUS_SH constant
+- `TESTING.md` — Added BATS test counts
+- `HANDOFF.md` — This file
+- `PROJECT.md` — Marked TODO complete
 
 ### Makefile simplification and state contract hardening
 
@@ -664,7 +707,9 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 10. ~~**Scan result persistence**~~ (DONE -- `ScanResult`/`ScanSummary` dataclasses,
     `run_scanner()` returns structured results, `_write_scan_log()` writes daily
     JSONL + `scan-latest.json`, `--json` CLI flag, 661 tests, 77% cov)
-11. **`plsec-status` Phase 1** - bash health checks in bootstrap
+11. ~~**`plsec-status` Phase 1**~~ (DONE -- bash health checks in bootstrap,
+    Python integration via health.py + templates.py, CI/CD + user docs. 83 BATS
+    tests, bootstrap-only deployment per Option A)
 12. **`plsec-status` Phase 2** - watch mode
 13. **Agent monitoring foundation** - `data_dir` in AgentSpec,
     `compatibility.yaml`, adapter protocol, doctor checks D-1..D-4

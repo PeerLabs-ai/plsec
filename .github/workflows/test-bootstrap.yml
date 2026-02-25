@@ -52,6 +52,10 @@ jobs:
           submodules: true
       - name: Install BATS
         run: brew install bats-core
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.0
+        with:
+          version: v0.69.1
       - name: Install Python (for JSON/YAML validation)
         uses: actions/setup-python@v5
         with:
