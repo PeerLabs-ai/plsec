@@ -531,15 +531,16 @@ print_summary() {
 # JSON output (pure bash, no jq dependency)
 # ---------------------------------------------------------------------------
 
-# Escape a string for JSON output
+# Escape a string for JSON output (awk-based to avoid assembler escaping conflicts)
 json_escape() {
-    local s="$1"
-    s="${s//\\/\\\\}"
-    s="${s//\"/\\\"}"
-    s="${s//$'\n'/\\n}"
-    s="${s//$'\r'/\\r}"
-    s="${s//$'\t'/\\t}"
-    printf '%s' "$s"
+    printf '%s' "$1" | awk '
+    BEGIN { ORS="" }
+    {
+        gsub(/\\/, "\\\\")
+        gsub(/"/, "\\\"")
+        gsub(/\t/, "\\t")
+        print
+    }'
 }
 
 print_json() {
@@ -606,9 +607,10 @@ run_all_checks() {
     local project_path="$1"
 
     # -- Installation checks --
-    local dir_verdict
-    dir_verdict=$(check_plsec_dir)
-    if [[ "$dir_verdict" == "fail" ]]; then
+    # Note: check functions are called without subshells so record_check
+    # can modify the global VERDICTS array. Stdout is discarded.
+    check_plsec_dir > /dev/null
+    if [[ ! -d "$PLSEC_DIR" ]]; then
         # If PLSEC_DIR doesn't exist, skip remaining checks
         return
     fi
