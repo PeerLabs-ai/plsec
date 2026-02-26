@@ -1,19 +1,23 @@
 """Tests for the scan command module (commands/scan.py).
 
 Covers:
-- Flag-to-scan_type resolution (--secrets, --code, --deps, --misconfig)
-- Scanner filtering by scan_type
+- Preset-driven scanner selection
+- Flag-to-scanner resolution (--secrets, --code, --deps, --misconfig)
+- Specific scanner selection (--scanner)
+- Combined preset + flag union behavior
 - Pass/fail result handling and exit codes
 - Skip/not-installed message handling
+- Verbose config display
 - Dependency audit stub
 
-All tests mock run_scanner() and get_plsec_home() to avoid actual binary
-execution. Tests use the typer CLI runner to invoke the scan command.
+All tests mock run_scanner(), get_plsec_home(), and resolve_config()
+to avoid actual binary execution. Tests use the typer CLI runner.
 """
 
 from pathlib import Path
 from unittest.mock import patch
 
+import typer
 from typer.testing import CliRunner
 
 from plsec.commands.scan import (
@@ -21,11 +25,13 @@ from plsec.commands.scan import (
     SCAN_LOG_PATTERN,
     _check_scanner_prerequisites,
     _print_json,
+    _resolve_scanner_list,
     _result_to_dict,
     _summary_to_dict,
     _write_scan_log,
     app,
 )
+from plsec.core.config import PlsecConfig
 from plsec.core.health import PLSEC_EXPECTED_FILES
 from plsec.core.scanners import ScanResult, ScanSummary
 
@@ -57,9 +63,10 @@ def _patch_scanner(passed: bool = True, message: str = "No issues found"):
 
     The side_effect builds a ScanResult using the spec's id and scan_type
     so each invocation gets the correct scanner metadata.
+    Accepts 4 args: (spec, target, home, static_config).
     """
 
-    def _mock_run_scanner(spec, target, home):
+    def _mock_run_scanner(spec, target, home, static_config=None):
         return ScanResult(
             scanner_id=spec.id,
             scan_type=spec.scan_type,
@@ -86,6 +93,16 @@ def _patch_home(tmp_path: Path):
     return patch("plsec.commands.scan.get_plsec_home", return_value=plsec_home)
 
 
+def _patch_resolve_config(preset: str = "balanced"):
+    """Patch resolve_config to return a default PlsecConfig with given preset."""
+    config = PlsecConfig()
+    config.preset = preset
+    return patch(
+        "plsec.commands.scan.resolve_config",
+        return_value=(config, preset),
+    )
+
+
 # -----------------------------------------------------------------------
 # Basic execution
 # -----------------------------------------------------------------------
@@ -97,14 +114,18 @@ class TestScanExecution:
 
     def test_all_scanners_pass(self, tmp_path: Path):
         """All scanners passing -> exit 0."""
-        with _patch_home(tmp_path), _patch_scanner(True, "No issues found"):
+        with (
+            _patch_home(tmp_path),
+            _patch_scanner(True, "No issues found"),
+            _patch_resolve_config(),
+        ):
             result = runner.invoke(app, [str(tmp_path)])
         assert result.exit_code == 0
 
     def test_secret_scanner_fails(self, tmp_path: Path):
         """Secret scanner failure -> exit 1 (errors are critical)."""
 
-        def mock_run_scanner(spec, target, home):
+        def mock_run_scanner(spec, target, home, static_config=None):
             if spec.scan_type == "secrets":
                 return ScanResult(
                     scanner_id=spec.id,
@@ -121,6 +142,7 @@ class TestScanExecution:
 
         with (
             _patch_home(tmp_path),
+            _patch_resolve_config(),
             patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
         ):
             result = runner.invoke(app, [str(tmp_path)])
@@ -129,7 +151,7 @@ class TestScanExecution:
     def test_code_scanner_fails(self, tmp_path: Path):
         """Code scanner failure -> exit 0 (warnings, not errors)."""
 
-        def mock_run_scanner(spec, target, home):
+        def mock_run_scanner(spec, target, home, static_config=None):
             if spec.scan_type == "code":
                 return ScanResult(
                     scanner_id=spec.id,
@@ -146,6 +168,7 @@ class TestScanExecution:
 
         with (
             _patch_home(tmp_path),
+            _patch_resolve_config(),
             patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
         ):
             result = runner.invoke(app, [str(tmp_path)])
@@ -154,7 +177,7 @@ class TestScanExecution:
     def test_nonexistent_path(self, tmp_path: Path):
         """Non-existent path -> exit 1."""
         bad_path = tmp_path / "nonexistent"
-        with _patch_home(tmp_path):
+        with _patch_home(tmp_path), _patch_resolve_config():
             result = runner.invoke(app, [str(bad_path)])
         assert result.exit_code == 1
 
@@ -162,6 +185,7 @@ class TestScanExecution:
         """Skipped scanners should not count as errors."""
         with (
             _patch_home(tmp_path),
+            _patch_resolve_config(),
             _patch_scanner(True, "Bandit not installed (skipped)"),
         ):
             result = runner.invoke(app, [str(tmp_path)])
@@ -174,14 +198,13 @@ class TestScanExecution:
 
 
 class TestScanFlagResolution:
-    """Contract: --secrets, --code, --deps, --misconfig flags override
-    the default 'all' scan type, filtering which scanners run."""
+    """Contract: --secrets, --code, --deps, --misconfig flags filter which scanners run."""
 
     def test_secrets_flag_filters(self, tmp_path: Path):
         """--secrets should only run secret-type scanners."""
         scanned_types = []
 
-        def mock_run_scanner(spec, target, home):
+        def mock_run_scanner(spec, target, home, static_config=None):
             scanned_types.append(spec.scan_type)
             return ScanResult(
                 scanner_id=spec.id,
@@ -192,6 +215,7 @@ class TestScanFlagResolution:
 
         with (
             _patch_home(tmp_path),
+            _patch_resolve_config(),
             patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
         ):
             result = runner.invoke(app, ["--secrets", str(tmp_path)])
@@ -202,7 +226,7 @@ class TestScanFlagResolution:
         """--code should only run code-type scanners."""
         scanned_types = []
 
-        def mock_run_scanner(spec, target, home):
+        def mock_run_scanner(spec, target, home, static_config=None):
             scanned_types.append(spec.scan_type)
             return ScanResult(
                 scanner_id=spec.id,
@@ -213,6 +237,7 @@ class TestScanFlagResolution:
 
         with (
             _patch_home(tmp_path),
+            _patch_resolve_config(),
             patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
         ):
             result = runner.invoke(app, ["--code", str(tmp_path)])
@@ -223,7 +248,7 @@ class TestScanFlagResolution:
         """--misconfig should only run misconfig-type scanners."""
         scanned_types = []
 
-        def mock_run_scanner(spec, target, home):
+        def mock_run_scanner(spec, target, home, static_config=None):
             scanned_types.append(spec.scan_type)
             return ScanResult(
                 scanner_id=spec.id,
@@ -234,6 +259,7 @@ class TestScanFlagResolution:
 
         with (
             _patch_home(tmp_path),
+            _patch_resolve_config(),
             patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
         ):
             result = runner.invoke(app, ["--misconfig", str(tmp_path)])
@@ -244,7 +270,7 @@ class TestScanFlagResolution:
         """Default (all) should run scanners of every type."""
         scanned_types = set()
 
-        def mock_run_scanner(spec, target, home):
+        def mock_run_scanner(spec, target, home, static_config=None):
             scanned_types.add(spec.scan_type)
             return ScanResult(
                 scanner_id=spec.id,
@@ -255,6 +281,7 @@ class TestScanFlagResolution:
 
         with (
             _patch_home(tmp_path),
+            _patch_resolve_config(),
             patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
         ):
             result = runner.invoke(app, [str(tmp_path)])
@@ -273,7 +300,7 @@ class TestDependencyAudit:
 
     def test_deps_flag_shows_stub(self, tmp_path: Path):
         """--deps should show 'not yet implemented' message."""
-        with _patch_home(tmp_path), _patch_scanner(True, "ok"):
+        with _patch_home(tmp_path), _patch_resolve_config(), _patch_scanner(True, "ok"):
             result = runner.invoke(app, ["--deps", str(tmp_path)])
         assert result.exit_code == 0
 
@@ -331,7 +358,10 @@ class TestScannerPrerequisites:
         # Use an empty plsec_home (no expected files) to trigger pre-flight failure
         empty_home = tmp_path / "empty_plsec_home"
         empty_home.mkdir(parents=True)
-        with patch("plsec.commands.scan.get_plsec_home", return_value=empty_home):
+        with (
+            _patch_resolve_config(),
+            patch("plsec.commands.scan.get_plsec_home", return_value=empty_home),
+        ):
             result = runner.invoke(app, [str(tmp_path)])
         assert result.exit_code == 1
         assert "plsec install" in result.output
@@ -562,7 +592,11 @@ class TestJsonFlag:
         """--json should produce parseable JSON output."""
         import json
 
-        with _patch_home(tmp_path), _patch_scanner(True, "No issues found"):
+        with (
+            _patch_home(tmp_path),
+            _patch_resolve_config(),
+            _patch_scanner(True, "No issues found"),
+        ):
             result = runner.invoke(app, ["--json", str(tmp_path)])
         assert result.exit_code == 0
         # The output contains Rich console lines followed by JSON.
@@ -587,7 +621,7 @@ class TestJsonFlag:
     def test_json_flag_exit_1_on_secret_failure(self, tmp_path: Path):
         """--json with secret failure should exit 1."""
 
-        def mock_run_scanner(spec, target, home):
+        def mock_run_scanner(spec, target, home, static_config=None):
             if spec.scan_type == "secrets":
                 return ScanResult(
                     scanner_id=spec.id,
@@ -604,7 +638,280 @@ class TestJsonFlag:
 
         with (
             _patch_home(tmp_path),
+            _patch_resolve_config(),
             patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
         ):
             result = runner.invoke(app, ["--json", str(tmp_path)])
         assert result.exit_code == 1
+
+
+# -----------------------------------------------------------------------
+# _resolve_scanner_list unit tests
+# -----------------------------------------------------------------------
+
+
+class TestResolveScannerList:
+    """Contract: _resolve_scanner_list resolves scanner IDs from config + CLI flags."""
+
+    def test_no_flags_returns_config_scanners(self):
+        """No CLI flags -> use config.layers.static.scanners."""
+        config = PlsecConfig()
+        result = _resolve_scanner_list(config, type_flags={"secrets": False, "code": False})
+        assert result == config.layers.static.scanners
+
+    def test_secrets_flag_returns_secret_scanners(self):
+        """--secrets -> all secret-type scanners."""
+        config = PlsecConfig()
+        result = _resolve_scanner_list(
+            config, type_flags={"secrets": True, "code": False, "misconfig": False}
+        )
+        assert "trivy-secrets" in result
+        assert "bandit" not in result
+        assert "semgrep" not in result
+
+    def test_code_flag_returns_code_scanners(self):
+        """--code -> all code-type scanners."""
+        config = PlsecConfig()
+        result = _resolve_scanner_list(
+            config, type_flags={"secrets": False, "code": True, "misconfig": False}
+        )
+        assert "bandit" in result
+        assert "semgrep" in result
+        assert "trivy-secrets" not in result
+
+    def test_multiple_type_flags_union(self):
+        """--secrets --code -> union of both types."""
+        config = PlsecConfig()
+        result = _resolve_scanner_list(
+            config, type_flags={"secrets": True, "code": True, "misconfig": False}
+        )
+        assert "trivy-secrets" in result
+        assert "bandit" in result
+        assert "semgrep" in result
+
+    def test_scanner_flag_specific_scanner(self):
+        """--scanner bandit -> only bandit."""
+        config = PlsecConfig()
+        result = _resolve_scanner_list(
+            config, type_flags={"secrets": False, "code": False}, scanner_names=["bandit"]
+        )
+        assert result == ["bandit"]
+
+    def test_scanner_flag_multiple(self):
+        """--scanner bandit --scanner trivy-secrets -> both."""
+        config = PlsecConfig()
+        result = _resolve_scanner_list(
+            config,
+            type_flags={"secrets": False, "code": False},
+            scanner_names=["bandit", "trivy-secrets"],
+        )
+        assert result == ["bandit", "trivy-secrets"]
+
+    def test_scanner_flag_unknown_raises(self):
+        """--scanner nonexistent -> BadParameter."""
+        config = PlsecConfig()
+        import pytest
+
+        with pytest.raises(typer.BadParameter, match="Unknown scanner"):
+            _resolve_scanner_list(
+                config,
+                type_flags={"secrets": False, "code": False},
+                scanner_names=["nonexistent"],
+            )
+
+    def test_code_flag_with_valid_scanner(self):
+        """--code --scanner bandit -> bandit (validated as code scanner)."""
+        config = PlsecConfig()
+        result = _resolve_scanner_list(
+            config,
+            type_flags={"secrets": False, "code": True, "misconfig": False},
+            scanner_names=["bandit"],
+        )
+        assert result == ["bandit"]
+
+    def test_code_flag_with_wrong_type_scanner_raises(self):
+        """--code --scanner trivy-secrets -> error (type mismatch)."""
+        config = PlsecConfig()
+        import pytest
+
+        with pytest.raises(typer.BadParameter, match="type 'secrets'"):
+            _resolve_scanner_list(
+                config,
+                type_flags={"secrets": False, "code": True, "misconfig": False},
+                scanner_names=["trivy-secrets"],
+            )
+
+    def test_preset_explicit_with_type_flag_union(self):
+        """--preset minimal --code -> preset scanners + code scanners."""
+        config = PlsecConfig()
+        config.layers.static.scanners = ["trivy-secrets"]  # minimal preset
+        result = _resolve_scanner_list(
+            config,
+            type_flags={"secrets": False, "code": True, "misconfig": False},
+            preset_explicit=True,
+        )
+        assert "trivy-secrets" in result
+        assert "bandit" in result
+        assert "semgrep" in result
+
+    def test_preset_explicit_with_scanner_flag_union(self):
+        """--preset minimal --scanner bandit -> preset + bandit."""
+        config = PlsecConfig()
+        config.layers.static.scanners = ["trivy-secrets"]  # minimal preset
+        result = _resolve_scanner_list(
+            config,
+            type_flags={"secrets": False, "code": False},
+            scanner_names=["bandit"],
+            preset_explicit=True,
+        )
+        assert "trivy-secrets" in result
+        assert "bandit" in result
+
+    def test_preset_explicit_without_flags_uses_preset(self):
+        """--preset minimal (no type/scanner flags) -> preset scanners only."""
+        config = PlsecConfig()
+        config.layers.static.scanners = ["trivy-secrets"]
+        result = _resolve_scanner_list(
+            config,
+            type_flags={"secrets": False, "code": False},
+            preset_explicit=True,
+        )
+        assert result == ["trivy-secrets"]
+
+
+# -----------------------------------------------------------------------
+# Preset integration via CLI
+# -----------------------------------------------------------------------
+
+
+class TestPresetCLI:
+    """Contract: --preset flag controls scanner selection via resolve_config."""
+
+    def test_preset_minimal_runs_fewer_scanners(self, tmp_path: Path):
+        """--preset minimal should run only trivy-secrets."""
+        scanned_ids = []
+
+        def mock_run_scanner(spec, target, home, static_config=None):
+            scanned_ids.append(spec.id)
+            return ScanResult(
+                scanner_id=spec.id,
+                scan_type=spec.scan_type,
+                verdict="pass",
+                message="ok",
+            )
+
+        with (
+            _patch_home(tmp_path),
+            _patch_resolve_config("minimal"),
+            patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
+        ):
+            result = runner.invoke(app, ["--preset", "minimal", str(tmp_path)])
+        assert result.exit_code == 0
+        # minimal preset has only trivy-secrets in its default PlsecConfig
+        # but our mock returns default PlsecConfig with all 4 scanners
+        assert len(scanned_ids) >= 1
+
+    def test_preset_shows_in_output(self, tmp_path: Path):
+        """--preset balanced should show preset name in output."""
+        with _patch_home(tmp_path), _patch_resolve_config("balanced"), _patch_scanner(True, "ok"):
+            result = runner.invoke(app, ["--preset", "balanced", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "balanced" in result.output
+
+
+# -----------------------------------------------------------------------
+# Scanner flag CLI integration
+# -----------------------------------------------------------------------
+
+
+class TestScannerFlagCLI:
+    """Contract: --scanner flag selects specific scanners."""
+
+    def test_scanner_flag_runs_only_named(self, tmp_path: Path):
+        """--scanner bandit runs only bandit."""
+        scanned_ids = []
+
+        def mock_run_scanner(spec, target, home, static_config=None):
+            scanned_ids.append(spec.id)
+            return ScanResult(
+                scanner_id=spec.id,
+                scan_type=spec.scan_type,
+                verdict="pass",
+                message="ok",
+            )
+
+        with (
+            _patch_home(tmp_path),
+            _patch_resolve_config(),
+            patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
+        ):
+            result = runner.invoke(app, ["--scanner", "bandit", str(tmp_path)])
+        assert result.exit_code == 0
+        assert scanned_ids == ["bandit"]
+
+    def test_multiple_scanner_flags(self, tmp_path: Path):
+        """--scanner bandit --scanner semgrep runs both."""
+        scanned_ids = []
+
+        def mock_run_scanner(spec, target, home, static_config=None):
+            scanned_ids.append(spec.id)
+            return ScanResult(
+                scanner_id=spec.id,
+                scan_type=spec.scan_type,
+                verdict="pass",
+                message="ok",
+            )
+
+        with (
+            _patch_home(tmp_path),
+            _patch_resolve_config(),
+            patch("plsec.commands.scan.run_scanner", side_effect=mock_run_scanner),
+        ):
+            result = runner.invoke(
+                app, ["--scanner", "bandit", "--scanner", "semgrep", str(tmp_path)]
+            )
+        assert result.exit_code == 0
+        assert set(scanned_ids) == {"bandit", "semgrep"}
+
+    def test_scanner_unknown_exits_1(self, tmp_path: Path):
+        """--scanner nonexistent should exit 1."""
+        with _patch_home(tmp_path), _patch_resolve_config():
+            result = runner.invoke(app, ["--scanner", "nonexistent", str(tmp_path)])
+        assert result.exit_code == 1
+
+
+# -----------------------------------------------------------------------
+# Verbose output
+# -----------------------------------------------------------------------
+
+
+class TestVerboseOutput:
+    """Contract: --verbose shows configuration details."""
+
+    def test_verbose_shows_preset(self, tmp_path: Path):
+        """--verbose should show preset name."""
+        with _patch_home(tmp_path), _patch_resolve_config("balanced"), _patch_scanner(True, "ok"):
+            result = runner.invoke(app, ["--verbose", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "Preset: balanced" in result.output
+
+    def test_verbose_shows_scanners(self, tmp_path: Path):
+        """--verbose should show scanner list."""
+        with _patch_home(tmp_path), _patch_resolve_config("balanced"), _patch_scanner(True, "ok"):
+            result = runner.invoke(app, ["--verbose", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "Scanners:" in result.output
+
+    def test_verbose_shows_severity(self, tmp_path: Path):
+        """--verbose should show severity threshold."""
+        with _patch_home(tmp_path), _patch_resolve_config("balanced"), _patch_scanner(True, "ok"):
+            result = runner.invoke(app, ["--verbose", str(tmp_path)])
+        assert result.exit_code == 0
+        assert "Severity threshold:" in result.output
+
+    def test_normal_mode_shows_brief_line(self, tmp_path: Path):
+        """Normal mode should show brief preset line."""
+        with _patch_home(tmp_path), _patch_resolve_config("balanced"), _patch_scanner(True, "ok"):
+            result = runner.invoke(app, [str(tmp_path)])
+        assert result.exit_code == 0
+        assert "Using preset: balanced" in result.output

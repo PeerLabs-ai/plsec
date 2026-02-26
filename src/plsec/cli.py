@@ -70,6 +70,7 @@ def version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         False,
         "--version",
@@ -94,18 +95,21 @@ def main(
         None,
         "--config",
         "-c",
-        help="Path to plsec.yaml config file.",
+        help="Path to plsec.toml config file.",
     ),
 ) -> None:
-    """plsec - Tools to help with mititgating AI coding assistant security risks.
+    """plsec - Tools to help with mitigating AI coding assistant security risks.
 
     Provides defense-in-depth security for Claude Code, Opencode, and other AI
     coding assistants through static analysis, configuration management,
     runtime monitoring, and audit logging.
 
     """
-    # Global options stored for subcommands via typer state
-    _ = verbose, quiet, config  # consumed by subcommands via typer context
+    # Store global options on context for subcommands to access
+    ctx.ensure_object(dict)
+    ctx.obj["verbose"] = verbose
+    ctx.obj["quiet"] = quiet
+    ctx.obj["config"] = config
 
 
 if __name__ == "__main__":

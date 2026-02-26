@@ -93,8 +93,8 @@ class ScannerSpec:
     scan_type: str
     # Binary metadata from core/tools.py (availability checks, install hints)
     tool: Tool
-    # Given (target_path, config_path), return subprocess argv
-    build_command: Callable[[Path, Path | None], list[str]]
+    # Given (target_path, config_path, static_config), return subprocess argv
+    build_command: Callable[..., list[str]]
     # Given (returncode, combined_output), return (passed, message)
     parse_result: Callable[[int, str], tuple[bool, str]]
     # Relative path under plsec_home for tool config, or None
@@ -349,11 +349,18 @@ def run_scanner(
     spec: ScannerSpec,
     target: Path,
     plsec_home: Path,
+    static_config: "StaticLayerConfig | None" = None,
 ) -> ScanResult:
     """Run a single scanner against a target path.
 
     Handles binary availability checks, file filtering, command
     construction, subprocess execution, timeout, and result parsing.
+
+    Args:
+        spec: Scanner specification from the SCANNERS registry
+        target: Directory to scan
+        plsec_home: Path to ~/.peerlabs/plsec
+        static_config: Optional StaticLayerConfig for preset-driven skip dirs/files
 
     Returns a ScanResult with structured outcome data.
     """
@@ -388,15 +395,16 @@ def run_scanner(
     # Build config path if scanner has a config file
     config_path = (plsec_home / spec.config_file) if spec.config_file else None
 
-    # Build and run the command
-    cmd = spec.build_command(target, config_path)
+    # Build and run the command (pass static_config for skip dirs/files)
+    cmd = spec.build_command(target, config_path, static_config)
+    timeout = static_config.timeout if static_config else spec.timeout
     start = time.monotonic()
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=spec.timeout,
+            timeout=timeout,
         )
         elapsed = time.monotonic() - start
         output = result.stdout + result.stderr

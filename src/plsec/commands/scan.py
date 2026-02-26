@@ -12,11 +12,11 @@ __version__ = "0.1.0"
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated
 
 import typer
 
-from plsec.core.config import get_plsec_home
+from plsec.core.config import PlsecConfig, get_plsec_home, resolve_config
 from plsec.core.health import PLSEC_EXPECTED_FILES
 from plsec.core.output import (
     console,
@@ -34,13 +34,17 @@ app = typer.Typer(
     no_args_is_help=False,
 )
 
-
-ScanType = Literal["secrets", "code", "deps", "misconfig", "all"]
-
 # Daily scan log file pattern: scan-YYYYMMDD.jsonl
 SCAN_LOG_PATTERN = "scan-{date}.jsonl"
 # Symlink/file for quick access to most recent scan results
 SCAN_LATEST = "scan-latest.json"
+
+# Section titles for grouped scanner output
+_SECTION_TITLES = {
+    "secrets": "Secret Scanning",
+    "code": "Code Analysis",
+    "misconfig": "Misconfiguration Scanning",
+}
 
 
 def _result_to_dict(result: ScanResult) -> dict:
@@ -132,44 +136,216 @@ def _check_scanner_prerequisites(plsec_home: Path) -> None:
         raise typer.Exit(1)
 
 
+# ---------------------------------------------------------------------------
+# Scanner selection logic
+# ---------------------------------------------------------------------------
+
+
+def _resolve_scanner_list(
+    config: PlsecConfig,
+    *,
+    type_flags: dict[str, bool],
+    scanner_names: list[str] | None = None,
+    preset_explicit: bool = False,
+) -> list[str]:
+    """Resolve which scanners to run from config + CLI flags.
+
+    Resolution rules:
+    1. No CLI overrides (no type flags, no --scanner):
+       Use config.layers.static.scanners (from preset/merge).
+
+    2. --scanner without type flags:
+       Use only the named scanners. No type validation.
+
+    3. --scanner with type flags (e.g., --code --scanner bandit):
+       Use only the named scanners. Validate each belongs to an active type.
+
+    4. Type flags without --scanner (e.g., --code):
+       Select all scanners matching the active type(s).
+
+    5. If preset was explicitly set AND type/scanner flags are also used:
+       Union of preset scanners + CLI-selected scanners.
+
+    Args:
+        config: Resolved PlsecConfig (preset already applied)
+        type_flags: Dict of type flag states {"secrets": bool, "code": bool, ...}
+        scanner_names: List of specific scanner IDs from --scanner, or None
+        preset_explicit: Whether --preset was explicitly passed on CLI
+
+    Returns:
+        Ordered list of scanner IDs to run
+
+    Raises:
+        typer.BadParameter: For unknown scanners or type mismatches
+    """
+    has_type_flags = any(type_flags.values())
+    has_scanner_flags = bool(scanner_names)
+
+    # Case 1: No CLI overrides -- use config scanners
+    if not has_type_flags and not has_scanner_flags:
+        return config.layers.static.scanners
+
+    # Validate --scanner names exist in registry
+    if has_scanner_flags:
+        for name in scanner_names:  # type: ignore[union-attr]
+            if name not in SCANNERS:
+                available = sorted(SCANNERS.keys())
+                raise typer.BadParameter(f"Unknown scanner: {name!r} (available: {available})")
+
+    # Case 3: --scanner with type flags -- validate types match
+    if has_scanner_flags and has_type_flags:
+        active_types = {t for t, v in type_flags.items() if v}
+        for name in scanner_names:  # type: ignore[union-attr]
+            spec = SCANNERS[name]
+            if spec.scan_type not in active_types:
+                raise typer.BadParameter(
+                    f"Scanner '{name}' is type '{spec.scan_type}', "
+                    f"not one of: {sorted(active_types)}"
+                )
+        cli_scanners = list(scanner_names)  # type: ignore[arg-type]
+
+    # Case 2: --scanner without type flags -- use named scanners
+    elif has_scanner_flags:
+        cli_scanners = list(scanner_names)  # type: ignore[arg-type]
+
+    # Case 4: Type flags without --scanner -- all scanners of active types
+    else:
+        active_types = {t for t, v in type_flags.items() if v}
+        cli_scanners = [sid for sid, spec in SCANNERS.items() if spec.scan_type in active_types]
+
+    # Case 5: If preset was explicit AND CLI flags were used, union them
+    if preset_explicit:
+        preset_scanners = config.layers.static.scanners
+        combined = preset_scanners.copy()
+        for s in cli_scanners:
+            if s not in combined:
+                combined.append(s)
+        return combined
+
+    return cli_scanners
+
+
+# ---------------------------------------------------------------------------
+# Config display
+# ---------------------------------------------------------------------------
+
+
+def _print_config_summary(preset: str) -> None:
+    """Print brief config line in normal mode."""
+    print_info(f"Using preset: {preset}")
+
+
+def _print_verbose_config(
+    config: PlsecConfig,
+    scanner_list: list[str],
+    preset: str,
+) -> None:
+    """Print detailed configuration in verbose mode."""
+    static = config.layers.static
+    console.print(f"  Preset: {preset}")
+    console.print(f"  Scanners: {', '.join(scanner_list)}")
+    if static.skip_dirs:
+        console.print(f"  Skip dirs: {', '.join(static.skip_dirs)}")
+    else:
+        console.print("  Skip dirs: (none)")
+    if static.skip_files:
+        console.print(f"  Skip files: {', '.join(static.skip_files)}")
+    else:
+        console.print("  Skip files: (none)")
+    console.print(f"  Severity threshold: {static.severity_threshold}")
+    console.print(f"  Timeout: {static.timeout}s")
+    if config._provenance:
+        console.print("  Config sources:")
+        seen_sources = sorted(set(config._provenance.values()))
+        for source in seen_sources:
+            console.print(f"    {source}")
+    console.print()
+
+
+# ---------------------------------------------------------------------------
+# Main scan command
+# ---------------------------------------------------------------------------
+
+
 @app.callback(invoke_without_command=True)
 def scan(
+    ctx: typer.Context,
     path: Annotated[Path, typer.Argument(help="Path to scan (default: current directory).")] = Path(
         "."
     ),
-    scan_type: Annotated[
-        ScanType,
-        typer.Option("--type", "-t", help="Type of scan: secrets, code, deps, misconfig, all."),
-    ] = "all",
-    secrets: Annotated[
-        bool, typer.Option("--secrets", "-s", help="Run secret scanning only.")
-    ] = False,
+    preset: Annotated[
+        str | None,
+        typer.Option(
+            "--preset", "-p", help="Security preset: minimal, balanced, strict, paranoid."
+        ),
+    ] = None,
+    secrets: Annotated[bool, typer.Option("--secrets", "-s", help="Run secret scanning.")] = False,
     code: Annotated[
-        bool, typer.Option("--code", "-c", help="Run code analysis only (Bandit, Semgrep).")
+        bool, typer.Option("--code", "-c", help="Run code analysis (Bandit, Semgrep).")
     ] = False,
-    deps: Annotated[bool, typer.Option("--deps", "-d", help="Run dependency audit only.")] = False,
+    deps: Annotated[bool, typer.Option("--deps", "-d", help="Run dependency audit.")] = False,
     misconfig: Annotated[
-        bool, typer.Option("--misconfig", "-m", help="Run misconfiguration scanning only.")
+        bool, typer.Option("--misconfig", "-m", help="Run misconfiguration scanning.")
+    ] = False,
+    scanner: Annotated[
+        list[str] | None,
+        typer.Option("--scanner", help="Specific scanner to run (repeatable)."),
+    ] = None,
+    verbose: Annotated[
+        bool, typer.Option("--verbose", "-v", help="Show configuration details.")
     ] = False,
     json_output: Annotated[bool, typer.Option("--json", help="Output results as JSON.")] = False,
 ) -> None:
-    """
-    Run security scanners on the specified path.
+    """Run security scanners on the specified path.
 
-    By default, runs all applicable scanners. Use flags to run specific scans.
+    By default, runs all scanners from the active preset (balanced).
+    Use --preset to change the security level, or --scanner to select
+    specific scanners. Type flags (--code, --secrets, etc.) select all
+    scanners of that type.
+
+    Examples:
+        plsec scan                              # balanced preset (all scanners)
+        plsec scan --preset minimal             # secrets only
+        plsec scan --code                       # code scanners only
+        plsec scan --scanner bandit             # bandit only
+        plsec scan --preset minimal --code      # minimal + all code scanners
+        plsec scan --code --scanner bandit      # bandit (validated as code scanner)
     """
+    # Inherit verbose from global --verbose if not set locally
+    global_obj = ctx.obj or {}
+    is_verbose = verbose or global_obj.get("verbose", False)
+    global_config_path = global_obj.get("config")
+
     console.print(f"[bold]plsec scan[/bold] - Scanning {path}\n")
 
-    # Determine which scan types to run
-    if secrets:
-        scan_type = "secrets"
-    elif code:
-        scan_type = "code"
-    elif deps:
-        scan_type = "deps"
-    elif misconfig:
-        scan_type = "misconfig"
+    # 1. Resolve configuration (preset + global + project + CLI merge)
+    config, effective_preset = resolve_config(
+        cli_preset=preset,
+        project_config_path=Path(global_config_path) if global_config_path else None,
+    )
 
+    # 2. Resolve scanner list from config + CLI flags
+    type_flags = {"secrets": secrets, "code": code, "deps": deps, "misconfig": misconfig}
+    try:
+        scanner_list = _resolve_scanner_list(
+            config,
+            type_flags=type_flags,
+            scanner_names=scanner,
+            preset_explicit=preset is not None,
+        )
+    except typer.BadParameter as e:
+        print_error(str(e))
+        raise typer.Exit(1) from e
+
+    # 3. Show config summary
+    if is_verbose:
+        _print_verbose_config(config, scanner_list, effective_preset)
+    else:
+        _print_config_summary(effective_preset)
+
+    console.print()
+
+    # 4. Validate path
     path = path.resolve()
     if not path.exists():
         print_error(f"Path not found: {path}")
@@ -178,32 +354,31 @@ def scan(
     plsec_home = get_plsec_home()
     _check_scanner_prerequisites(plsec_home)
 
+    # 5. Run selected scanners
     summary = ScanSummary(target=str(path))
     ok_count = 0
     warn_count = 0
     error_count = 0
+    static_config = config.layers.static
 
     # Group scanners by scan_type for section headers
     current_section: str | None = None
 
-    for _sid, spec in SCANNERS.items():
-        # Filter by requested scan type
-        if scan_type != "all" and spec.scan_type != scan_type:
+    for sid in scanner_list:
+        if sid not in SCANNERS:
+            print_warning(f"Scanner '{sid}' not in registry (skipped)")
             continue
+
+        spec = SCANNERS[sid]
 
         # Print section header on type change
         if spec.scan_type != current_section:
             current_section = spec.scan_type
-            section_titles = {
-                "secrets": "Secret Scanning",
-                "code": "Code Analysis",
-                "misconfig": "Misconfiguration Scanning",
-            }
-            print_header(section_titles.get(current_section, current_section.title()))
+            print_header(_SECTION_TITLES.get(current_section, current_section.title()))
 
-        # Run the scanner
+        # Run the scanner with config-driven skip dirs/files
         print_info(f"Running {spec.display_name}...")
-        result = run_scanner(spec, path, plsec_home)
+        result = run_scanner(spec, path, plsec_home, static_config)
         summary.results.append(result)
 
         if result.passed:
@@ -226,7 +401,7 @@ def scan(
                 warn_count += 1
 
     # Dependency audit (not yet backed by a scanner registry entry)
-    if scan_type in ("deps", "all"):
+    if deps and not scanner:
         print_header("Dependency Audit")
         print_info("Dependency audit not yet implemented")
 

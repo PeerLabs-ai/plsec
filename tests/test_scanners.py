@@ -314,7 +314,7 @@ def _make_scanner_spec(
         display_name="Test Scanner",
         scan_type="test",
         tool=Tool(name="test-tool", command="test-tool", version_flag="--version"),
-        build_command=lambda target, config: ["test-tool", "scan", str(target)],
+        build_command=lambda target, config, static_config=None: ["test-tool", "scan", str(target)],
         parse_result=_parse_returncode_result,
         config_file=config_file,
         timeout=timeout,
@@ -436,7 +436,7 @@ class TestRunScanner:
         spec = _make_scanner_spec(config_file="configs/scan.yaml")
         captured_cmd = []
 
-        def capture_build(target, config):
+        def capture_build(target, config, static_config=None):
             captured_cmd.append(config)
             return ["test-tool", str(target)]
 

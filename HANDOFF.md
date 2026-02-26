@@ -1,14 +1,14 @@
 # plsec - HANDOFF
 
 **Last Updated:** 2026-02-25
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 666 pytest + 133 BATS unit + 78 BATS integration + 44 assembler tests, 77% coverage
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 744 pytest + 133 BATS unit + 78 BATS integration + 44 assembler tests, 77% coverage
 
 ---
 
 ## Goal
 
 Build **plsec**, a defense-in-depth security framework for AI coding assistants.
-This project has had twelve objectives across sessions:
+This project has had fourteen objectives across sessions:
 
 1. Get `make ci` passing end-to-end after previous infrastructure work (complete)
 2. Remove Pydantic in favour of plain dataclasses (complete)
@@ -22,8 +22,10 @@ This project has had twelve objectives across sessions:
 10. Lifecycle management - `plsec install`, `plsec reset`, `plsec uninstall`, scan pre-flight, artifact inventory (complete - Phases 1-6)
 11. Update plsec-status-design.md - resolve open questions, add registry notes, mark APPROVED v0.2 (complete)
 12. Enhanced wrapper logging - Tier 1 session enrichment + Tier 2 audit logging via `CLAUDE_CODE_SHELL_PREFIX` (complete)
+13. `plsec-status` Phase 1 - bash health checks, Python integration, CI/CD docs (complete)
+14. Hierarchical composable configuration - TOML presets, 5-layer merge, enhanced CLI grammar (complete)
 
-Items 1-12 are complete.
+Items 1-14 are complete.
 
 ## Instructions
 
@@ -72,6 +74,70 @@ Items 1-12 are complete.
   (CI verify and golden-check steps will fail otherwise)
 
 ## Accomplished (this session)
+
+### Milestone 14: Hierarchical Composable Configuration (Phases 1-2)
+
+Implemented a hierarchical, composable configuration system with TOML-based
+preset files, 5-layer security architecture, and enhanced CLI grammar.
+
+**Phase 1 -- Preset Files & Config Structure (complete):**
+- Created 4 preset TOML files: `minimal.toml`, `balanced.toml`, `strict.toml`,
+  `paranoid.toml` in `src/plsec/configs/presets/`
+- Evolved `PlsecConfig` dataclasses: added `RuntimeLayerConfig`, expanded
+  `StaticLayerConfig` with `skip_dirs`, `skip_files`, `severity_threshold`,
+  `timeout`, `skip_when_no_files`, added `_provenance` tracking field
+- Implemented `merge_configs()` and `_merge_dicts()` with union semantics for
+  lists, last-wins for scalars, plus provenance tracking
+- Refactored `presets.py` from Python constants to TOML file loading
+  (`load_preset()`, `find_preset_file()`, `list_presets()`,
+  `validate_preset_level()`)
+- Updated `resolve_config()` to 5-level merge: CLI > Project > Global > Preset > Defaults
+- Key insight: preset IS the base (replaces factory defaults entirely)
+
+**Phase 2 -- Enhanced CLI Grammar (complete):**
+- Wired global CLI options via typer context (`cli.py`)
+- Added `static_config` parameter to `run_scanner()` in `scanners.py`
+- Rewrote `scan.py`: removed `--type/-t` and `ScanType`, added `--preset/-p`,
+  `--scanner` (repeatable), `--verbose/-v`
+- Implemented `_resolve_scanner_list()` with full selection logic:
+  type flags filter by scan type, `--scanner` selects specific scanners,
+  type+scanner validates scanner type, preset+flags use union semantics
+- Implemented `_print_config_summary()` and `_print_verbose_config()`
+- Fixed `ScannerSpec.build_command` type to `Callable[..., list[str]]` (3-arg)
+- Fixed test helper `_make_scanner_spec` lambda (2 args to 3 args)
+
+**Enhanced CLI grammar examples:**
+```bash
+plsec scan                              # balanced preset (all scanners)
+plsec scan --preset minimal             # minimal preset scanners
+plsec scan --code                       # all code scanners
+plsec scan --secrets --code             # all secrets + all code (union)
+plsec scan --scanner bandit             # bandit only
+plsec scan --code --scanner bandit      # bandit (validated: IS a code scanner)
+plsec scan --code --scanner trivy-secrets # ERROR: trivy-secrets is not code
+plsec scan --preset minimal --code      # minimal + all code (union)
+```
+
+**Test counts:** 744 pytest tests (78 new: 21 in test_scan.py, 57 across
+test_config.py, test_presets.py, test_scanners.py), all passing.
+
+**Files created (Phase 1):**
+- `src/plsec/configs/presets/__init__.py` -- `BUILTIN_PRESET_DIR` constant
+- `src/plsec/configs/presets/minimal.toml` -- Secrets only, HIGH severity
+- `src/plsec/configs/presets/balanced.toml` -- All 4 scanners, MEDIUM severity
+- `src/plsec/configs/presets/strict.toml` -- All scanners, LOW severity, isolation
+- `src/plsec/configs/presets/paranoid.toml` -- All scanners, no skips, all layers
+
+**Files modified (Phase 2):**
+- `src/plsec/cli.py` -- typer context for global options, fixed typo
+- `src/plsec/commands/scan.py` -- Major rewrite: new CLI grammar
+- `src/plsec/core/scanners.py` -- `static_config` param, `Callable[..., list[str]]`
+- `src/plsec/core/config.py` -- New dataclasses, merge logic, 5-level resolve
+- `src/plsec/core/presets.py` -- Complete rewrite for TOML loading
+- `tests/test_scan.py` -- Updated mocks, 21 new tests (49 total)
+- `tests/test_config.py` -- Updated constraints, new merge/resolve tests
+- `tests/test_presets.py` -- Complete rewrite for TOML system
+- `tests/test_scanners.py` -- Fixed lambda signatures, preset integration tests
 
 ### Milestone 13: plsec-status Phase 1 Integration
 
@@ -685,6 +751,20 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
     `make clean` "removes venvs" (it doesn't), `make setup` runs
     `uv pip install` (it runs `uv sync --dev`).  All fixed.
 
+55. **Preset IS the base, not a merge source.** When loading a preset, it
+    REPLACES factory defaults entirely. Global/project/CLI then merge ON TOP.
+    The initial implementation incorrectly union-merged preset scanners with
+    factory default scanners, causing minimal preset to have all 4 scanners.
+56. **TOML structure requires `[layers.X]` nesting.** Preset TOML files use
+    `[layers.static]`, `[layers.isolation]`, etc. to match the `PlsecConfig.layers.X`
+    dataclass hierarchy. Without the `layers.` prefix, `_from_dict` fails.
+57. **`ScannerSpec.build_command` changed from 2-arg to 3-arg.** `run_scanner()`
+    now passes `(target, config_path, static_config)`. The type changed to
+    `Callable[..., list[str]]` because the strict 2-arg type was incompatible.
+58. **typer context state pattern for global options.** `ctx.ensure_object(dict)`
+    and `ctx.obj["verbose"] = verbose` stores global CLI options. Subcommands
+    access via `ctx.obj or {}`.
+
 ## What Needs to Happen Next
 
 ### v0.1.x milestones (in order)
@@ -710,7 +790,10 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 11. ~~**`plsec-status` Phase 1**~~ (DONE -- bash health checks in bootstrap,
     Python integration via health.py + templates.py, CI/CD + user docs. 83 BATS
     tests, bootstrap-only deployment per Option A)
-12. **`plsec-status` Phase 2** - watch mode
+12. ~~**Hierarchical composable config**~~ (DONE -- TOML presets, 5-layer merge,
+    enhanced CLI grammar with `--preset`, `--scanner`, `--code`/`--secrets`,
+    744 tests, `make ci` green)
+13. **`plsec-status` Phase 2** - watch mode
 13. **Agent monitoring foundation** - `data_dir` in AgentSpec,
     `compatibility.yaml`, adapter protocol, doctor checks D-1..D-4
 14. **Agent data adapters** - OpenCode SQLite + Claude Code JSONL
@@ -740,6 +823,11 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `docs/build-process.md` - Developer build process guide (workflows, target reference, state management)
 - `docs/INSTALL.md` - Installation guide (6 paths)
 
+### Configuration and presets
+- `src/plsec/core/config.py` - `PlsecConfig`, `StaticLayerConfig`, `RuntimeLayerConfig`, `merge_configs()`, `resolve_config()`, `_merge_dicts()`, provenance tracking
+- `src/plsec/core/presets.py` - `load_preset()`, `find_preset_file()`, `list_presets()`, `validate_preset_level()`, TOML-based preset loading
+- `src/plsec/configs/presets/` - 4 TOML preset files (minimal, balanced, strict, paranoid)
+
 ### Registry and core modules
 - `src/plsec/core/agents.py` - `AgentSpec`, `AGENTS`, `is_strict()`, `security_mode()`, `get_template()`, `resolve_agent_ids()`, validators
 - `src/plsec/core/scanners.py` - `ScannerSpec`, `ScanResult`, `ScanSummary`, `SCANNERS`, `run_scanner()`, `_TRIVY_SKIP_DIRS`, `_TRIVY_SKIP_FILES`, `_TRIVY_IGNOREFILE`, `_add_trivy_common_flags()`
@@ -768,10 +856,10 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `src/plsec/configs/templates.py` -> `TRIVY_CONFIG_YAML` - Python CLI copy (kept in sync)
 - `.trivyignore.yaml` - Per-path false positive suppression (21 files, 4 rule IDs + 1 misconfig)
 
-### Test files (666 pytest tests, all passing, 77% coverage)
+### Test files (744 pytest tests, all passing, 77% coverage)
 - `tests/conftest.py` - 3 shared fixtures
 - `tests/test_cli.py` - 4 tests (top-level app smoke tests)
-- `tests/test_config.py` - 28 tests (config + package version)
+- `tests/test_config.py` - 38 tests (config + package version + TOML + merge/resolve)
 - `tests/test_tools.py` - 21 tests
 - `tests/test_templates.py` - 66 tests (skip-dirs, skip-files, rule sync, wrapper cross-checks)
 - `tests/test_integrity.py` - 29 tests
@@ -785,11 +873,11 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `tests/test_detector.py` - 34 tests
 - `tests/test_create.py` - 20 tests
 - `tests/test_agents.py` - 40 tests (registry structure + helpers)
-- `tests/test_scanners.py` - 58 tests (skip-dirs, skip-files, ignorefile, ScanResult, ScanSummary)
+- `tests/test_scanners.py` - 66 tests (skip-dirs, skip-files, ignorefile, ScanResult, ScanSummary, preset integration)
 - `tests/test_processes.py` - 23 tests (spec, paths, is_running)
 - `tests/test_health.py` - 55 tests (scanner config checks, wrapper script checks)
 - `tests/test_secure.py` - 39 tests (Change/ChangeSet, calculate_changes, apply_changes)
-- `tests/test_scan.py` - 29 tests (scan execution, flag resolution, pre-flight, persistence, JSON output)
+- `tests/test_scan.py` - 49 tests (scan execution, flag resolution, pre-flight, persistence, JSON output, preset/scanner CLI, verbose)
 - `tests/test_doctor.py` - 14 tests (render, orchestration, flags)
 - `tests/test_proxy.py` - 14 tests (start, stop, status, logs)
 
