@@ -16,6 +16,7 @@ from plsec.core.health import (
     check_agent_configs,
     check_config_file,
     check_directory_structure,
+    check_preset_files,
     check_runtime,
     check_scanner_configs,
     check_tools,
@@ -116,6 +117,11 @@ def doctor(
 
     # Scanner configs (trivy rules, pre-commit hook)
     results = check_scanner_configs(plsec_home)
+    _render_results(results)
+    all_results.extend(results)
+
+    # Preset files (security configuration presets)
+    results = check_preset_files(plsec_home)
     _render_results(results)
     all_results.extend(results)
 

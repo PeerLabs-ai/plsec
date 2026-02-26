@@ -66,6 +66,8 @@ def _mock_all_passing() -> dict[str, MagicMock]:
         f"{_MODULE}.check_config_file": MagicMock(return_value=[_ok("config")]),
         f"{_MODULE}.check_agent_configs": MagicMock(return_value=[_ok("claude")]),
         f"{_MODULE}.check_scanner_configs": MagicMock(return_value=[_ok("trivy config")]),
+        f"{_MODULE}.check_preset_files": MagicMock(return_value=[_ok("preset files")]),
+        f"{_MODULE}.check_wrapper_scripts": MagicMock(return_value=[_ok("wrappers")]),
         f"{_MODULE}.check_tools": MagicMock(return_value=[_ok("trivy")]),
         f"{_MODULE}.check_runtime": MagicMock(return_value=[_ok("python")]),
         f"{_MODULE}.ToolChecker": mock_checker,

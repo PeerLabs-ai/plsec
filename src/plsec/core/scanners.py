@@ -7,7 +7,7 @@ Adding a new scanner: add a Tool entry to core/tools.py if needed, write
 command-builder and result-parser functions (or reuse generic ones), then
 add one ScannerSpec entry to SCANNERS.
 
-Preset integration: Command builders can optionally accept a ScannerPreset
+Preset integration: Command builders can optionally accept a StaticLayerConfig
 to customize skip_dirs, skip_files, and other scanner-specific parameters.
 """
 

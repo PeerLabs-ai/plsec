@@ -17,13 +17,10 @@ from plsec.commands.install import deploy_global_configs
 from plsec.core.agents import AGENTS, get_template, resolve_agent_ids
 from plsec.core.config import (
     AgentConfig,
-    AuditLayerConfig,
-    IsolationLayerConfig,
     LayersConfig,
     PlsecConfig,
     ProjectConfig,
-    ProxyLayerConfig,
-    StaticLayerConfig,
+    _from_dict,
     get_plsec_home,
     save_config,
 )
@@ -34,6 +31,7 @@ from plsec.core.output import (
     print_ok,
     print_warning,
 )
+from plsec.core.presets import load_preset
 
 app = typer.Typer(
     help="Initialize security configuration for a project.",
@@ -59,38 +57,14 @@ def detect_project_type(path: Path) -> ProjectType:
 
 
 def get_preset_config(preset: Preset) -> LayersConfig:
-    """Get layer configuration for a preset."""
-    if preset == "minimal":
-        return LayersConfig(
-            static=StaticLayerConfig(
-                enabled=True,
-                scanners=["trivy-secrets"],
-            ),
-            isolation=IsolationLayerConfig(enabled=False),
-            proxy=ProxyLayerConfig(enabled=False),
-            audit=AuditLayerConfig(enabled=True, integrity=False),
-        )
-    elif preset == "balanced":
-        return LayersConfig(
-            static=StaticLayerConfig(enabled=True),
-            isolation=IsolationLayerConfig(enabled=False),
-            proxy=ProxyLayerConfig(enabled=False),
-            audit=AuditLayerConfig(enabled=True),
-        )
-    elif preset == "strict":
-        return LayersConfig(
-            static=StaticLayerConfig(enabled=True),
-            isolation=IsolationLayerConfig(enabled=True, runtime="podman"),
-            proxy=ProxyLayerConfig(enabled=True, mode="balanced"),
-            audit=AuditLayerConfig(enabled=True, integrity=True),
-        )
-    else:  # paranoid
-        return LayersConfig(
-            static=StaticLayerConfig(enabled=True),
-            isolation=IsolationLayerConfig(enabled=True, runtime="podman"),
-            proxy=ProxyLayerConfig(enabled=True, mode="strict"),
-            audit=AuditLayerConfig(enabled=True, integrity=True),
-        )
+    """Get layer configuration for a preset by loading its TOML file.
+
+    Loads the preset TOML file and converts the layers section into a
+    LayersConfig dataclass. Missing layer sections get dataclass defaults.
+    """
+    preset_dict = load_preset(preset)
+    layers_dict = preset_dict.get("layers", {})
+    return _from_dict(LayersConfig, layers_dict)
 
 
 @app.callback(invoke_without_command=True)

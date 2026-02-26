@@ -145,6 +145,50 @@ class TestDeployGlobalConfigs:
         # Strict templates contain "NEVER" sections with more restrictions
         assert "NEVER" in content
 
+    def test_deploys_preset_toml_files(self, tmp_path: Path):
+        """All 4 built-in preset TOML files should be deployed."""
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        deploy_global_configs(plsec_home, agents=AGENTS)
+        preset_dir = plsec_home / "config" / "presets"
+        assert preset_dir.is_dir()
+        for name in ("minimal.toml", "balanced.toml", "strict.toml", "paranoid.toml"):
+            assert (preset_dir / name).exists(), f"Missing preset: {name}"
+
+    def test_preset_toml_files_have_content(self, tmp_path: Path):
+        """Deployed preset files should not be empty."""
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        deploy_global_configs(plsec_home, agents=AGENTS)
+        preset_dir = plsec_home / "config" / "presets"
+        for name in ("minimal.toml", "balanced.toml", "strict.toml", "paranoid.toml"):
+            content = (preset_dir / name).read_text()
+            assert len(content) > 0, f"Empty preset: {name}"
+            assert "enabled" in content, f"Preset {name} missing 'enabled' key"
+
+    def test_preset_toml_idempotent_without_force(self, tmp_path: Path):
+        """Preset files should not be overwritten without --force."""
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        deploy_global_configs(plsec_home, agents=AGENTS)
+        marker_file = plsec_home / "config" / "presets" / "balanced.toml"
+        marker_file.write_text("custom preset\n")
+        deploy_global_configs(plsec_home, agents=AGENTS)
+        assert marker_file.read_text() == "custom preset\n"
+
+    def test_preset_toml_force_overwrites(self, tmp_path: Path):
+        """Preset files should be overwritten with --force."""
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        deploy_global_configs(plsec_home, agents=AGENTS)
+        marker_file = plsec_home / "config" / "presets" / "balanced.toml"
+        marker_file.write_text("custom preset\n")
+        deploy_global_configs(plsec_home, force=True, agents=AGENTS)
+        assert marker_file.read_text() != "custom preset\n"
+
+    def test_creates_config_presets_subdirectory(self, tmp_path: Path):
+        """deploy_global_configs should create config/presets/ directory."""
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        deploy_global_configs(plsec_home, agents=AGENTS)
+        assert (plsec_home / "config").is_dir()
+        assert (plsec_home / "config" / "presets").is_dir()
+
 
 # -----------------------------------------------------------------------
 # write_installed_metadata / read_installed_metadata
@@ -485,6 +529,11 @@ class TestBuildAliasBlock:
         assert "claude-safe" in block
         assert "opencode-safe" in block
 
+    def test_block_has_plsec_status_alias(self, tmp_path: Path):
+        block = _build_alias_block(tmp_path, ["claude"], AGENTS)
+        assert "plsec-status" in block
+        assert "plsec-status.sh" in block
+
     def test_block_uses_plsec_home_path(self, tmp_path: Path):
         plsec_home = tmp_path / ".peerlabs" / "plsec"
         block = _build_alias_block(plsec_home, ["claude"], AGENTS)
@@ -629,6 +678,16 @@ class TestRemoveAliases:
     def test_returns_false_when_file_missing(self, tmp_path: Path):
         rc = tmp_path / ".nonexistent"
         assert remove_aliases(rc_path=rc) is False
+
+    def test_removes_plsec_status_alias(self, tmp_path: Path):
+        rc = tmp_path / ".zshrc"
+        plsec_home = tmp_path / ".peerlabs" / "plsec"
+        inject_aliases(plsec_home, ["claude"], AGENTS, rc_path=rc)
+        content = rc.read_text()
+        assert "plsec-status" in content
+        remove_aliases(rc_path=rc)
+        content = rc.read_text()
+        assert "plsec-status" not in content
 
     def test_preserves_other_content(self, tmp_path: Path):
         rc = tmp_path / ".zshrc"

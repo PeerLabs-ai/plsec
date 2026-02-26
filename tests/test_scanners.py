@@ -563,10 +563,10 @@ class TestPresetIntegration:
 
     def test_trivy_secrets_uses_preset_skip_dirs(self):
         """Trivy secrets command uses skip_dirs from preset."""
-        from plsec.core.presets import ScannerPreset
+        from plsec.core.config import StaticLayerConfig
         from plsec.core.scanners import _build_trivy_secrets_cmd
 
-        preset = ScannerPreset(skip_dirs=["custom_dir", "another_dir"], skip_files=[])
+        preset = StaticLayerConfig(skip_dirs=["custom_dir", "another_dir"], skip_files=[])
         cmd = _build_trivy_secrets_cmd(Path("."), None, preset)
 
         assert "--skip-dirs" in cmd
@@ -578,10 +578,10 @@ class TestPresetIntegration:
 
     def test_trivy_secrets_uses_preset_skip_files(self):
         """Trivy secrets command uses skip_files from preset."""
-        from plsec.core.presets import ScannerPreset
+        from plsec.core.config import StaticLayerConfig
         from plsec.core.scanners import _build_trivy_secrets_cmd
 
-        preset = ScannerPreset(skip_dirs=[], skip_files=["**/*.log", "**/*.tmp"])
+        preset = StaticLayerConfig(skip_dirs=[], skip_files=["**/*.log", "**/*.tmp"])
         cmd = _build_trivy_secrets_cmd(Path("."), None, preset)
 
         assert "--skip-files" in cmd
@@ -590,10 +590,10 @@ class TestPresetIntegration:
 
     def test_trivy_misconfig_uses_preset_skip_dirs(self):
         """Trivy misconfig command uses skip_dirs from preset."""
-        from plsec.core.presets import ScannerPreset
+        from plsec.core.config import StaticLayerConfig
         from plsec.core.scanners import _build_trivy_misconfig_cmd
 
-        preset = ScannerPreset(skip_dirs=["dist", "build"], skip_files=[])
+        preset = StaticLayerConfig(skip_dirs=["dist", "build"], skip_files=[])
         cmd = _build_trivy_misconfig_cmd(Path("."), None, preset)
 
         assert "--skip-dirs" in cmd
@@ -602,10 +602,10 @@ class TestPresetIntegration:
 
     def test_bandit_uses_preset_skip_dirs(self, tmp_path):
         """Bandit command uses skip_dirs from preset."""
-        from plsec.core.presets import ScannerPreset
+        from plsec.core.config import StaticLayerConfig
         from plsec.core.scanners import _build_bandit_cmd
 
-        preset = ScannerPreset(skip_dirs=["venv", "cache"], skip_files=[])
+        preset = StaticLayerConfig(skip_dirs=["venv", "cache"], skip_files=[])
         cmd = _build_bandit_cmd(tmp_path, None, preset)
 
         assert "--exclude" in cmd
@@ -640,10 +640,10 @@ class TestPresetIntegration:
 
     def test_preset_with_empty_skip_lists(self):
         """Preset with empty skip lists scans everything."""
-        from plsec.core.presets import ScannerPreset
+        from plsec.core.config import StaticLayerConfig
         from plsec.core.scanners import _build_trivy_secrets_cmd
 
-        preset = ScannerPreset(skip_dirs=[], skip_files=[])
+        preset = StaticLayerConfig(skip_dirs=[], skip_files=[])
         cmd = _build_trivy_secrets_cmd(Path("."), None, preset)
 
         # Count occurrences of --skip-dirs and --skip-files

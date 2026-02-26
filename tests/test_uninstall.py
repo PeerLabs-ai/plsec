@@ -301,3 +301,21 @@ class TestUninstallCLI:
             result = runner.invoke(app, ["--project", "--yes"])
         assert result.exit_code == 0
         assert "customised" in result.output.lower()
+
+    def test_global_flag_removes_preset_files(self, tmp_path: Path):
+        """Uninstall --global should remove deployed preset TOML files."""
+        plsec_home, project_dir = _setup_full_install(tmp_path)
+        # Verify presets exist before uninstall
+        preset_dir = plsec_home / "config" / "presets"
+        assert preset_dir.is_dir()
+        assert (preset_dir / "balanced.toml").exists()
+        with (
+            patch("plsec.commands.uninstall.get_plsec_home", return_value=plsec_home),
+            patch("plsec.commands.uninstall.Path.cwd", return_value=project_dir),
+            _patch_agents(),
+        ):
+            result = runner.invoke(app, ["--global", "--yes"])
+        assert result.exit_code == 0
+        # Preset files should be gone after global uninstall
+        assert not (preset_dir / "balanced.toml").exists()
+        assert not (preset_dir / "minimal.toml").exists()

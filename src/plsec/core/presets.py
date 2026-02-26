@@ -175,20 +175,6 @@ def validate_preset_level(level: str) -> str:
     return level
 
 
-# ---------------------------------------------------------------------------
-# Backwards compatibility (deprecated, will be removed)
-# ---------------------------------------------------------------------------
-
-# For compatibility with existing code that imports these types.
-# These are deprecated and will be removed in a future version.
-# Use PlsecConfig.layers.static instead of ScannerPreset.
-
-# Imports at end of file to avoid circular dependency
-from plsec.core.config import AuditLayerConfig as LayerPreset  # noqa: E402
-from plsec.core.config import PlsecConfig as Preset  # noqa: E402
-from plsec.core.config import RuntimeLayerConfig  # noqa: E402
-from plsec.core.config import StaticLayerConfig as ScannerPreset  # noqa: E402
-
 __all__ = [
     "PresetLevel",
     "DEFAULT_PRESET",
@@ -198,9 +184,4 @@ __all__ = [
     "list_presets",
     "load_preset",
     "validate_preset_level",
-    # Deprecated aliases
-    "ScannerPreset",
-    "LayerPreset",
-    "Preset",
-    "RuntimeLayerConfig",
 ]

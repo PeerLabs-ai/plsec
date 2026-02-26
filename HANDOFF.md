@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-02-25
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 744 pytest + 133 BATS unit + 78 BATS integration + 44 assembler tests, 77% coverage
+**Last Updated:** 2026-02-26
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 759 pytest + 133 BATS unit + 78 BATS integration + 44 assembler tests, 77% coverage
 
 ---
 
@@ -75,10 +75,11 @@ Items 1-14 are complete.
 
 ## Accomplished (this session)
 
-### Milestone 14: Hierarchical Composable Configuration (Phases 1-2)
+### Milestone 14: Hierarchical Composable Configuration (Phases 1-5)
 
 Implemented a hierarchical, composable configuration system with TOML-based
 preset files, 5-layer security architecture, and enhanced CLI grammar.
+Completed all 5 phases including deployment, cleanup, and plsec-status alias.
 
 **Phase 1 -- Preset Files & Config Structure (complete):**
 - Created 4 preset TOML files: `minimal.toml`, `balanced.toml`, `strict.toml`,
@@ -118,8 +119,31 @@ plsec scan --code --scanner trivy-secrets # ERROR: trivy-secrets is not code
 plsec scan --preset minimal --code      # minimal + all code (union)
 ```
 
-**Test counts:** 744 pytest tests (78 new: 21 in test_scan.py, 57 across
-test_config.py, test_presets.py, test_scanners.py), all passing.
+**Phase 3 -- Deployment & Testing (complete):**
+- Added `"config"` and `"config/presets"` to `PLSEC_SUBDIRS` in `health.py`
+- Added `PLSEC_EXPECTED_PRESETS` constant (4 TOML file entries) to `health.py`
+- Added `check_preset_files()` function (checks I-12 through I-15) to `health.py`
+- Wired `check_preset_files` into `doctor.py`
+- Added preset TOML deployment to `deploy_global_configs()` in `install.py`
+- 5 new tests in `TestDeployGlobalConfigs`, 6 new tests in `TestCheckPresetFiles`,
+  1 new test each in `test_uninstall.py` and `test_reset.py`
+
+**Phase 4 -- Cleanup (complete):**
+- Replaced `init.py`'s hardcoded `get_preset_config()` with TOML-based loading
+  via `load_preset()` + `_from_dict()`
+- Removed deprecated aliases section from `presets.py` (ScannerPreset, LayerPreset,
+  Preset re-exports)
+- Updated `test_scanners.py` `TestPresetIntegration`: `ScannerPreset` -> `StaticLayerConfig`
+- Fixed 3 test assertions in `test_init.py` to match TOML source of truth
+
+**Phase 5 -- plsec-status alias (complete):**
+- Added `plsec-status` alias to `_build_alias_block()` in `install.py`
+  (`alias plsec-status="{plsec_home}/plsec-status.sh"`)
+- Added `test_block_has_plsec_status_alias` test in `TestBuildAliasBlock`
+- Added `test_removes_plsec_status_alias` test in `TestRemoveAliases`
+- Uninstall strips alias automatically (entire block removed by `_remove_alias_block()`)
+
+**Test counts:** 759 pytest tests (93 new across all phases), all passing.
 
 **Files created (Phase 1):**
 - `src/plsec/configs/presets/__init__.py` -- `BUILTIN_PRESET_DIR` constant
@@ -792,7 +816,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
     tests, bootstrap-only deployment per Option A)
 12. ~~**Hierarchical composable config**~~ (DONE -- TOML presets, 5-layer merge,
     enhanced CLI grammar with `--preset`, `--scanner`, `--code`/`--secrets`,
-    744 tests, `make ci` green)
+    preset deployment, cleanup, plsec-status alias, 759 tests, `make ci` green)
 13. **`plsec-status` Phase 2** - watch mode
 13. **Agent monitoring foundation** - `data_dir` in AgentSpec,
     `compatibility.yaml`, adapter protocol, doctor checks D-1..D-4
@@ -856,7 +880,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `src/plsec/configs/templates.py` -> `TRIVY_CONFIG_YAML` - Python CLI copy (kept in sync)
 - `.trivyignore.yaml` - Per-path false positive suppression (21 files, 4 rule IDs + 1 misconfig)
 
-### Test files (744 pytest tests, all passing, 77% coverage)
+### Test files (759 pytest tests, all passing, 77% coverage)
 - `tests/conftest.py` - 3 shared fixtures
 - `tests/test_cli.py` - 4 tests (top-level app smoke tests)
 - `tests/test_config.py` - 38 tests (config + package version + TOML + merge/resolve)
@@ -865,21 +889,22 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `tests/test_integrity.py` - 29 tests
 - `tests/test_validate.py` - 18 tests
 - `tests/test_output.py` - 20 tests
-- `tests/test_init.py` - 19 tests (deploy file, preset configs, scanner config deployment)
-- `tests/test_install_cmd.py` - 67 tests (deploy logic, wrappers, aliases, idempotency, force, check, metadata, CLI)
-- `tests/test_reset.py` - 20 tests (wipe, log preservation, alias re-injection, external removal, dry-run, cancel, redeploy)
-- `tests/test_uninstall.py` - 19 tests (artifact removal, scope selection, dry-run, interactive, customised files)
+- `tests/test_init.py` - 18 tests (deploy file, preset configs, scanner config deployment)
+- `tests/test_install_cmd.py` - 74 tests (deploy logic, wrappers, aliases, presets, idempotency, force, check, metadata, CLI)
+- `tests/test_reset.py` - 22 tests (wipe, log preservation, alias re-injection, external removal, dry-run, cancel, redeploy, presets)
+- `tests/test_uninstall.py` - 20 tests (artifact removal, scope selection, dry-run, interactive, customised files, presets)
 - `tests/test_inventory.py` - 43 tests (artifact dataclass, inventory, discover functions)
 - `tests/test_detector.py` - 34 tests
 - `tests/test_create.py` - 20 tests
 - `tests/test_agents.py` - 40 tests (registry structure + helpers)
 - `tests/test_scanners.py` - 66 tests (skip-dirs, skip-files, ignorefile, ScanResult, ScanSummary, preset integration)
 - `tests/test_processes.py` - 23 tests (spec, paths, is_running)
-- `tests/test_health.py` - 55 tests (scanner config checks, wrapper script checks)
+- `tests/test_health.py` - 61 tests (scanner config checks, wrapper script checks, preset file checks)
 - `tests/test_secure.py` - 39 tests (Change/ChangeSet, calculate_changes, apply_changes)
 - `tests/test_scan.py` - 49 tests (scan execution, flag resolution, pre-flight, persistence, JSON output, preset/scanner CLI, verbose)
 - `tests/test_doctor.py` - 14 tests (render, orchestration, flags)
 - `tests/test_proxy.py` - 14 tests (start, stop, status, logs)
+- `tests/test_presets.py` - 10 tests (preset discovery, TOML loading)
 
 ### Packaging
 - `pyproject.toml` - MIT license, no pydantic

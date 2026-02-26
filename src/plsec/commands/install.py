@@ -15,6 +15,7 @@ from typing import Annotated, Literal
 
 import typer
 
+from plsec.configs.presets import BUILTIN_PRESET_DIR
 from plsec.configs.templates import (
     _PLSEC_DIR_PLACEHOLDER,
     PRE_COMMIT_HOOK,
@@ -118,6 +119,7 @@ def _build_alias_block(
     """Build the alias block string with start/end markers."""
     lines = [ALIAS_BLOCK_START]
     lines.append(f'alias plsec-logs="tail -f {plsec_home}/logs/*.log"')
+    lines.append(f'alias plsec-status="{plsec_home}/plsec-status.sh"')
 
     for aid in sorted(agent_ids):
         spec = agents[aid]
@@ -313,6 +315,11 @@ def deploy_global_configs(
             plsec_dir_str,
             force=force,
         )
+
+    # Deploy built-in preset TOML files
+    preset_dest = plsec_home / "config" / "presets"
+    for toml_file in sorted(BUILTIN_PRESET_DIR.glob("*.toml")):
+        _deploy_file(preset_dest / toml_file.name, toml_file.read_text(), force=force)
 
 
 def write_installed_metadata(

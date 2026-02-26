@@ -22,12 +22,14 @@ from unittest.mock import patch
 from plsec.core.agents import AGENTS, AgentSpec
 from plsec.core.health import (
     PLSEC_EXPECTED_FILES,
+    PLSEC_EXPECTED_PRESETS,
     PLSEC_EXPECTED_SCRIPTS,
     PLSEC_SUBDIRS,
     CheckResult,
     check_agent_configs,
     check_config_file,
     check_directory_structure,
+    check_preset_files,
     check_project_configs,
     check_runtime,
     check_scanner_configs,
@@ -619,3 +621,71 @@ class TestCheckWrapperScripts:
         assert "claude-wrapper.sh" in names
         assert "opencode-wrapper.sh" in names
         assert "plsec-audit.sh" in names
+
+
+# -----------------------------------------------------------------------
+# check_preset_files
+# -----------------------------------------------------------------------
+
+
+class TestCheckPresetFiles:
+    """Contract: check_preset_files verifies that the 4 built-in preset
+    TOML files exist under config/presets/ in plsec_home.
+
+    Why tested directly: This function implements health checks I-12
+    through I-15 for preset configuration files. Fix by updating the
+    corresponding PLSEC_EXPECTED_PRESETS list in health.py.
+    """
+
+    def test_all_present(self, tmp_path: Path):
+        """All preset files exist -- all results should be ok."""
+        home = tmp_path / "plsec"
+        for rel_path, _ in PLSEC_EXPECTED_PRESETS:
+            full = home / rel_path
+            full.parent.mkdir(parents=True, exist_ok=True)
+            full.write_text("[layers.static]\nenabled = true\n")
+        results = check_preset_files(home)
+        assert len(results) == len(PLSEC_EXPECTED_PRESETS)
+        assert all(r.verdict == "ok" for r in results)
+
+    def test_all_missing(self, tmp_path: Path):
+        """No preset files -- all results should be warn."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        results = check_preset_files(home)
+        assert len(results) == len(PLSEC_EXPECTED_PRESETS)
+        assert all(r.verdict == "warn" for r in results)
+
+    def test_fix_hint_references_install(self, tmp_path: Path):
+        """Fix hints should direct to plsec install --force."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        results = check_preset_files(home)
+        for r in results:
+            assert "plsec install" in r.fix_hint
+
+    def test_check_ids_start_at_i12(self, tmp_path: Path):
+        """Check IDs should start at I-12."""
+        home = tmp_path / "plsec"
+        home.mkdir()
+        results = check_preset_files(home)
+        assert results[0].id == "I-12"
+
+    def test_partial_files(self, tmp_path: Path):
+        """Some presets present, others missing -- mixed verdicts."""
+        home = tmp_path / "plsec"
+        preset_dir = home / "config" / "presets"
+        preset_dir.mkdir(parents=True)
+        (preset_dir / "balanced.toml").write_text("[layers.static]\nenabled = true\n")
+        results = check_preset_files(home)
+        verdicts = [r.verdict for r in results]
+        assert "ok" in verdicts
+        assert "warn" in verdicts
+
+    def test_expected_presets_constant(self):
+        """PLSEC_EXPECTED_PRESETS should contain all four preset files."""
+        names = [name for name, _ in PLSEC_EXPECTED_PRESETS]
+        assert "config/presets/minimal.toml" in names
+        assert "config/presets/balanced.toml" in names
+        assert "config/presets/strict.toml" in names
+        assert "config/presets/paranoid.toml" in names

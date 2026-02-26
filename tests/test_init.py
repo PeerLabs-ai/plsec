@@ -66,7 +66,7 @@ class TestGetPresetConfig:
         assert config.static.scanners == ["trivy-secrets"]
         assert config.isolation.enabled is False
         assert config.proxy.enabled is False
-        assert config.audit.enabled is True
+        assert config.audit.enabled is False
         assert config.audit.integrity is False
 
     def test_balanced_preset(self):
@@ -82,7 +82,8 @@ class TestGetPresetConfig:
         assert config.static.enabled is True
         assert config.isolation.enabled is True
         assert config.isolation.runtime == "podman"
-        assert config.proxy.enabled is True
+        # Strict enables isolation but not proxy (paranoid enables proxy)
+        assert config.proxy.enabled is False
         assert config.proxy.mode == "balanced"
         assert config.audit.enabled is True
         assert config.audit.integrity is True
@@ -99,9 +100,8 @@ class TestGetPresetConfig:
         """Strict should enable more layers than balanced."""
         balanced = get_preset_config("balanced")
         strict = get_preset_config("strict")
-        # Strict enables isolation and proxy; balanced does not
+        # Strict enables isolation; balanced does not
         assert strict.isolation.enabled and not balanced.isolation.enabled
-        assert strict.proxy.enabled and not balanced.proxy.enabled
 
 
 # -----------------------------------------------------------------------

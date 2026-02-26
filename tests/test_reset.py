@@ -289,3 +289,21 @@ class TestResetCLI:
         assert result.exit_code == 0
         # Should not contain the "Shell Aliases" header
         assert "shell aliases" not in result.output.lower()
+
+    def test_reset_redeploys_preset_files(self, tmp_path: Path):
+        """Reset should redeploy preset TOML files after wipe."""
+        plsec_home = self._setup_installed(tmp_path)
+        preset_dir = plsec_home / "config" / "presets"
+        # Verify presets exist before reset
+        assert (preset_dir / "balanced.toml").exists()
+        # Corrupt a preset file
+        (preset_dir / "balanced.toml").write_text("corrupted\n")
+
+        with patch("plsec.commands.reset.get_plsec_home", return_value=plsec_home):
+            result = runner.invoke(app, ["--yes"])
+        assert result.exit_code == 0
+        # All 4 presets should be restored with fresh content
+        for name in ("minimal.toml", "balanced.toml", "strict.toml", "paranoid.toml"):
+            preset_file = preset_dir / name
+            assert preset_file.exists(), f"Missing after reset: {name}"
+            assert preset_file.read_text() != "corrupted\n"

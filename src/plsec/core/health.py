@@ -18,6 +18,8 @@ from plsec.core.tools import Tool, ToolStatus
 
 # Expected subdirectories under ~/.peerlabs/plsec/
 PLSEC_SUBDIRS: list[str] = [
+    "config",
+    "config/presets",
     "configs",
     "logs",
     "manifests",
@@ -31,6 +33,15 @@ PLSEC_EXPECTED_FILES: list[tuple[str, str]] = [
     ("trivy/trivy-secret.yaml", "Trivy secret scanning rules"),
     ("trivy/trivy.yaml", "Trivy configuration"),
     ("configs/pre-commit", "Pre-commit hook template"),
+]
+
+# Expected preset TOML files deployed by plsec install.
+# Each tuple is (relative_path, human_description).
+PLSEC_EXPECTED_PRESETS: list[tuple[str, str]] = [
+    ("config/presets/minimal.toml", "Minimal security preset"),
+    ("config/presets/balanced.toml", "Balanced security preset"),
+    ("config/presets/strict.toml", "Strict security preset"),
+    ("config/presets/paranoid.toml", "Paranoid security preset"),
 ]
 
 # Expected executable scripts deployed by plsec install.
@@ -218,6 +229,46 @@ def check_scanner_configs(plsec_home: Path) -> list[CheckResult]:
     results: list[CheckResult] = []
 
     for i, (rel_path, description) in enumerate(PLSEC_EXPECTED_FILES, start=5):
+        check_id = f"I-{i}"
+        full_path = plsec_home / rel_path
+
+        if full_path.exists():
+            results.append(
+                CheckResult(
+                    id=check_id,
+                    name=description,
+                    category="installation",
+                    verdict="ok",
+                    detail=str(full_path),
+                )
+            )
+        else:
+            results.append(
+                CheckResult(
+                    id=check_id,
+                    name=description,
+                    category="installation",
+                    verdict="warn",
+                    detail=f"{rel_path} missing",
+                    fix_hint="Run 'plsec install --force' to deploy",
+                )
+            )
+
+    return results
+
+
+def check_preset_files(plsec_home: Path) -> list[CheckResult]:
+    """Check that preset TOML files are deployed in plsec_home.
+
+    Verifies minimal.toml, balanced.toml, strict.toml, and paranoid.toml
+    exist under config/presets/. These files are deployed by plsec install
+    and provide the base security configurations for plsec scan.
+
+    Check IDs use I-12 through I-15 (continuing after wrapper scripts).
+    """
+    results: list[CheckResult] = []
+
+    for i, (rel_path, description) in enumerate(PLSEC_EXPECTED_PRESETS, start=12):
         check_id = f"I-{i}"
         full_path = plsec_home / rel_path
 
