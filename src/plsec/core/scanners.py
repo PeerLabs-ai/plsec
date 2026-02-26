@@ -21,11 +21,11 @@ from typing import Literal
 
 from plsec.core.tools import REQUIRED_TOOLS, Tool
 
-# Import ScannerPreset for type hints (avoid circular import)
+# Import StaticLayerConfig for preset-based scanner configuration
 try:
-    from plsec.core.presets import ScannerPreset
+    from plsec.core.config import StaticLayerConfig
 except ImportError:
-    ScannerPreset = None  # type: ignore[misc,assignment]
+    StaticLayerConfig = None  # type: ignore[misc,assignment]
 
 # ---------------------------------------------------------------------------
 # Dataclasses
@@ -149,14 +149,14 @@ _TRIVY_IGNOREFILE = ".trivyignore.yaml"
 
 
 def _add_trivy_common_flags(
-    cmd: list[str], target: Path, preset: "ScannerPreset | None" = None
+    cmd: list[str], target: Path, preset: "StaticLayerConfig | None" = None
 ) -> None:
     """Append --skip-dirs, --skip-files, and --ignorefile flags shared by all trivy commands.
 
     Args:
         cmd: Command list to append flags to
         target: Scan target directory
-        preset: Optional ScannerPreset to customize skip lists
+        preset: Optional StaticLayerConfig to customize skip lists
     """
     # Use preset skip lists if provided, otherwise use defaults
     skip_dirs = preset.skip_dirs if preset else _TRIVY_SKIP_DIRS
@@ -172,14 +172,14 @@ def _add_trivy_common_flags(
 
 
 def _build_trivy_secrets_cmd(
-    target: Path, config: Path | None, preset: "ScannerPreset | None" = None
+    target: Path, config: Path | None, preset: "StaticLayerConfig | None" = None
 ) -> list[str]:
     """Build trivy secret scanning command.
 
     Args:
         target: Directory to scan
         config: Path to trivy secret config file
-        preset: Optional ScannerPreset to customize scanning behavior
+        preset: Optional StaticLayerConfig to customize scanning behavior
     """
     cmd = ["trivy", "fs", "--scanners", "secret"]
     if config and config.exists():
@@ -190,14 +190,14 @@ def _build_trivy_secrets_cmd(
 
 
 def _build_trivy_misconfig_cmd(
-    target: Path, config: Path | None, preset: "ScannerPreset | None" = None
+    target: Path, config: Path | None, preset: "StaticLayerConfig | None" = None
 ) -> list[str]:
     """Build trivy misconfiguration scanning command.
 
     Args:
         target: Directory to scan
         config: Path to trivy config file (unused, for signature compatibility)
-        preset: Optional ScannerPreset to customize scanning behavior
+        preset: Optional StaticLayerConfig to customize scanning behavior
     """
     cmd = ["trivy", "config", "--exit-code", "1"]
     _add_trivy_common_flags(cmd, target, preset)
@@ -218,14 +218,14 @@ _BANDIT_EXCLUDE_DIRS: list[str] = [
 
 
 def _build_bandit_cmd(
-    target: Path, config: Path | None, preset: "ScannerPreset | None" = None
+    target: Path, config: Path | None, preset: "StaticLayerConfig | None" = None
 ) -> list[str]:
     """Build bandit Python security scanner command.
 
     Args:
         target: Directory to scan
         config: Path to bandit config file (unused, for signature compatibility)
-        preset: Optional ScannerPreset to customize scanning behavior
+        preset: Optional StaticLayerConfig to customize scanning behavior
 
     Exclude paths are resolved relative to the target directory because
     bandit's --exclude matching requires paths that align with its
@@ -238,14 +238,14 @@ def _build_bandit_cmd(
 
 
 def _build_semgrep_cmd(
-    target: Path, config: Path | None, preset: "ScannerPreset | None" = None
+    target: Path, config: Path | None, preset: "StaticLayerConfig | None" = None
 ) -> list[str]:
     """Build semgrep multi-language scanner command.
 
     Args:
         target: Directory to scan
         config: Path to semgrep config file (unused, for signature compatibility)
-        preset: Optional ScannerPreset to customize scanning behavior
+        preset: Optional StaticLayerConfig to customize scanning behavior
     """
     return ["semgrep", "--config", "auto", "--quiet", "--error", str(target)]
 

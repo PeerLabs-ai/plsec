@@ -43,6 +43,7 @@ _LITERAL_CONSTRAINTS: dict[str, set[str]] = {
     # agent_type is resolved dynamically — see _resolve_constraint()
     "project_type": {"python", "node", "go", "mixed"},
     "storage": {"keychain", "env", "file"},
+    "severity_threshold": {"LOW", "MEDIUM", "HIGH", "CRITICAL"},
 }
 
 
@@ -78,6 +79,21 @@ class StaticLayerConfig:
             "semgrep",
         ]
     )
+    skip_dirs: list[str] = field(
+        default_factory=lambda: [
+            ".venv",
+            ".tox",
+            "node_modules",
+            "build",
+            "dist",
+            ".eggs",
+            "__pycache__",
+        ]
+    )
+    skip_files: list[str] = field(default_factory=lambda: ["**/*.pyc"])
+    severity_threshold: str = "MEDIUM"
+    timeout: int = 300
+    skip_when_no_files: bool = True
 
 
 @dataclass
@@ -99,6 +115,14 @@ class ProxyLayerConfig:
 
 
 @dataclass
+class RuntimeLayerConfig:
+    """Runtime wrappers and hooks layer configuration."""
+
+    wrappers: bool = True
+    hooks: bool = True
+
+
+@dataclass
 class AuditLayerConfig:
     """Audit logging layer configuration."""
 
@@ -114,6 +138,7 @@ class LayersConfig:
     static: StaticLayerConfig = field(default_factory=StaticLayerConfig)
     isolation: IsolationLayerConfig = field(default_factory=IsolationLayerConfig)
     proxy: ProxyLayerConfig = field(default_factory=ProxyLayerConfig)
+    runtime: RuntimeLayerConfig = field(default_factory=RuntimeLayerConfig)
     audit: AuditLayerConfig = field(default_factory=AuditLayerConfig)
 
 
@@ -153,6 +178,9 @@ class PlsecConfig:
     layers: LayersConfig = field(default_factory=LayersConfig)
     credentials: CredentialsConfig = field(default_factory=CredentialsConfig)
 
+    # Provenance tracking for --verbose output (field path -> source)
+    _provenance: dict[str, str] = field(default_factory=dict, repr=False)
+
 
 # ---------------------------------------------------------------------------
 # Serialization: dataclass <-> dict
@@ -171,6 +199,7 @@ _NESTED_FIELDS: dict[type, dict[str, type]] = {
         "static": StaticLayerConfig,
         "isolation": IsolationLayerConfig,
         "proxy": ProxyLayerConfig,
+        "runtime": RuntimeLayerConfig,
         "audit": AuditLayerConfig,
     },
 }
@@ -220,12 +249,134 @@ def _validate_config(data: dict) -> None:
         _validate_literal(
             layers["proxy"]["mode"], "layers.proxy.mode", _LITERAL_CONSTRAINTS["mode"]
         )
+    if "static" in layers and "severity_threshold" in layers["static"]:
+        _validate_literal(
+            layers["static"]["severity_threshold"],
+            "layers.static.severity_threshold",
+            _LITERAL_CONSTRAINTS["severity_threshold"],
+        )
 
     # Credentials
     if "credentials" in data and "storage" in data["credentials"]:
         _validate_literal(
             data["credentials"]["storage"], "credentials.storage", _LITERAL_CONSTRAINTS["storage"]
         )
+
+
+def _merge_dicts(
+    base: dict[str, Any],
+    override: dict[str, Any],
+    source: str,
+    path: str = "",
+    provenance: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """
+    Merge two raw config dicts with union semantics.
+
+    Rules:
+    - Lists: Union + deduplicate (preserve base order, append unique override items)
+    - Scalars/Booleans: override value wins (last-in-chain)
+    - Nested dicts: Recursive merge
+
+    Args:
+        base: Base configuration dict (lower priority)
+        override: Override configuration dict (higher priority)
+        source: Human-readable source label for provenance tracking
+        path: Dotted path for provenance (e.g., "layers.static.scanners")
+        provenance: Provenance tracking dict (mutated in place)
+
+    Returns:
+        Merged configuration dict
+    """
+    if provenance is None:
+        provenance = {}
+
+    result = base.copy()
+
+    for key, override_value in override.items():
+        current_path = f"{path}.{key}" if path else key
+
+        if key not in result:
+            # New key from override
+            result[key] = override_value
+            provenance[current_path] = source
+        else:
+            base_value = result[key]
+
+            # Determine merge strategy based on type
+            if isinstance(base_value, dict) and isinstance(override_value, dict):
+                # Nested dict: recurse
+                result[key] = _merge_dicts(
+                    base_value, override_value, source, current_path, provenance
+                )
+            elif isinstance(base_value, list) and isinstance(override_value, list):
+                # List: union + deduplicate (preserve order)
+                merged_list = base_value.copy()
+                for item in override_value:
+                    if item not in merged_list:
+                        merged_list.append(item)
+                result[key] = merged_list
+                if merged_list != base_value:
+                    provenance[current_path] = source
+            else:
+                # Scalar/bool: override wins
+                result[key] = override_value
+                if override_value != base_value:
+                    provenance[current_path] = source
+
+    return result
+
+
+def merge_configs(
+    base: PlsecConfig,
+    override: PlsecConfig,
+    source: str = "unknown",
+) -> PlsecConfig:
+    """
+    Merge two PlsecConfig instances with union semantics.
+
+    Rules:
+    - Lists: Union + deduplicate (base + unique items from override)
+    - Scalars/Booleans: override wins (last-in-chain)
+    - Nested objects: Recursive merge layer-by-layer
+    - Provenance: Track which source provided each value
+
+    Args:
+        base: Base configuration (lower priority)
+        override: Override configuration (higher priority)
+        source: Human-readable source label for provenance
+
+    Returns:
+        Merged PlsecConfig with provenance tracking
+
+    Example:
+        >>> base = load_preset("balanced")
+        >>> project = load_config("./plsec.toml")
+        >>> merged = merge_configs(base, project, source="project")
+        >>> merged._provenance["layers.static.scanners"]
+        'project'
+    """
+    # Convert to dicts
+    base_dict = _to_dict(base)
+    override_dict = _to_dict(override)
+
+    # Remove _provenance from dicts before merge (it's metadata, not config)
+    base_dict.pop("_provenance", None)
+    override_dict.pop("_provenance", None)
+
+    # Merge dicts with provenance tracking
+    provenance: dict[str, str] = {}
+    merged_dict = _merge_dicts(base_dict, override_dict, source, provenance=provenance)
+
+    # Carry forward base provenance, then update with new provenance
+    merged_provenance = base._provenance.copy()
+    merged_provenance.update(provenance)
+
+    # Reconstruct PlsecConfig from merged dict
+    merged = _from_dict(PlsecConfig, merged_dict)
+    merged._provenance = merged_provenance
+
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -353,30 +504,46 @@ def save_config(config: PlsecConfig, path: Path | str, *, format: str | None = N
 def resolve_config(
     *,
     cli_preset: str | None = None,
+    cli_overrides: dict[str, Any] | None = None,
     project_config_path: Path | None = None,
     global_config_path: Path | None = None,
 ) -> tuple[PlsecConfig, str]:
     """
-    Resolve configuration hierarchy: CLI > Project > Global > Preset defaults.
+    Resolve configuration from all sources with merge semantics.
+
+    Resolution hierarchy (low to high priority):
+    1. Defaults (PlsecConfig factory defaults)
+    2. Preset file (~/.peerlabs/plsec/config/presets/{preset}.toml or built-in)
+    3. Global config (~/.peerlabs/plsec/plsec.toml)
+    4. Project config (./plsec.toml or ancestor directories)
+    5. CLI arguments (highest priority)
+
+    Merge semantics:
+    - Lists: Union + deduplicate (base + unique items from higher priority)
+    - Scalars/Booleans: Last-in-chain wins
+    - Nested objects: Recursive merge
 
     Args:
-        cli_preset: Preset level from CLI --preset flag (highest priority)
+        cli_preset: Preset level from CLI --preset flag (highest priority for preset selection)
+        cli_overrides: Dict of CLI flag values (e.g., {"layers": {"static": {"scanners": [...]}}})
         project_config_path: Path to project config file (or None to search cwd)
         global_config_path: Path to global config file (or None to use default)
 
     Returns:
-        Tuple of (resolved PlsecConfig, effective preset level string)
+        Tuple of (resolved PlsecConfig with provenance tracking, effective preset level string)
 
-    Resolution order:
-    1. If cli_preset provided, use that preset level
-    2. Else if project config exists and has preset field, use that
-    3. Else if global config exists and has preset field, use that
-    4. Else use "balanced" (default)
-
-    The returned PlsecConfig contains the merged configuration with the
-    effective preset level set in the .preset field.
+    Example:
+        >>> config, preset = resolve_config(cli_preset="strict")
+        >>> config.layers.static.scanners
+        ['trivy-secrets', 'trivy-misconfig', 'bandit', 'semgrep']
+        >>> config._provenance["layers.static.scanners"]
+        'preset:strict'
     """
-    # Load project config (search from cwd if not specified)
+    from plsec.core.presets import load_preset
+
+    # 1. Determine which preset to load (CLI > project > global > default "balanced")
+    # We need to peek at project/global configs to check their preset field
+    project_config_raw = None
     if project_config_path is None:
         # Find config starting from cwd, but stop before going to global
         cwd = Path.cwd()
@@ -392,11 +559,10 @@ def resolve_config(
             if parent == Path.home():
                 break
 
-    project_config = None
     if project_config_path and Path(project_config_path).exists():
-        project_config = load_config(project_config_path)
+        project_config_raw = load_config(project_config_path)
 
-    # Load global config
+    global_config_raw = None
     if global_config_path is None:
         global_home = get_plsec_home()
         global_toml = global_home / "plsec.toml"
@@ -406,32 +572,46 @@ def resolve_config(
         elif global_yaml.exists():
             global_config_path = global_yaml
 
-    global_config = None
     if global_config_path and Path(global_config_path).exists():
-        global_config = load_config(global_config_path)
+        global_config_raw = load_config(global_config_path)
 
-    # Resolve preset level (CLI > Project > Global > Default)
+    # Determine preset name
     if cli_preset is not None:
         effective_preset = cli_preset
-    elif project_config is not None and project_config.preset:
-        effective_preset = project_config.preset
-    elif global_config is not None and global_config.preset:
-        effective_preset = global_config.preset
+    elif project_config_raw is not None and project_config_raw.preset:
+        effective_preset = project_config_raw.preset
+    elif global_config_raw is not None and global_config_raw.preset:
+        effective_preset = global_config_raw.preset
     else:
         effective_preset = "balanced"
 
-    # Start with project config or global config or defaults
-    if project_config is not None:
-        resolved = project_config
-    elif global_config is not None:
-        resolved = global_config
-    else:
-        resolved = PlsecConfig()
+    # 2. Load preset as the base configuration (preset IS the defaults)
+    try:
+        preset_dict = load_preset(effective_preset)
+        # Convert preset dict to PlsecConfig
+        config = _from_dict(PlsecConfig, preset_dict)
+        config._provenance = {f"preset:{effective_preset}": effective_preset}
+    except FileNotFoundError:
+        # Preset not found, fall back to factory defaults
+        config = PlsecConfig()
 
-    # Set the effective preset
-    resolved.preset = effective_preset
+    # 3. Merge global config (layers on top of preset)
+    if global_config_raw is not None:
+        config = merge_configs(config, global_config_raw, source="global")
 
-    return resolved, effective_preset
+    # 4. Merge project config (layers on top of global + preset)
+    if project_config_raw is not None:
+        config = merge_configs(config, project_config_raw, source="project")
+
+    # 5. Apply CLI overrides (highest priority)
+    if cli_overrides:
+        cli_config = _from_dict(PlsecConfig, cli_overrides)
+        config = merge_configs(config, cli_config, source="cli")
+
+    # Set the effective preset name
+    config.preset = effective_preset
+
+    return config, effective_preset
 
 
 def get_plsec_home() -> Path:

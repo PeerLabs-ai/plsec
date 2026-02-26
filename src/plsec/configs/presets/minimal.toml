@@ -1,0 +1,45 @@
+# Minimal preset: Secret scanning only, aggressive false-positive suppression
+# Use this for quick checks or CI pipelines where speed is critical.
+
+preset = "minimal"
+version = 1
+
+[layers.static]
+enabled = true
+scanners = ["trivy-secrets"]
+skip_dirs = [
+    ".venv",
+    ".tox",
+    "node_modules",
+    "build",
+    "dist",
+    ".eggs",
+    "__pycache__",
+    ".git",
+    ".cache",
+    "vendor",
+    "target",  # Rust/Java build output
+]
+skip_files = ["**/*.pyc", "**/*.so", "**/*.dylib", "**/*.dll"]
+severity_threshold = "HIGH"
+timeout = 180
+skip_when_no_files = true
+
+[layers.isolation]
+enabled = false
+runtime = "podman"
+
+[layers.proxy]
+enabled = false
+binary = "pipelock"
+mode = "balanced"
+config = "./pipelock.yaml"
+
+[layers.runtime]
+wrappers = true
+hooks = false
+
+[layers.audit]
+enabled = false
+log_dir = "~/.peerlabs/plsec/logs"
+integrity = false

@@ -656,11 +656,27 @@ class TestPresetIntegration:
 
     def test_minimal_preset_reduces_scanned_files(self):
         """Minimal preset skips more directories than balanced."""
-        from plsec.core.presets import BALANCED_PRESET, MINIMAL_PRESET
+        from plsec.core.config import StaticLayerConfig
+        from plsec.core.presets import load_preset
         from plsec.core.scanners import _build_trivy_secrets_cmd
 
-        minimal_cmd = _build_trivy_secrets_cmd(Path("."), None, MINIMAL_PRESET.scanner)
-        balanced_cmd = _build_trivy_secrets_cmd(Path("."), None, BALANCED_PRESET.scanner)
+        minimal_dict = load_preset("minimal")
+        balanced_dict = load_preset("balanced")
+
+        # Build StaticLayerConfig from preset dicts
+        minimal_static = StaticLayerConfig(
+            scanners=minimal_dict["layers"]["static"]["scanners"],
+            skip_dirs=minimal_dict["layers"]["static"]["skip_dirs"],
+            skip_files=minimal_dict["layers"]["static"]["skip_files"],
+        )
+        balanced_static = StaticLayerConfig(
+            scanners=balanced_dict["layers"]["static"]["scanners"],
+            skip_dirs=balanced_dict["layers"]["static"]["skip_dirs"],
+            skip_files=balanced_dict["layers"]["static"]["skip_files"],
+        )
+
+        minimal_cmd = _build_trivy_secrets_cmd(Path("."), None, minimal_static)
+        balanced_cmd = _build_trivy_secrets_cmd(Path("."), None, balanced_static)
 
         # Count skip-dirs flags
         minimal_skips = minimal_cmd.count("--skip-dirs")
@@ -671,10 +687,18 @@ class TestPresetIntegration:
 
     def test_paranoid_preset_scans_everything(self):
         """Paranoid preset scans all directories and files."""
-        from plsec.core.presets import PARANOID_PRESET
+        from plsec.core.config import StaticLayerConfig
+        from plsec.core.presets import load_preset
         from plsec.core.scanners import _build_trivy_secrets_cmd
 
-        cmd = _build_trivy_secrets_cmd(Path("."), None, PARANOID_PRESET.scanner)
+        paranoid_dict = load_preset("paranoid")
+        paranoid_static = StaticLayerConfig(
+            scanners=paranoid_dict["layers"]["static"]["scanners"],
+            skip_dirs=paranoid_dict["layers"]["static"]["skip_dirs"],
+            skip_files=paranoid_dict["layers"]["static"]["skip_files"],
+        )
+
+        cmd = _build_trivy_secrets_cmd(Path("."), None, paranoid_static)
 
         # Paranoid should have no skip flags
         assert "--skip-dirs" not in cmd

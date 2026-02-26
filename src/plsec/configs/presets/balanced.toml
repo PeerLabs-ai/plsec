@@ -1,0 +1,41 @@
+# Balanced preset: Full static analysis with reasonable defaults (recommended)
+# This is the default preset used when no preset is specified.
+
+preset = "balanced"
+version = 1
+
+[layers.static]
+enabled = true
+scanners = ["trivy-secrets", "trivy-misconfig", "bandit", "semgrep"]
+skip_dirs = [
+    ".venv",
+    ".tox",
+    "node_modules",
+    "build",
+    "dist",
+    ".eggs",
+    "__pycache__",
+]
+skip_files = ["**/*.pyc"]
+severity_threshold = "MEDIUM"
+timeout = 300
+skip_when_no_files = true
+
+[layers.isolation]
+enabled = false
+runtime = "podman"
+
+[layers.proxy]
+enabled = false
+binary = "pipelock"
+mode = "balanced"
+config = "./pipelock.yaml"
+
+[layers.runtime]
+wrappers = true
+hooks = true
+
+[layers.audit]
+enabled = true
+log_dir = "~/.peerlabs/plsec/logs"
+integrity = true

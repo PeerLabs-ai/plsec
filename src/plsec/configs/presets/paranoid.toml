@@ -1,0 +1,33 @@
+# Paranoid preset: Maximum security with network isolation and comprehensive scanning
+# Scans everything including .venv, enables all security layers, longest timeout.
+
+preset = "paranoid"
+version = 1
+
+[layers.static]
+enabled = true
+scanners = ["trivy-secrets", "trivy-misconfig", "bandit", "semgrep"]
+skip_dirs = []  # Scan everything, even .venv
+skip_files = []  # Scan everything
+severity_threshold = "LOW"
+timeout = 900
+skip_when_no_files = false  # Run all scanners regardless
+
+[layers.isolation]
+enabled = true
+runtime = "podman"
+
+[layers.proxy]
+enabled = true
+binary = "pipelock"
+mode = "strict"
+config = "./pipelock.yaml"
+
+[layers.runtime]
+wrappers = true
+hooks = true
+
+[layers.audit]
+enabled = true
+log_dir = "~/.peerlabs/plsec/logs"
+integrity = true

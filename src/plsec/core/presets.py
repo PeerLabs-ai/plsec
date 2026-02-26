@@ -4,17 +4,22 @@ Presets define scanner behavior and layer enablement for different security
 postures. Users can select presets via CLI (--preset) or config files
 (plsec.toml or plsec.yaml).
 
-The hierarchy is: CLI args > Project config > Global config > Preset defaults
+Presets are stored as TOML files in two locations:
+  1. Built-in presets: src/plsec/configs/presets/ (shipped with package)
+  2. User presets: ~/.peerlabs/plsec/config/presets/ (custom user presets)
 
-Available presets:
+User presets take precedence over built-in presets with the same name.
+
+Available built-in presets:
   - minimal: Secret scanning only, aggressive false-positive suppression
   - balanced: Full static analysis, reasonable defaults (default)
   - strict: Container isolation, aggressive scanning
   - paranoid: Maximum security, network isolation, scan everything
 """
 
-from dataclasses import dataclass, field
-from typing import Literal
+import tomllib
+from pathlib import Path
+from typing import Any, Literal
 
 # ---------------------------------------------------------------------------
 # Preset types
@@ -22,271 +27,180 @@ from typing import Literal
 
 PresetLevel = Literal["minimal", "balanced", "strict", "paranoid"]
 
-# ---------------------------------------------------------------------------
-# Scanner configuration
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class ScannerPreset:
-    """Scanner behavior configuration for a preset level.
-
-    Controls what gets scanned, how aggressively, and which rules apply.
-    """
-
-    # Scanner IDs to enable (e.g., ["trivy-secrets"], or ["trivy-secrets", "semgrep"])
-    enabled_scanners: list[str] = field(default_factory=list)
-
-    # Directories to skip during scanning (e.g., [".venv", "node_modules"])
-    skip_dirs: list[str] = field(default_factory=list)
-
-    # File patterns to skip (e.g., ["**/*.pyc", "**/*.so"])
-    skip_files: list[str] = field(default_factory=list)
-
-    # Minimum severity to report (e.g., "HIGH", "MEDIUM", "LOW")
-    # Note: Not all scanners support severity filtering yet
-    severity_threshold: str = "MEDIUM"
-
-    # Rule IDs to suppress (used to generate .trivyignore.yaml)
-    # Format: list of {"id": "generic-secret", "paths": ["..."]}
-    suppress_rules: list[dict[str, str | list[str]]] = field(default_factory=list)
-
-    # Scanner-specific timeout in seconds
-    timeout: int = 300
-
-    # Skip scanning when files don't match expected patterns
-    # (e.g., skip bandit if no .py files)
-    skip_when_no_files: bool = True
-
-
-# ---------------------------------------------------------------------------
-# Layer configuration
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class LayerPreset:
-    """Layer enablement configuration for a preset level.
-
-    Controls which security layers are active: wrappers, hooks, isolation, etc.
-    """
-
-    # Enable runtime wrappers (claude-safe, opencode-safe)
-    runtime_wrappers: bool = True
-
-    # Enable pre-commit hooks for automatic scanning
-    pre_commit_hooks: bool = True
-
-    # Enable container isolation (Docker/Podman)
-    container_isolation: bool = False
-
-    # Enable network proxy filtering (pipelock)
-    network_proxy: bool = False
-
-    # Enable activity monitoring and audit logging
-    audit_logging: bool = True
-
-
-# ---------------------------------------------------------------------------
-# Complete preset configuration
-# ---------------------------------------------------------------------------
-
-
-@dataclass
-class Preset:
-    """Complete preset configuration combining scanner and layer settings."""
-
-    # Preset identifier
-    level: PresetLevel
-
-    # Human-readable description
-    description: str
-
-    # Scanner configuration
-    scanner: ScannerPreset
-
-    # Layer configuration
-    layers: LayerPreset
-
-
-# ---------------------------------------------------------------------------
-# Preset definitions
-# ---------------------------------------------------------------------------
-
-MINIMAL_PRESET = Preset(
-    level="minimal",
-    description="Secret scanning only, aggressive false-positive suppression",
-    scanner=ScannerPreset(
-        enabled_scanners=["trivy-secrets"],
-        skip_dirs=[
-            ".venv",
-            ".tox",
-            "node_modules",
-            "build",
-            "dist",
-            ".eggs",
-            "__pycache__",
-            ".git",
-            ".cache",
-            "vendor",
-            "target",  # Rust/Java build output
-        ],
-        skip_files=["**/*.pyc", "**/*.so", "**/*.dylib", "**/*.dll"],
-        severity_threshold="HIGH",
-        suppress_rules=[],
-        timeout=180,  # Shorter timeout for minimal scans
-        skip_when_no_files=True,
-    ),
-    layers=LayerPreset(
-        runtime_wrappers=True,
-        pre_commit_hooks=False,  # Minimal: no hooks
-        container_isolation=False,
-        network_proxy=False,
-        audit_logging=False,  # Minimal: no audit logs
-    ),
-)
-
-BALANCED_PRESET = Preset(
-    level="balanced",
-    description="Full static analysis with reasonable defaults (default)",
-    scanner=ScannerPreset(
-        enabled_scanners=[
-            "trivy-secrets",
-            "trivy-misconfig",
-            "bandit",
-            "semgrep",
-        ],
-        skip_dirs=[
-            ".venv",
-            ".tox",
-            "node_modules",
-            "build",
-            "dist",
-            ".eggs",
-            "__pycache__",
-        ],
-        skip_files=["**/*.pyc"],
-        severity_threshold="MEDIUM",
-        suppress_rules=[],
-        timeout=300,
-        skip_when_no_files=True,
-    ),
-    layers=LayerPreset(
-        runtime_wrappers=True,
-        pre_commit_hooks=True,
-        container_isolation=False,
-        network_proxy=False,
-        audit_logging=True,
-    ),
-)
-
-STRICT_PRESET = Preset(
-    level="strict",
-    description="Container isolation with aggressive scanning",
-    scanner=ScannerPreset(
-        enabled_scanners=[
-            "trivy-secrets",
-            "trivy-misconfig",
-            "bandit",
-            "semgrep",
-        ],
-        skip_dirs=[
-            ".venv",
-            ".tox",
-            "node_modules",
-            "__pycache__",
-        ],
-        skip_files=[],  # Scan everything
-        severity_threshold="LOW",  # Report all severities
-        suppress_rules=[],
-        timeout=600,  # Longer timeout for thorough scans
-        skip_when_no_files=True,
-    ),
-    layers=LayerPreset(
-        runtime_wrappers=True,
-        pre_commit_hooks=True,
-        container_isolation=True,
-        network_proxy=False,
-        audit_logging=True,
-    ),
-)
-
-PARANOID_PRESET = Preset(
-    level="paranoid",
-    description="Maximum security with network isolation and comprehensive scanning",
-    scanner=ScannerPreset(
-        enabled_scanners=[
-            "trivy-secrets",
-            "trivy-misconfig",
-            "bandit",
-            "semgrep",
-        ],
-        skip_dirs=[],  # Scan everything, even .venv
-        skip_files=[],  # Scan everything
-        severity_threshold="LOW",
-        suppress_rules=[],
-        timeout=900,  # Very long timeout for exhaustive scans
-        skip_when_no_files=False,  # Run all scanners regardless
-    ),
-    layers=LayerPreset(
-        runtime_wrappers=True,
-        pre_commit_hooks=True,
-        container_isolation=True,
-        network_proxy=True,
-        audit_logging=True,
-    ),
-)
-
-# Preset registry for lookup by level
-PRESETS: dict[PresetLevel, Preset] = {
-    "minimal": MINIMAL_PRESET,
-    "balanced": BALANCED_PRESET,
-    "strict": STRICT_PRESET,
-    "paranoid": PARANOID_PRESET,
-}
-
-# Default preset when none specified
 DEFAULT_PRESET: PresetLevel = "balanced"
 
 
 # ---------------------------------------------------------------------------
-# Preset resolution
+# Preset file discovery
 # ---------------------------------------------------------------------------
 
 
-def get_preset(level: PresetLevel | None = None) -> Preset:
-    """Get preset configuration by level.
+def get_builtin_preset_dir() -> Path:
+    """Return the path to built-in preset TOML files shipped with plsec."""
+    from plsec.configs.presets import BUILTIN_PRESET_DIR
+
+    return BUILTIN_PRESET_DIR
+
+
+def get_user_preset_dir() -> Path:
+    """Return the path to user custom preset directory."""
+    from plsec.core.config import get_plsec_home
+
+    return get_plsec_home() / "config" / "presets"
+
+
+def find_preset_file(name: str) -> Path | None:
+    """
+    Find a preset TOML file by name.
+
+    Search order:
+      1. User preset directory (~/.peerlabs/plsec/config/presets/{name}.toml)
+      2. Built-in preset directory (src/plsec/configs/presets/{name}.toml)
 
     Args:
-        level: Preset level ("minimal", "balanced", "strict", "paranoid")
-               If None, returns the default preset (balanced).
+        name: Preset name (e.g., "balanced", "minimal")
 
     Returns:
-        Preset configuration
-
-    Raises:
-        KeyError: If level is not a valid preset level
+        Path to preset file, or None if not found
     """
-    if level is None:
-        level = DEFAULT_PRESET
-    return PRESETS[level]
+    # Try user presets first
+    user_dir = get_user_preset_dir()
+    user_preset = user_dir / f"{name}.toml"
+    if user_preset.exists():
+        return user_preset
+
+    # Fall back to built-in presets
+    builtin_dir = get_builtin_preset_dir()
+    builtin_preset = builtin_dir / f"{name}.toml"
+    if builtin_preset.exists():
+        return builtin_preset
+
+    return None
 
 
-def validate_preset_level(level: str) -> PresetLevel:
-    """Validate a preset level string.
+def list_presets() -> list[str]:
+    """
+    List all available preset names (built-in + user custom).
+
+    Returns:
+        Sorted list of preset names without .toml extension
+    """
+    presets = set()
+
+    # Built-in presets
+    builtin_dir = get_builtin_preset_dir()
+    if builtin_dir.exists():
+        for path in builtin_dir.glob("*.toml"):
+            if path.stem != "__init__":
+                presets.add(path.stem)
+
+    # User presets
+    user_dir = get_user_preset_dir()
+    if user_dir.exists():
+        for path in user_dir.glob("*.toml"):
+            presets.add(path.stem)
+
+    return sorted(presets)
+
+
+# ---------------------------------------------------------------------------
+# Preset loading
+# ---------------------------------------------------------------------------
+
+
+def load_preset(name: str) -> dict[str, Any]:
+    """
+    Load a preset by name, returning raw dict for merging.
+
+    This function loads the preset TOML file and returns it as a plain dict,
+    suitable for merging with other config sources using merge_configs().
 
     Args:
-        level: String to validate
+        name: Preset name (e.g., "balanced", "minimal", "strict", "paranoid")
 
     Returns:
-        Validated PresetLevel
+        Raw configuration dict from the preset TOML file
 
     Raises:
-        ValueError: If level is not valid
+        FileNotFoundError: If preset file doesn't exist
+        ValueError: If preset TOML is invalid or malformed
+
+    Example:
+        >>> preset_dict = load_preset("balanced")
+        >>> preset_dict["layers"]["static"]["scanners"]
+        ['trivy-secrets', 'trivy-misconfig', 'bandit', 'semgrep']
     """
-    valid_levels = {"minimal", "balanced", "strict", "paranoid"}
-    if level not in valid_levels:
-        raise ValueError(
-            f"Invalid preset level: {level!r}. Valid levels: {', '.join(sorted(valid_levels))}"
-        )
-    return level  # type: ignore[return-value]
+    preset_path = find_preset_file(name)
+    if preset_path is None:
+        available = list_presets()
+        raise FileNotFoundError(f"Preset '{name}' not found. Available presets: {available}")
+
+    try:
+        with open(preset_path, "rb") as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        raise ValueError(f"Invalid TOML in preset file {preset_path}: {e}") from e
+    except Exception as e:
+        raise ValueError(f"Failed to load preset {preset_path}: {e}") from e
+
+    # Validate that preset has required top-level keys
+    if "version" not in data:
+        raise ValueError(f"Preset {preset_path} missing required field: version")
+
+    return data
+
+
+def validate_preset_level(level: str) -> str:
+    """
+    Validate a preset level string.
+
+    Args:
+        level: Preset level to validate
+
+    Returns:
+        The validated preset level (unchanged)
+
+    Raises:
+        ValueError: If level is not a valid preset name
+
+    Example:
+        >>> validate_preset_level("balanced")
+        'balanced'
+        >>> validate_preset_level("invalid")
+        ValueError: Invalid preset level: 'invalid' ...
+    """
+    available = list_presets()
+    if level not in available:
+        raise ValueError(f"Invalid preset level: {level!r} (available: {sorted(available)})")
+    return level
+
+
+# ---------------------------------------------------------------------------
+# Backwards compatibility (deprecated, will be removed)
+# ---------------------------------------------------------------------------
+
+# For compatibility with existing code that imports these types.
+# These are deprecated and will be removed in a future version.
+# Use PlsecConfig.layers.static instead of ScannerPreset.
+
+# Imports at end of file to avoid circular dependency
+from plsec.core.config import AuditLayerConfig as LayerPreset  # noqa: E402
+from plsec.core.config import PlsecConfig as Preset  # noqa: E402
+from plsec.core.config import RuntimeLayerConfig  # noqa: E402
+from plsec.core.config import StaticLayerConfig as ScannerPreset  # noqa: E402
+
+__all__ = [
+    "PresetLevel",
+    "DEFAULT_PRESET",
+    "get_builtin_preset_dir",
+    "get_user_preset_dir",
+    "find_preset_file",
+    "list_presets",
+    "load_preset",
+    "validate_preset_level",
+    # Deprecated aliases
+    "ScannerPreset",
+    "LayerPreset",
+    "Preset",
+    "RuntimeLayerConfig",
+]

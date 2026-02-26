@@ -274,7 +274,7 @@ class TestConfigBoundaryValidation:
     def test_literal_constraints_cover_all_constrained_fields(self):
         """Static constraints + dynamic resolvers cover all Literal-typed fields."""
         # Static constraints in _LITERAL_CONSTRAINTS
-        static_keys = {"runtime", "mode", "project_type", "storage"}
+        static_keys = {"runtime", "mode", "project_type", "storage", "severity_threshold"}
         assert set(_LITERAL_CONSTRAINTS.keys()) == static_keys
         # Dynamic constraint resolved from AGENTS registry
         agent_types = _resolve_constraint("agent_type")
