@@ -256,3 +256,113 @@ setup_healthy() {
     run "${PLSEC_DIR}/plsec-status.sh" --project "$PROJECT"
     assert_output --partial "balanced"
 }
+
+# ===========================================================================
+# Watch mode: argument validation
+# ===========================================================================
+
+@test "plsec-status --watch rejects --json" {
+    "${BOOTSTRAP}" --agent claude
+    run "${PLSEC_DIR}/plsec-status.sh" --watch --json
+    assert_failure
+    assert_output --partial "incompatible"
+}
+
+@test "plsec-status --watch rejects --quiet" {
+    "${BOOTSTRAP}" --agent claude
+    run "${PLSEC_DIR}/plsec-status.sh" --watch --quiet
+    assert_failure
+    assert_output --partial "incompatible"
+}
+
+@test "plsec-status --interval requires numeric argument" {
+    "${BOOTSTRAP}" --agent claude
+    run "${PLSEC_DIR}/plsec-status.sh" --interval abc
+    assert_failure
+    assert_output --partial "positive integer"
+}
+
+@test "plsec-status --interval rejects zero" {
+    "${BOOTSTRAP}" --agent claude
+    run "${PLSEC_DIR}/plsec-status.sh" --interval 0
+    assert_failure
+    assert_output --partial "positive integer"
+}
+
+@test "plsec-status --tail-lines requires numeric argument" {
+    "${BOOTSTRAP}" --agent claude
+    run "${PLSEC_DIR}/plsec-status.sh" --tail-lines abc
+    assert_failure
+    assert_output --partial "positive integer"
+}
+
+@test "plsec-status --tail-lines rejects zero" {
+    "${BOOTSTRAP}" --agent claude
+    run "${PLSEC_DIR}/plsec-status.sh" --tail-lines 0
+    assert_failure
+    assert_output --partial "positive integer"
+}
+
+@test "plsec-status --help mentions watch mode" {
+    "${BOOTSTRAP}" --agent claude
+    run "${PLSEC_DIR}/plsec-status.sh" --help
+    assert_success
+    assert_output --partial "--watch"
+    assert_output --partial "--interval"
+    assert_output --partial "--tail-lines"
+}
+
+# ===========================================================================
+# Watch mode: smoke tests (non-TTY, uses sleep fallback + timeout)
+# ===========================================================================
+
+@test "plsec-status --watch runs and can be killed by timeout" {
+    setup_healthy
+    # timeout sends SIGTERM which triggers our trap -> exit 0
+    run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
+        --watch --interval 1 --project "$PROJECT"
+    # Exit code 0 (trap caught SIGTERM) or 124 (timeout killed it)
+    [[ "$status" -eq 0 ]] || [[ "$status" -eq 124 ]]
+}
+
+@test "plsec-status --watch shows log tail content" {
+    setup_healthy
+    local today
+    today=$(date +%Y%m%d)
+    echo "WATCH_LOG_MARKER" >> "${PLSEC_DIR}/logs/claude-${today}.log"
+
+    # Short interval, timeout kills after one iteration
+    run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
+        --watch --interval 1 --project "$PROJECT"
+    assert_output --partial "WATCH_LOG_MARKER"
+}
+
+@test "plsec-status --watch shows key hints" {
+    setup_healthy
+    run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
+        --watch --interval 1 --project "$PROJECT"
+    assert_output --partial "quit"
+    assert_output --partial "refresh"
+    assert_output --partial "pause"
+}
+
+@test "plsec-status --watch respects --tail-lines count" {
+    setup_healthy
+    local today
+    today=$(date +%Y%m%d)
+    local log="${PLSEC_DIR}/logs/claude-${today}.log"
+    # Write 10 distinct lines
+    for i in $(seq 1 10); do
+        echo "TAIL_LINE_${i}" >> "$log"
+    done
+
+    # Request only 3 lines
+    run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
+        --watch --tail-lines 3 --interval 1 --project "$PROJECT"
+    # Should see the last 3 lines
+    assert_output --partial "TAIL_LINE_8"
+    assert_output --partial "TAIL_LINE_9"
+    assert_output --partial "TAIL_LINE_10"
+    # Should NOT see the first line
+    refute_output --partial "TAIL_LINE_1"
+}

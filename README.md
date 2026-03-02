@@ -94,19 +94,19 @@ opencode-safe              # wrapper around opencode with logging
 
 ## Commands
 
-| Command             | Description                                        |
-|---------------------|----------------------------------------------------|
-| `plsec install`     | Deploy global configs, wrapper scripts, and aliases |
-| `plsec create`      | Create a new project with security built-in        |
-| `plsec secure`      | Add security to an existing project                |
-| `plsec doctor`      | Check system dependencies and configuration        |
-| `plsec init`        | Initialize project security configuration          |
-| `plsec scan`        | Run security scanners (Trivy, Bandit, Semgrep). See [Scanner Limitations](docs/scanner-limitations.md) |
-| `plsec validate`    | Validate configuration files                       |
-| `plsec proxy`       | Manage Pipelock runtime proxy                      |
-| `plsec integrity`   | Workspace integrity monitoring                     |
-| `plsec reset`       | Reset to factory defaults (preserves logs)          |
-| `plsec uninstall`   | Remove all plsec artifacts from the system         |
+| Command           | Description                                                                                            |
+|-------------------|--------------------------------------------------------------------------------------------------------|
+| `plsec install`   | Deploy global configs, wrapper scripts, and aliases                                                    |
+| `plsec create`    | Create a new project with security built-in                                                            |
+| `plsec secure`    | Add security to an existing project                                                                    |
+| `plsec doctor`    | Check system dependencies and configuration                                                            |
+| `plsec init`      | Initialize project security configuration                                                              |
+| `plsec scan`      | Run security scanners (Trivy, Bandit, Semgrep). See [Scanner Limitations](docs/scanner-limitations.md) |
+| `plsec validate`  | Validate configuration files                                                                           |
+| `plsec proxy`     | Manage Pipelock runtime proxy                                                                          |
+| `plsec integrity` | Workspace integrity monitoring                                                                         |
+| `plsec reset`     | Reset to factory defaults (preserves logs)                                                             |
+| `plsec uninstall` | Remove all plsec artifacts from the system                                                             |
 
 ## Security Layers
 

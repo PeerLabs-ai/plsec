@@ -5,8 +5,8 @@
 - **Language**: Python 3.12+
 - **CLI Framework**: typer + rich
 - **Data Validation**: dataclasses, typing.Literal
-- **Configuration**: pyyaml
-- **Build System**: hatchling, make
+- **Configuration**: pyyaml, tomllib
+- **Build System**: hatchling, make, uv-native 
 - **Package Manager**: uv (recommended), pip, homebrew (macOS), apt (linux)
 - **Testing**: pytest + pytest-cov (Python), BATS (shell scripts)
 - **Quality**: ruff (lint + format), ty
@@ -143,7 +143,8 @@ When coding, use the following rules:
 - Write test cases first - describe the end-to-end behaviour that we want and
   then tie in the unit test cases and integration test cases.
 - Use mkdocs for user documentation.
-- Use tox for test coordination/orchestration.
+- Use tox for test coordination/orchestration in complex projects, use uv run
+  pytest in isolated, simple projects
 - Use pytest for unit tests.
 - Use Behave for user level tests (directly from specification) and Playwright
   for acceptance tests and integration testing in Python.

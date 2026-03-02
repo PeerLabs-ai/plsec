@@ -466,3 +466,184 @@ teardown() {
     run grep "PLSEC_DIR=\"${PLSEC_DIR}\"" "${PLSEC_DIR}/plsec-status.sh"
     assert_success
 }
+
+# ===========================================================================
+# Watch mode: delta computation
+# ===========================================================================
+
+@test "get_current_session_count extracts number from A-2 detail" {
+    CHECK_IDS=("I-1" "A-2" "F-1")
+    CHECK_DETAILS=("ok" "3 session(s)" "clean")
+    run get_current_session_count
+    assert_output "3"
+}
+
+@test "get_current_session_count returns 0 when no A-2 check" {
+    CHECK_IDS=("I-1" "F-1")
+    CHECK_DETAILS=("ok" "clean")
+    run get_current_session_count
+    assert_output "0"
+}
+
+@test "get_current_session_count returns 0 for non-numeric detail" {
+    CHECK_IDS=("A-2")
+    CHECK_DETAILS=("no sessions today")
+    # "no sessions today" has no digits -> returns 0
+    run get_current_session_count
+    assert_output "0"
+}
+
+@test "compute_session_delta returns empty on first run (prev=0)" {
+    CHECK_IDS=("A-2")
+    CHECK_DETAILS=("5 session(s)")
+    run compute_session_delta 0
+    assert_output ""
+}
+
+@test "compute_session_delta returns +N when count increases" {
+    CHECK_IDS=("A-2")
+    CHECK_DETAILS=("5 session(s)")
+    run compute_session_delta 2
+    assert_output "+3"
+}
+
+@test "compute_session_delta returns empty when count unchanged" {
+    CHECK_IDS=("A-2")
+    CHECK_DETAILS=("2 session(s)")
+    run compute_session_delta 2
+    assert_output ""
+}
+
+@test "get_scan_timestamp returns 0 when no scan file" {
+    rm -f "${PLSEC_DIR}/logs/scan-latest.json"
+    run get_scan_timestamp
+    assert_output "0"
+}
+
+@test "get_scan_timestamp returns epoch seconds when file exists" {
+    mkdir -p "${PLSEC_DIR}/logs"
+    echo '{}' > "${PLSEC_DIR}/logs/scan-latest.json"
+    run get_scan_timestamp
+    # Should be a positive integer (unix timestamp)
+    [[ "${output}" =~ ^[0-9]+$ ]]
+    [[ "${output}" -gt 0 ]]
+}
+
+@test "compute_scan_delta returns empty when prev is 0" {
+    mkdir -p "${PLSEC_DIR}/logs"
+    echo '{}' > "${PLSEC_DIR}/logs/scan-latest.json"
+    run compute_scan_delta 0
+    assert_output ""
+}
+
+@test "compute_scan_delta returns empty when file unchanged" {
+    mkdir -p "${PLSEC_DIR}/logs"
+    echo '{}' > "${PLSEC_DIR}/logs/scan-latest.json"
+    local ts
+    ts=$(get_scan_timestamp)
+    run compute_scan_delta "$ts"
+    assert_output ""
+}
+
+# ===========================================================================
+# Watch mode: log tail
+# ===========================================================================
+
+@test "print_log_tail shows last N lines from newest log" {
+    mkdir -p "${PLSEC_DIR}/logs"
+    printf 'line1\nline2\nline3\nline4\nline5\nline6\n' \
+        > "${PLSEC_DIR}/logs/test-20260226.log"
+    run print_log_tail 3
+    assert_success
+    assert_output --partial "line4"
+    assert_output --partial "line5"
+    assert_output --partial "line6"
+    refute_output --partial "line1"
+}
+
+@test "print_log_tail returns silently when no logs exist" {
+    rm -rf "${PLSEC_DIR}/logs/"*.log 2>/dev/null || true
+    run print_log_tail 5
+    assert_success
+    assert_output ""
+}
+
+@test "print_log_tail selects most recent log by mtime" {
+    mkdir -p "${PLSEC_DIR}/logs"
+    echo "old content" > "${PLSEC_DIR}/logs/old-20260101.log"
+    sleep 1
+    echo "new content" > "${PLSEC_DIR}/logs/new-20260226.log"
+    run print_log_tail 1
+    assert_success
+    assert_output --partial "new content"
+    refute_output --partial "old content"
+}
+
+@test "print_log_tail shows Recent Activity header" {
+    mkdir -p "${PLSEC_DIR}/logs"
+    echo "some log line" > "${PLSEC_DIR}/logs/test.log"
+    run print_log_tail 5
+    assert_output --partial "Recent Activity"
+}
+
+@test "print_log_tail handles empty log file" {
+    mkdir -p "${PLSEC_DIR}/logs"
+    : > "${PLSEC_DIR}/logs/empty.log"
+    run print_log_tail 5
+    assert_success
+    # Header printed but no log lines
+    assert_output --partial "Recent Activity"
+}
+
+# ===========================================================================
+# Watch mode: reset and inject helpers
+# ===========================================================================
+
+@test "reset_check_state clears all global arrays" {
+    VERDICTS=("ok" "fail")
+    CHECK_IDS=("I-1" "I-2")
+    CHECK_NAMES=("a" "b")
+    CHECK_CATEGORIES=("installation" "installation")
+    CHECK_DETAILS=("x" "y")
+    WARNING_COUNT=1
+    ERROR_COUNT=1
+
+    reset_check_state
+
+    [[ ${#VERDICTS[@]} -eq 0 ]]
+    [[ ${#CHECK_IDS[@]} -eq 0 ]]
+    [[ $WARNING_COUNT -eq 0 ]]
+    [[ $ERROR_COUNT -eq 0 ]]
+}
+
+@test "inject_deltas modifies A-2 detail when delta non-empty" {
+    CHECK_IDS=("I-1" "A-2" "A-3")
+    CHECK_DETAILS=("ok" "3 session(s)" "within 24h")
+
+    inject_deltas "+2" ""
+
+    [[ "${CHECK_DETAILS[1]}" == *"+2"* ]]
+    # A-3 should be unchanged (empty scan delta)
+    [[ "${CHECK_DETAILS[2]}" == "within 24h" ]]
+}
+
+@test "inject_deltas modifies A-3 detail when scan delta non-empty" {
+    CHECK_IDS=("A-2" "A-3")
+    CHECK_DETAILS=("3 session(s)" "within 24h")
+
+    inject_deltas "" "new scan"
+
+    # A-2 should be unchanged (empty session delta)
+    [[ "${CHECK_DETAILS[0]}" == "3 session(s)" ]]
+    [[ "${CHECK_DETAILS[1]}" == *"new scan"* ]]
+}
+
+@test "inject_deltas leaves details unchanged when both deltas empty" {
+    CHECK_IDS=("A-2" "A-3")
+    CHECK_DETAILS=("3 session(s)" "within 24h")
+
+    inject_deltas "" ""
+
+    [[ "${CHECK_DETAILS[0]}" == "3 session(s)" ]]
+    [[ "${CHECK_DETAILS[1]}" == "within 24h" ]]
+}
