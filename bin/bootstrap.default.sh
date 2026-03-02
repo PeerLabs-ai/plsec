@@ -1333,6 +1333,100 @@ check_hook_blocks() {
 }
 
 # ---------------------------------------------------------------------------
+# Delta computation (watch mode)
+# ---------------------------------------------------------------------------
+
+# Get the current session count from the accumulated CHECK arrays.
+# Parses the detail string recorded by check_session_count() for A-2.
+get_current_session_count() {
+    local i
+    for ((i = 0; i < \${#CHECK_IDS[@]}; i++)); do
+        if [[ "\${CHECK_IDS[\$i]}" == "A-2" ]]; then
+            local detail="\${CHECK_DETAILS[\$i]}"
+            if [[ "\$detail" =~ ([0-9]+) ]]; then
+                echo "\${BASH_REMATCH[1]}"
+                return
+            fi
+        fi
+    done
+    echo "0"
+}
+
+# Compute session count delta from previous value.
+# Returns "+N" when count increased, empty string otherwise.
+compute_session_delta() {
+    local prev="\$1"
+    local current
+    current=\$(get_current_session_count)
+
+    if [[ \$prev -eq 0 ]]; then
+        echo ""
+    elif [[ \$current -gt \$prev ]]; then
+        echo "+\$((current - prev))"
+    else
+        echo ""
+    fi
+}
+
+# Get modification timestamp (epoch seconds) of scan-latest.json.
+# Returns "0" when the file does not exist.
+get_scan_timestamp() {
+    local latest="\${PLSEC_DIR}/logs/scan-latest.json"
+    if [[ -f "\$latest" ]]; then
+        if stat -f %m "\$latest" > /dev/null 2>&1; then
+            stat -f %m "\$latest"
+        else
+            stat -c %Y "\$latest"
+        fi
+    else
+        echo "0"
+    fi
+}
+
+# Compute scan delta from previous timestamp.
+# Returns "new scan" when the file has been updated, empty string otherwise.
+compute_scan_delta() {
+    local prev="\$1"
+    local current
+    current=\$(get_scan_timestamp)
+
+    if [[ \$prev -eq 0 ]] || [[ \$current -eq 0 ]]; then
+        echo ""
+    elif [[ \$current -gt \$prev ]]; then
+        echo "new scan"
+    else
+        echo ""
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# Log tail (watch mode)
+# ---------------------------------------------------------------------------
+
+# Print the last N lines from the most recently modified log file.
+# Silently returns if no log files exist.
+print_log_tail() {
+    local num_lines="\$1"
+    local log_dir="\${PLSEC_DIR}/logs"
+
+    local newest_log=""
+    if [[ -d "\$log_dir" ]]; then
+        newest_log=\$(ls -t "\${log_dir}/"*.log 2>/dev/null | head -1)
+    fi
+
+    if [[ -z "\$newest_log" ]] || [[ ! -f "\$newest_log" ]]; then
+        return
+    fi
+
+    local basename="\${newest_log##*/}"
+    printf "\n  \${BOLD}Recent Activity\${RESET} (%s)\n" "\$basename"
+
+    tail -n "\$num_lines" "\$newest_log" 2>/dev/null | while IFS= read -r line; do
+        printf "    \${GREY}%s\${RESET}\n" "\$line"
+    done
+}
+
+# ---------------------------------------------------------------------------
 # Human-readable output
 # ---------------------------------------------------------------------------
 
@@ -1578,12 +1672,135 @@ print_human_readable() {
 }
 
 # ---------------------------------------------------------------------------
+# Watch mode
+# ---------------------------------------------------------------------------
+
+# Reset the global check arrays so run_all_checks() starts fresh.
+reset_check_state() {
+    VERDICTS=()
+    CHECK_IDS=()
+    CHECK_NAMES=()
+    CHECK_CATEGORIES=()
+    CHECK_DETAILS=()
+    WARNING_COUNT=0
+    ERROR_COUNT=0
+}
+
+# Print watch mode header with refresh timestamp and key hints.
+print_watch_header() {
+    local interval="\$1"
+    local timestamp
+    timestamp=\$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+    printf "\${BOLD}plsec-status --watch\${RESET} (every %ds, last: %s)\n" \
+        "\$interval" "\$timestamp"
+    printf "\${GREY}[q]uit  [r]efresh  [p]ause\${RESET}\n"
+}
+
+# Inject delta strings into the accumulated CHECK_DETAILS array.
+# Modifies A-2 (session count) and A-3 (last scan) entries in-place
+# so print_human_readable() renders them automatically.
+inject_deltas() {
+    local session_delta="\$1"
+    local scan_delta="\$2"
+
+    local i
+    for ((i = 0; i < \${#CHECK_IDS[@]}; i++)); do
+        if [[ "\${CHECK_IDS[\$i]}" == "A-2" ]] && [[ -n "\$session_delta" ]]; then
+            CHECK_DETAILS[\$i]="\${CHECK_DETAILS[\$i]} (\${session_delta})"
+        fi
+        if [[ "\${CHECK_IDS[\$i]}" == "A-3" ]] && [[ -n "\$scan_delta" ]]; then
+            CHECK_DETAILS[\$i]="\${CHECK_DETAILS[\$i]} (\${scan_delta})"
+        fi
+    done
+}
+
+# Continuous refresh loop.  Re-runs all checks on each iteration,
+# computes deltas from the previous cycle, and tails the newest log.
+# Exits on 'q' key or SIGINT/SIGTERM.
+#
+# Keyboard control requires a TTY on stdin.  When stdin is not a
+# terminal (pipes, CI, BATS tests) the loop falls back to plain
+# sleep and can only be stopped via SIGINT/SIGTERM.
+run_watch() {
+    local project_path="\$1"
+    local interval="\$2"
+    local tail_lines="\$3"
+
+    trap 'printf "\n"; exit 0' INT TERM
+
+    # Detect whether stdin is a TTY for keyboard control
+    local has_tty=false
+    if [[ -t 0 ]]; then
+        has_tty=true
+    fi
+
+    local prev_session_count=0
+    local prev_scan_ts=0
+    local paused=false
+    local first_run=true
+
+    while true; do
+        if [[ "\$paused" == false ]]; then
+            clear
+
+            reset_check_state
+            run_all_checks "\$project_path"
+
+            # Compute deltas (skip on first iteration)
+            local session_delta=""
+            local scan_delta=""
+            if [[ "\$first_run" == false ]]; then
+                session_delta=\$(compute_session_delta "\$prev_session_count")
+                scan_delta=\$(compute_scan_delta "\$prev_scan_ts")
+            fi
+
+            # Snapshot current values for next iteration
+            prev_session_count=\$(get_current_session_count)
+            prev_scan_ts=\$(get_scan_timestamp)
+            first_run=false
+
+            # Render
+            inject_deltas "\$session_delta" "\$scan_delta"
+            print_watch_header "\$interval"
+            print_human_readable "\$project_path"
+            print_log_tail "\$tail_lines"
+        fi
+
+        # Wait for next refresh.  With a TTY, listen for keypresses;
+        # without one, fall back to plain sleep.
+        if [[ "\$has_tty" == true ]]; then
+            local key=""
+            if read -t "\$interval" -n 1 -s key 2>/dev/null; then
+                case "\$key" in
+                    q|Q) printf "\n"; exit 0 ;;
+                    r|R) continue ;;
+                    p|P)
+                        if [[ "\$paused" == false ]]; then
+                            paused=true
+                            printf "\n\${YELLOW}[PAUSED]\${RESET} press 'p' to resume\n"
+                        else
+                            paused=false
+                        fi
+                        ;;
+                esac
+            fi
+        else
+            sleep "\$interval"
+        fi
+    done
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 main() {
     local json_mode=false
     local quiet_mode=false
+    local watch_mode=false
+    local watch_interval=5
+    local tail_lines=5
     local project_path=""
 
     # Parse arguments
@@ -1591,6 +1808,25 @@ main() {
         case "\$1" in
             --json)    json_mode=true; shift ;;
             --quiet)   quiet_mode=true; shift ;;
+            --watch)   watch_mode=true; shift ;;
+            --interval)
+                shift
+                if [[ \$# -eq 0 ]] || ! [[ "\$1" =~ ^[0-9]+\$ ]] || [[ "\$1" -eq 0 ]]; then
+                    echo "ERROR: --interval requires a positive integer" >&2
+                    exit 1
+                fi
+                watch_interval="\$1"
+                shift
+                ;;
+            --tail-lines)
+                shift
+                if [[ \$# -eq 0 ]] || ! [[ "\$1" =~ ^[0-9]+\$ ]] || [[ "\$1" -eq 0 ]]; then
+                    echo "ERROR: --tail-lines requires a positive integer" >&2
+                    exit 1
+                fi
+                tail_lines="\$1"
+                shift
+                ;;
             --project)
                 shift
                 if [[ \$# -eq 0 ]]; then
@@ -1604,10 +1840,15 @@ main() {
                 echo "Usage: plsec-status [OPTIONS]"
                 echo ""
                 echo "Options:"
-                echo "  --json        Machine-readable JSON output"
-                echo "  --quiet       Exit code only (no output)"
-                echo "  --project DIR Check specific project directory"
-                echo "  --help        Show this help message"
+                echo "  --json          Machine-readable JSON output"
+                echo "  --quiet         Exit code only (no output)"
+                echo "  --watch         Continuous refresh mode"
+                echo "  --interval N    Refresh interval in seconds (default: 5)"
+                echo "  --tail-lines N  Log lines to show in watch mode (default: 5)"
+                echo "  --project DIR   Check specific project directory"
+                echo "  --help          Show this help message"
+                echo ""
+                echo "Watch mode keys: [q]uit, [r]efresh, [p]ause/resume"
                 exit 0
                 ;;
             *)
@@ -1617,12 +1858,23 @@ main() {
         esac
     done
 
+    # Validate flag combinations
+    if \$watch_mode && (\$json_mode || \$quiet_mode); then
+        echo "ERROR: --watch is incompatible with --json and --quiet" >&2
+        exit 1
+    fi
+
     # Default project path to current directory
     if [[ -z "\$project_path" ]]; then
         project_path="\$(pwd)"
     fi
 
-    # Run all checks
+    # Watch mode: enter continuous loop (never returns)
+    if \$watch_mode; then
+        run_watch "\$project_path" "\$watch_interval" "\$tail_lines"
+    fi
+
+    # One-shot mode
     run_all_checks "\$project_path"
 
     # Output

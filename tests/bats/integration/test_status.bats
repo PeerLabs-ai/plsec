@@ -313,11 +313,28 @@ setup_healthy() {
 }
 
 # ===========================================================================
-# Watch mode: smoke tests (non-TTY, uses sleep fallback + timeout)
+# Watch mode: smoke tests
+#
+# Watch mode calls `clear` between iterations, which erases captured
+# output in non-TTY environments.  We stub `clear` to a no-op so
+# BATS can inspect accumulated output across refreshes.
+# See docs/plsec-status-design.md "Open Design Questions" for the
+# longer-term plan (--batch-mode, data/display separation).
 # ===========================================================================
 
-@test "plsec-status --watch runs and can be killed by timeout" {
+# Helper: set up watch mode environment with clear stubbed out.
+# Places a no-op `clear` script on PATH ahead of the real one.
+setup_watch() {
     setup_healthy
+
+    STUB_BIN="$(mktemp -d)"
+    printf '#!/bin/sh\ntrue\n' > "$STUB_BIN/clear"
+    chmod +x "$STUB_BIN/clear"
+    export PATH="$STUB_BIN:$PATH"
+}
+
+@test "plsec-status --watch runs and can be killed by timeout" {
+    setup_watch
     # timeout sends SIGTERM which triggers our trap -> exit 0
     run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
         --watch --interval 1 --project "$PROJECT"
@@ -326,28 +343,27 @@ setup_healthy() {
 }
 
 @test "plsec-status --watch shows log tail content" {
-    setup_healthy
+    setup_watch
     local today
     today=$(date +%Y%m%d)
     echo "WATCH_LOG_MARKER" >> "${PLSEC_DIR}/logs/claude-${today}.log"
 
-    # Short interval, timeout kills after one iteration
     run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
         --watch --interval 1 --project "$PROJECT"
     assert_output --partial "WATCH_LOG_MARKER"
 }
 
 @test "plsec-status --watch shows key hints" {
-    setup_healthy
+    setup_watch
     run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
         --watch --interval 1 --project "$PROJECT"
-    assert_output --partial "quit"
-    assert_output --partial "refresh"
-    assert_output --partial "pause"
+    assert_output --partial "[q]uit"
+    assert_output --partial "[r]efresh"
+    assert_output --partial "[p]ause"
 }
 
 @test "plsec-status --watch respects --tail-lines count" {
-    setup_healthy
+    setup_watch
     local today
     today=$(date +%Y%m%d)
     local log="${PLSEC_DIR}/logs/claude-${today}.log"
@@ -363,6 +379,6 @@ setup_healthy() {
     assert_output --partial "TAIL_LINE_8"
     assert_output --partial "TAIL_LINE_9"
     assert_output --partial "TAIL_LINE_10"
-    # Should NOT see the first line
-    refute_output --partial "TAIL_LINE_1"
+    # Should NOT see early lines (use TAIL_LINE_2 to avoid prefix match on TAIL_LINE_10)
+    refute_output --partial "TAIL_LINE_2"
 }

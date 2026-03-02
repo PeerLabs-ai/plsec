@@ -27,6 +27,9 @@ plsec-status [OPTIONS]
 | `--help`, `-h`   | Show help message                                |
 | `--json`         | Output machine-readable JSON                     |
 | `--quiet`        | No output, exit code only (0=ok, 1=fail)         |
+| `--watch`        | Continuous refresh mode                          |
+| `--interval N`   | Refresh interval in seconds (default: 5)         |
+| `--tail-lines N` | Log lines to show in watch mode (default: 5)     |
 | `--project PATH` | Check specific project (default: current dir)    |
 
 ### Examples
@@ -113,6 +116,41 @@ $ echo $?
 ```bash
 $ plsec-status --project /path/to/project
 ```
+
+### Watch Mode
+
+Continuous monitoring with auto-refresh:
+
+```bash
+# Watch with defaults (5s refresh, 5 lines log tail)
+$ plsec-status --watch
+
+# Custom refresh interval
+$ plsec-status --watch --interval 10
+
+# Show more log lines
+$ plsec-status --watch --tail-lines 10
+
+# Combined
+$ plsec-status --watch --interval 3 --tail-lines 8 --project /path/to/project
+```
+
+**Keyboard controls** (requires interactive terminal):
+
+| Key | Action                   |
+|-----|--------------------------|
+| `q` | Quit watch mode          |
+| `r` | Refresh immediately      |
+| `p` | Pause/resume auto-refresh|
+
+**Display additions over one-shot mode**:
+
+- Refresh timestamp in header
+- Session count deltas: `sessions today: 3 (+1)` when count increases between refreshes
+- Scan deltas: `last scan: within 24h (new scan)` when a new scan runs
+- Log tail: last N lines from the most recently modified wrapper log
+
+**Note**: `--watch` is incompatible with `--json` and `--quiet`. When stdin is not a terminal (pipes, CI), keyboard controls are disabled and the loop uses `sleep` instead.
 
 ## Health Model
 

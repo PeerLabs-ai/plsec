@@ -1,14 +1,14 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-02-26
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 759 pytest + 133 BATS unit + 78 BATS integration + 44 assembler tests, 77% coverage
+**Last Updated:** 2026-03-01
+**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 759 pytest + 152 BATS unit + 89 BATS integration + 44 assembler tests, 77% coverage
 
 ---
 
 ## Goal
 
 Build **plsec**, a defense-in-depth security framework for AI coding assistants.
-This project has had fourteen objectives across sessions:
+This project has had fifteen objectives across sessions:
 
 1. Get `make ci` passing end-to-end after previous infrastructure work (complete)
 2. Remove Pydantic in favour of plain dataclasses (complete)
@@ -24,8 +24,9 @@ This project has had fourteen objectives across sessions:
 12. Enhanced wrapper logging - Tier 1 session enrichment + Tier 2 audit logging via `CLAUDE_CODE_SHELL_PREFIX` (complete)
 13. `plsec-status` Phase 1 - bash health checks, Python integration, CI/CD docs (complete)
 14. Hierarchical composable configuration - TOML presets, 5-layer merge, enhanced CLI grammar (complete)
+15. `plsec-status` Phase 2 - watch mode with `--watch`, `--interval`, `--tail-lines`, keyboard controls, delta tracking (complete)
 
-Items 1-14 are complete.
+Items 1-15 are complete.
 
 ## Instructions
 
@@ -144,6 +145,39 @@ plsec scan --preset minimal --code      # minimal + all code (union)
 - Uninstall strips alias automatically (entire block removed by `_remove_alias_block()`)
 
 **Test counts:** 759 pytest tests (93 new across all phases), all passing.
+
+### Milestone 15: plsec-status Phase 2 -- Watch Mode
+
+Added continuous refresh mode to `plsec-status.sh` with keyboard
+controls, in-memory delta tracking, and configurable log tail.
+
+**Implementation (templates/bootstrap/plsec-status.sh):**
+- Added `--watch`, `--interval N`, `--tail-lines N` flags to argument parser
+- Added `run_watch()` core loop: clear, re-run checks, compute deltas,
+  render, sleep/keypress cycle
+- Added `reset_check_state()` to clear global arrays between iterations
+- Added `print_watch_header()` with refresh timestamp and key hints
+- Added `inject_deltas()` to modify A-2/A-3 detail strings with "+N"/"new scan"
+- Added `get_current_session_count()`, `compute_session_delta()`,
+  `get_scan_timestamp()`, `compute_scan_delta()` helper functions
+- Added `print_log_tail()` to display last N lines from most recent log
+- TTY detection: keyboard controls (q/r/p) when stdin is a terminal,
+  plain `sleep` fallback when not (pipes, CI, BATS)
+- Validation: `--watch` incompatible with `--json`/`--quiet`; interval and
+  tail-lines must be positive integers
+
+**Tests added:**
+- 19 new BATS unit tests: delta computation (6), log tail (5),
+  reset/inject helpers (4), session/scan timestamp (4)
+- 11 new BATS integration tests: argument validation (7), watch mode
+  smoke tests with stubbed `clear` (4)
+- Integration tests use PATH-based `clear` stub to prevent screen
+  erasure in non-TTY environments
+
+**Design questions documented** (`docs/plsec-status-design.md`):
+- `--batch-mode` flag for non-interactive use
+- Data/display separation as prerequisite for Phase 3 TUI
+- Manual testing strategy for interactive features
 
 **Files created (Phase 1):**
 - `src/plsec/configs/presets/__init__.py` -- `BUILTIN_PRESET_DIR` constant
@@ -817,10 +851,12 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 12. ~~**Hierarchical composable config**~~ (DONE -- TOML presets, 5-layer merge,
     enhanced CLI grammar with `--preset`, `--scanner`, `--code`/`--secrets`,
     preset deployment, cleanup, plsec-status alias, 759 tests, `make ci` green)
-13. **`plsec-status` Phase 2** - watch mode
-13. **Agent monitoring foundation** - `data_dir` in AgentSpec,
+13. ~~**`plsec-status` Phase 2**~~ (DONE -- `--watch`, `--interval`,
+    `--tail-lines` flags, keyboard controls (q/r/p), in-memory delta
+    tracking, log tail display, 152 BATS unit + 89 BATS integration tests)
+14. **Agent monitoring foundation** - `data_dir` in AgentSpec,
     `compatibility.yaml`, adapter protocol, doctor checks D-1..D-4
-14. **Agent data adapters** - OpenCode SQLite + Claude Code JSONL
+15. **Agent data adapters** - OpenCode SQLite + Claude Code JSONL
     adapters, plsec-status activity checks
 
 ### v0.2.0 milestones
@@ -874,6 +910,8 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `build/bootstrap.sh` - Assembled output
 - `bin/bootstrap.default.sh` - Promoted reference
 - `tests/bats/unit/test_wrapper_logging.bats` - 41 BATS wrapper logging tests
+- `tests/bats/unit/test_status.bats` - 93 BATS unit tests (health checks + watch mode deltas/tail)
+- `tests/bats/integration/test_status.bats` - 89 BATS integration tests (full execution + watch mode)
 
 ### Trivy configuration (3 layers)
 - `templates/bootstrap/trivy.yaml` - Bootstrap template (authoritative, includes skip-dirs + skip-files)

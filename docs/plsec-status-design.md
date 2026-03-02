@@ -411,6 +411,38 @@ during the v0.2 review (2026-02-23).
    zero-warning enforcement should parse `--json` output.
 
 
+## Open Design Questions (Phase 2 Watch Mode)
+
+The following questions were identified during Phase 2 implementation
+and deferred to future phases.
+
+1. **`--batch-mode` flag.** Watch mode currently calls `clear` and
+   renders keyboard hints, which couples display to an interactive
+   terminal. A `--batch-mode` flag would suppress `clear`, skip key
+   hints, and simply refresh output on interval -- useful for CI, log
+   capture, and automated monitoring. This cleanly separates
+   interactive vs non-interactive watch without stubbing internals.
+
+2. **Data/display separation.** The current design mixes data
+   collection (run checks, compute deltas) with display rendering
+   (clear screen, format output, tail logs) inside `run_watch()`.
+   Separating these into a data layer (returns structured results) and
+   a display layer (renders to terminal) would make the data path
+   rigorously testable with automation while acknowledging that
+   interactive display testing requires manual verification or heavier
+   tools (e.g., tmux capture-pane). This separation is a natural
+   prerequisite for the Phase 3 TUI, which will consume the same data
+   layer through a Textual interface.
+
+3. **Manual testing strategy for interactive features.** Keyboard
+   controls (q/r/p), screen clearing, and delta rendering in a live
+   terminal are inherently interactive. These should be verified
+   manually as part of each release, with a documented manual test
+   checklist. Automated tests should focus on the data path: delta
+   computation, log tail selection, check result accumulation, and
+   argument validation.
+
+
 ## Appendix A: Phase 3 TUI Sketch
 
 For roadmap context only. Not in scope for this specification.
