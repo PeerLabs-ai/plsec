@@ -1,0 +1,40 @@
+# Agent data format compatibility registry.
+#
+# Tracks which agent versions have been validated against plsec's
+# data adapters.  Community-maintained: submit PRs to add validated
+# versions after testing with `plsec doctor`.
+#
+# See docs/DESIGN-AGENT-MONITORING.md for background.
+
+schema_version: 1
+
+adapters:
+  opencode:
+    data_dir: "~/.local/share/opencode"
+    format: sqlite
+    binary_command: opencode
+    version_flag: "--version"
+    validated:
+      - version: "1.2.15"
+        date: "2026-03-01"
+        status: compatible
+      - version: "1.2.10"
+        date: "2026-02-23"
+        status: compatible
+    untested_range: ">=1.3.0"
+    known_incompatible: []
+    min_supported: "1.1.0"
+
+  claude-code:
+    data_dir: "~/.claude"
+    format: jsonl
+    binary_command: claude
+    version_flag: "--version"
+    stats_cache_format_version: 2
+    validated:
+      - version: "2.1.39"
+        date: "2026-02-23"
+        status: compatible
+    untested_range: ">=2.2.0"
+    known_incompatible: []
+    min_supported: "2.0.0"

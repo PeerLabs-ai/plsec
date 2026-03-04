@@ -10,9 +10,11 @@ __version__ = "0.1.0"
 import typer
 
 from plsec.core.agents import AGENTS
+from plsec.core.compatibility import check_all_agents
 from plsec.core.config import find_config_file, get_plsec_home
 from plsec.core.health import (
     CheckResult,
+    check_agent_compatibility,
     check_agent_configs,
     check_config_file,
     check_directory_structure,
@@ -150,6 +152,13 @@ def doctor(
     # Runtime
     print_header("Runtime")
     results = check_runtime()
+    _render_results(results)
+    all_results.extend(results)
+
+    # Agent compatibility
+    print_header("Agent Compatibility")
+    compat_results = check_all_agents()
+    results = check_agent_compatibility(compat_results)
     _render_results(results)
     all_results.extend(results)
 

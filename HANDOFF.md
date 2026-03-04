@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-03-01
-**Status:** `make ci` green, `make scan` clean (all 4 scanners pass), 759 pytest + 152 BATS unit + 89 BATS integration + 44 assembler tests, 77% coverage
+**Last Updated:** 2026-03-03
+**Status:** `make ci` green (1 pre-existing BATS integration flake), `make scan` clean (all 4 scanners pass), 836 pytest + 152 BATS unit + 89 BATS integration + 44 assembler tests, 80% coverage
 
 ---
 
@@ -26,7 +26,9 @@ This project has had fifteen objectives across sessions:
 14. Hierarchical composable configuration - TOML presets, 5-layer merge, enhanced CLI grammar (complete)
 15. `plsec-status` Phase 2 - watch mode with `--watch`, `--interval`, `--tail-lines`, keyboard controls, delta tracking (complete)
 
-Items 1-15 are complete.
+16. Agent monitoring foundation -- compatibility registry, version detection, doctor checks D-1 through D-3 (complete)
+
+Items 1-16 are complete.
 
 ## Instructions
 
@@ -75,6 +77,67 @@ Items 1-15 are complete.
   (CI verify and golden-check steps will fail otherwise)
 
 ## Accomplished (this session)
+
+### Milestone 14a: Agent Monitoring Foundation
+
+Built the compatibility infrastructure that lets plsec detect agent versions
+(binary + data store), validate them against a known-good registry, and
+report findings via `plsec doctor`.
+
+**Compatibility registry (`src/plsec/configs/compatibility.yaml`):**
+- YAML registry with schema_version, per-agent entries for OpenCode and Claude Code
+- Each entry: data_dir, format (sqlite/jsonl), binary_command, version_flag,
+  validated versions with dates, untested_range, known_incompatible, min_supported
+
+**Adapter data types (`src/plsec/core/adapters/__init__.py`):**
+- `ValidatedVersion`, `AdapterCompat`, `VersionProbe`, `CompatResult` dataclasses
+- `SessionSummary`, `ToolCall`, `TokenUsage`, `ErrorRecord` for future milestone 15
+- `AgentDataAdapter` protocol stub for future full adapters
+
+**Data store probes:**
+- `probe_opencode_data_version()` in `adapters/opencode.py` -- read-only SQLite
+  query for most recent session version from `~/.local/share/opencode/opencode.db`
+- `probe_claude_data_version()` in `adapters/claude.py` -- scan tail of most
+  recent JSONL file under `~/.claude/projects/` for version field
+
+**Compatibility engine (`src/plsec/core/compatibility.py`):**
+- `load_compatibility_registry()` -- loads YAML, returns `dict[str, AdapterCompat]`
+- `probe_binary_version()` -- runs agent binary with version flag, parses output
+- `probe_agent()` -- combines binary + data store probing into `VersionProbe`
+- `check_version_compatibility()` -- assesses probe against registry, produces
+  `CompatResult` with verdict (ok/warn/fail/skip) and drift detection
+- `check_all_agents()` -- probes and checks all agents in registry
+
+**Doctor integration:**
+- `check_agent_compatibility()` in `health.py` -- translates `CompatResult` to
+  `CheckResult` for doctor display (D-1 per agent, D-drift for version mismatch)
+- Wired into `doctor.py` as "Agent Compatibility" section after Runtime
+
+**Tests (77 new tests, 836 total):**
+- `tests/test_compatibility.py` -- 64 tests covering all layers:
+  registry loading (5), binary probing (8), OpenCode SQLite (6),
+  Claude JSONL (7), find/extract helpers (7), semver parsing (9),
+  probe_agent (5), check_version_compatibility (12), check_all_agents (2),
+  CompatResult (2)
+- `tests/test_health.py` -- 13 new tests for `check_agent_compatibility()`:
+  verdict mapping (4), sequential IDs (1), drift detection (4),
+  edge cases (4)
+- `tests/test_doctor.py` -- updated `_mock_all_passing()` with compatibility mocks
+
+**Files created (6):**
+- `src/plsec/configs/compatibility.yaml`
+- `src/plsec/core/adapters/__init__.py`
+- `src/plsec/core/adapters/opencode.py`
+- `src/plsec/core/adapters/claude.py`
+- `src/plsec/core/compatibility.py`
+- `tests/test_compatibility.py`
+
+**Files modified (4):**
+- `pyproject.toml` -- added `semver>=3.0.0` dependency
+- `src/plsec/core/health.py` -- added `check_agent_compatibility()`, imported `CompatResult`
+- `src/plsec/commands/doctor.py` -- wired compatibility checks, imported `check_all_agents`
+- `tests/test_doctor.py` -- updated `_mock_all_passing()` with compatibility mocks
+- `tests/test_health.py` -- added `TestCheckAgentCompatibility` class (13 tests)
 
 ### Milestone 14: Hierarchical Composable Configuration (Phases 1-5)
 
@@ -823,6 +886,30 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
     and `ctx.obj["verbose"] = verbose` stores global CLI options. Subcommands
     access via `ctx.obj or {}`.
 
+59. **`semver>=3.0.0` from PyPI for version comparison.** Preferred over
+    DIY implementation. `semver.Version.parse()` handles full semver with
+    prerelease/build. Two-part versions (`"1.2"`) need manual `.0` suffix.
+60. **Dual version capture is essential for agent monitoring.** Binary
+    version (from `--version`) and data store version (from reading the
+    agent's local data) can diverge when the user upgrades the binary but
+    has old session data. Compatibility checked against data store version
+    (preferred), binary version as fallback.
+61. **OpenCode SQLite `session.version` column is reliable.** Text NOT NULL,
+    populated on every session creation. `time_created` is Unix ms.
+    Read-only connection via `?mode=ro` URI parameter.
+62. **Claude Code JSONL version field is inconsistent.** Not every line has
+    a `version` field (e.g., `file-history-snapshot` omits it). Must scan
+    backwards from end of file to find first line with `"version"` key.
+    `stats-cache.json` has `"version": 2` which is format version, not
+    binary version.
+63. **`_DATA_PROBES` type annotation was wrong.** Originally `dict[str, type]`
+    but the values are callable functions `(Path) -> str | None`, not types.
+    `ty` caught this. Fixed to `dict[str, Callable[[Path], str | None]]`.
+64. **Mocking entire `subprocess` module breaks `except` clauses.** When
+    patching `plsec.core.compatibility.subprocess` as a MagicMock,
+    `subprocess.TimeoutExpired` becomes a MagicMock which can't be used in
+    `except`. Must patch `subprocess.run` specifically instead.
+
 ## What Needs to Happen Next
 
 ### v0.1.x milestones (in order)
@@ -854,10 +941,11 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 13. ~~**`plsec-status` Phase 2**~~ (DONE -- `--watch`, `--interval`,
     `--tail-lines` flags, keyboard controls (q/r/p), in-memory delta
     tracking, log tail display, 152 BATS unit + 89 BATS integration tests)
-14. **Agent monitoring foundation** - `data_dir` in AgentSpec,
-    `compatibility.yaml`, adapter protocol, doctor checks D-1..D-4
+14. ~~**Agent monitoring foundation**~~ (DONE -- compatibility registry,
+    version probing (binary + data store), doctor checks D-1..D-3,
+    adapter protocol stub, 836 tests, 80% cov)
 15. **Agent data adapters** - OpenCode SQLite + Claude Code JSONL
-    adapters, plsec-status activity checks
+    adapters, plsec-status activity checks, auth token check D-4
 
 ### v0.2.0 milestones
 

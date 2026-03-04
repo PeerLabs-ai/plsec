@@ -19,6 +19,7 @@ use tmp_path fixtures with no mocking needed for most functions.
 from pathlib import Path
 from unittest.mock import patch
 
+from plsec.core.adapters import CompatResult, VersionProbe
 from plsec.core.agents import AGENTS, AgentSpec
 from plsec.core.health import (
     PLSEC_EXPECTED_FILES,
@@ -26,6 +27,7 @@ from plsec.core.health import (
     PLSEC_EXPECTED_SCRIPTS,
     PLSEC_SUBDIRS,
     CheckResult,
+    check_agent_compatibility,
     check_agent_configs,
     check_config_file,
     check_directory_structure,
@@ -689,3 +691,158 @@ class TestCheckPresetFiles:
         assert "config/presets/balanced.toml" in names
         assert "config/presets/strict.toml" in names
         assert "config/presets/paranoid.toml" in names
+
+
+# -----------------------------------------------------------------------
+# check_agent_compatibility
+# -----------------------------------------------------------------------
+
+
+def _make_compat_result(
+    agent_id: str = "test-agent",
+    verdict: str = "ok",
+    detail: str = "all good",
+    *,
+    binary_version: str | None = None,
+    data_version: str | None = None,
+) -> CompatResult:
+    """Build a CompatResult for testing."""
+    return CompatResult(
+        agent_id=agent_id,
+        probe=VersionProbe(
+            agent_id=agent_id,
+            binary_version=binary_version,
+            data_version=data_version,
+            data_dir_exists=data_version is not None,
+            binary_found=binary_version is not None,
+        ),
+        verdict=verdict,
+        detail=detail,
+        effective_version=data_version or binary_version,
+    )
+
+
+class TestCheckAgentCompatibility:
+    """Contract: check_agent_compatibility translates CompatResult objects
+    into CheckResult objects for doctor display.
+
+    Why tested directly: This function implements doctor checks D-1, D-2,
+    and D-drift.  It bridges the compatibility module and the doctor
+    rendering pipeline.  Fix by updating the mapping in health.py.
+    """
+
+    def test_ok_verdict_maps_to_ok(self):
+        """CompatResult with ok verdict -> CheckResult with ok verdict."""
+        cr = _make_compat_result(verdict="ok", detail="1.2.15 (validated 2026-03-01)")
+        results = check_agent_compatibility([cr])
+        assert len(results) == 1
+        assert results[0].verdict == "ok"
+        assert results[0].id == "D-1"
+        assert "compatibility" in results[0].name
+
+    def test_warn_verdict_maps_to_warn(self):
+        cr = _make_compat_result(verdict="warn", detail="1.3.0 untested")
+        results = check_agent_compatibility([cr])
+        assert len(results) == 1
+        assert results[0].verdict == "warn"
+        assert results[0].fix_hint  # should have a fix hint
+
+    def test_fail_verdict_maps_to_fail(self):
+        cr = _make_compat_result(verdict="fail", detail="0.9.0 below minimum 1.0.0")
+        results = check_agent_compatibility([cr])
+        assert len(results) == 1
+        assert results[0].verdict == "fail"
+        assert results[0].fix_hint  # should have a fix hint
+
+    def test_skip_verdict_maps_to_skip(self):
+        cr = _make_compat_result(verdict="skip", detail="not installed")
+        results = check_agent_compatibility([cr])
+        assert len(results) == 1
+        assert results[0].verdict == "skip"
+
+    def test_sequential_check_ids(self):
+        """Multiple agents should get sequential D-1, D-2 IDs."""
+        crs = [
+            _make_compat_result(agent_id="opencode", verdict="ok"),
+            _make_compat_result(agent_id="claude-code", verdict="ok"),
+        ]
+        results = check_agent_compatibility(crs)
+        # Filter out drift results
+        d_results = [r for r in results if r.id.startswith("D-") and r.id != "D-drift"]
+        assert d_results[0].id == "D-1"
+        assert d_results[1].id == "D-2"
+
+    def test_drift_produces_extra_result(self):
+        """Binary != data version should produce a D-drift warning."""
+        cr = _make_compat_result(
+            verdict="ok",
+            detail="1.2.15 (validated)",
+            binary_version="1.2.10",
+            data_version="1.2.15",
+        )
+        results = check_agent_compatibility([cr])
+        drift_results = [r for r in results if r.id == "D-drift"]
+        assert len(drift_results) == 1
+        assert drift_results[0].verdict == "warn"
+        assert "1.2.10" in drift_results[0].detail
+        assert "1.2.15" in drift_results[0].detail
+
+    def test_no_drift_when_versions_match(self):
+        """Same binary and data version should not produce D-drift."""
+        cr = _make_compat_result(
+            verdict="ok",
+            binary_version="1.2.15",
+            data_version="1.2.15",
+        )
+        results = check_agent_compatibility([cr])
+        drift_results = [r for r in results if r.id == "D-drift"]
+        assert len(drift_results) == 0
+
+    def test_no_drift_when_no_binary(self):
+        """No binary version -> no drift check."""
+        cr = _make_compat_result(
+            verdict="ok",
+            data_version="1.2.15",
+        )
+        results = check_agent_compatibility([cr])
+        drift_results = [r for r in results if r.id == "D-drift"]
+        assert len(drift_results) == 0
+
+    def test_no_drift_when_no_data_version(self):
+        """No data version -> no drift check."""
+        cr = _make_compat_result(
+            verdict="warn",
+            binary_version="1.2.15",
+        )
+        results = check_agent_compatibility([cr])
+        drift_results = [r for r in results if r.id == "D-drift"]
+        assert len(drift_results) == 0
+
+    def test_empty_input(self):
+        """Empty compat results -> empty check results."""
+        results = check_agent_compatibility([])
+        assert results == []
+
+    def test_agent_id_in_check_name(self):
+        """Agent ID should appear in the check name."""
+        cr = _make_compat_result(agent_id="opencode", verdict="ok")
+        results = check_agent_compatibility([cr])
+        assert "opencode" in results[0].name
+
+    def test_detail_preserved(self):
+        """Detail from CompatResult should be preserved in CheckResult."""
+        detail = "1.2.15 (validated 2026-03-01)"
+        cr = _make_compat_result(verdict="ok", detail=detail)
+        results = check_agent_compatibility([cr])
+        assert results[0].detail == detail
+
+    def test_category_is_installation(self):
+        """All results should be in the installation category."""
+        crs = [
+            _make_compat_result(verdict="ok"),
+            _make_compat_result(verdict="warn"),
+            _make_compat_result(verdict="fail"),
+            _make_compat_result(verdict="skip"),
+        ]
+        results = check_agent_compatibility(crs)
+        assert all(r.category == "installation" for r in results)

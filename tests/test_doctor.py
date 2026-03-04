@@ -70,6 +70,10 @@ def _mock_all_passing() -> dict[str, MagicMock]:
         f"{_MODULE}.check_wrapper_scripts": MagicMock(return_value=[_ok("wrappers")]),
         f"{_MODULE}.check_tools": MagicMock(return_value=[_ok("trivy")]),
         f"{_MODULE}.check_runtime": MagicMock(return_value=[_ok("python")]),
+        f"{_MODULE}.check_all_agents": MagicMock(return_value=[]),
+        f"{_MODULE}.check_agent_compatibility": MagicMock(
+            return_value=[_ok("opencode compat"), _ok("claude-code compat")]
+        ),
         f"{_MODULE}.ToolChecker": mock_checker,
     }
 

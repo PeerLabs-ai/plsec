@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from plsec.core.adapters import CompatResult
 from plsec.core.agents import AgentSpec
 from plsec.core.tools import Tool, ToolStatus
 
@@ -60,14 +61,19 @@ class CheckResult:
 
     # Check identifier matching plsec-status design doc (e.g., "I-1", "C-3")
     id: str
+
     # Human-readable check name (e.g., "plsec directory")
     name: str
+
     # Check category per the health model
     category: Literal["installation", "configuration", "activity", "findings"]
+
     # Check outcome
     verdict: Literal["ok", "warn", "fail", "skip"]
+
     # Additional detail for display (e.g., file path, version string)
     detail: str = ""
+
     # Suggested remediation (e.g., "Run 'plsec init' to create")
     fix_hint: str = ""
 
@@ -462,6 +468,92 @@ def check_runtime() -> list[CheckResult]:
 # ---------------------------------------------------------------------------
 # Configuration checks (project-level)
 # ---------------------------------------------------------------------------
+
+
+def check_agent_compatibility(
+    compat_results: list[CompatResult],
+) -> list[CheckResult]:
+    """Convert agent compatibility results into health CheckResults.
+
+    Translates CompatResult objects from the compatibility module into
+    CheckResult objects for display by ``plsec doctor``.
+
+    Produces checks:
+    - D-{n}: Per-agent compatibility verdict (one per agent).
+    - D-drift: Version drift warning when binary != data version.
+
+    Args:
+        compat_results: Results from ``check_all_agents()`` or
+            ``check_version_compatibility()`` calls.
+    """
+    results: list[CheckResult] = []
+
+    for i, cr in enumerate(compat_results, start=1):
+        check_id = f"D-{i}"
+        agent_label = cr.agent_id
+
+        if cr.verdict == "ok":
+            results.append(
+                CheckResult(
+                    id=check_id,
+                    name=f"{agent_label} compatibility",
+                    category="installation",
+                    verdict="ok",
+                    detail=cr.detail,
+                )
+            )
+        elif cr.verdict == "warn":
+            results.append(
+                CheckResult(
+                    id=check_id,
+                    name=f"{agent_label} compatibility",
+                    category="installation",
+                    verdict="warn",
+                    detail=cr.detail,
+                    fix_hint="Update agent or add version to compatibility.yaml",
+                )
+            )
+        elif cr.verdict == "fail":
+            results.append(
+                CheckResult(
+                    id=check_id,
+                    name=f"{agent_label} compatibility",
+                    category="installation",
+                    verdict="fail",
+                    detail=cr.detail,
+                    fix_hint="Update agent to a supported version",
+                )
+            )
+        elif cr.verdict == "skip":
+            results.append(
+                CheckResult(
+                    id=check_id,
+                    name=f"{agent_label} compatibility",
+                    category="installation",
+                    verdict="skip",
+                    detail=cr.detail,
+                )
+            )
+
+        # D-drift: Version drift detection
+        probe = cr.probe
+        if (
+            probe.binary_version
+            and probe.data_version
+            and probe.binary_version != probe.data_version
+        ):
+            results.append(
+                CheckResult(
+                    id="D-drift",
+                    name=f"{agent_label} version drift",
+                    category="installation",
+                    verdict="warn",
+                    detail=(f"binary: {probe.binary_version}, data: {probe.data_version}"),
+                    fix_hint="Binary and data store versions differ; update the agent",
+                )
+            )
+
+    return results
 
 
 def check_project_configs(
