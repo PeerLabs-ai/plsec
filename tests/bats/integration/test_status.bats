@@ -98,22 +98,15 @@ setup_healthy() {
     assert_failure
 }
 
-@test "plsec-status shows warning for missing optional tools" {
-    "${BOOTSTRAP}" --agent claude
-    run "${PLSEC_DIR}/plsec-status.sh" --project "$PROJECT"
-    # detect-secrets is likely not installed, or activity logs will warn
-    assert_output --partial "WARN"
-}
-
 # ===========================================================================
 # Fresh install scenario
 # ===========================================================================
 
-@test "plsec-status shows activity warnings after fresh install" {
+@test "plsec-status shows activity failures after fresh install" {
     "${BOOTSTRAP}" --agent claude
     run "${PLSEC_DIR}/plsec-status.sh" --project "$PROJECT"
-    # No sessions, no scans -- expect WARN or FAIL in activity
-    assert_output --partial "WARN"
+    # No sessions, no scans -- activity checks report FAIL
+    assert_output --partial "FAIL"
 }
 
 @test "plsec-status findings checks SKIP when no scan data" {

@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-03-03
-**Status:** `make ci` green (1 pre-existing BATS integration flake), `make scan` clean (all 4 scanners pass), 836 pytest + 152 BATS unit + 89 BATS integration + 44 assembler tests, 80% coverage
+**Last Updated:** 2026-03-05
+**Status:** `make ci` green (1 pre-existing BATS integration flake), `make scan` clean (all 4 scanners pass), 1007 pytest + 152 BATS unit + 89 BATS integration + 44 assembler tests
 
 ---
 
@@ -27,8 +27,9 @@ This project has had fifteen objectives across sessions:
 15. `plsec-status` Phase 2 - watch mode with `--watch`, `--interval`, `--tail-lines`, keyboard controls, delta tracking (complete)
 
 16. Agent monitoring foundation -- compatibility registry, version detection, doctor checks D-1 through D-3 (complete)
+17. Engine architecture foundation -- Phases 1-3: core types, base abstractions, verdict strategies, engine registry, TrivySecretEngine (complete)
 
-Items 1-16 are complete.
+Items 1-17 are complete (Phases 1-3 of Milestone 16/17). Phases 4-8 remaining.
 
 ## Instructions
 
@@ -77,6 +78,56 @@ Items 1-16 are complete.
   (CI verify and golden-check steps will fail otherwise)
 
 ## Accomplished (this session)
+
+### Milestone 16/17: Engine Architecture Foundation (Phases 1-3)
+
+Built the engine architecture that replaces the subprocess-wrapper scanning
+approach with a proper engine abstraction. Design doc: `docs/DESIGN-PLSEC-ENGINE.md`.
+
+**Phase 1 -- Core Types + Base + Verdict (prior session, verified this session):**
+- `engine/types.py` -- Finding (frozen, content-hash ID, with_severity/with_suppressed),
+  Location, Layer (IntEnum 1-5), Severity (IntEnum 0-4), FindingCategory, Preset,
+  EngineStatus, AvailabilityResult, EnvironmentInfo, ScanContext
+- `engine/base.py` -- Engine ABC (engine_id, layer, display_name, presets, dependencies,
+  check_available, execute), EngineGroup (preset filtering, availability gating),
+  EngineResult, LayerResult, ScanResult (mutable, verdict/evaluated_findings fields)
+- `engine/verdict.py` -- VerdictStatus, VerdictCounts, Verdict (frozen), VerdictStrategy ABC,
+  ThresholdVerdictStrategy (configurable severity thresholds, coverage warnings),
+  StrictVerdictStrategy (any finding or skip = fail),
+  AuditVerdictStrategy (always passes), strategy_for_preset()
+- 109 tests across test_types.py (39), test_base.py (29), test_verdict.py (41)
+
+**Phase 2 -- Engine Registry (this session):**
+- `engine/registry.py` -- EngineRegistry with register() (unique ID enforcement),
+  group_for() (returns EngineGroup per layer), get() (by ID), all_engines(),
+  layers_with_engines(), __len__, __contains__, __repr__
+- `build_default_registry()` factory -- registers TrivySecretEngine + ContainerIsolationEngine
+- 24 tests in test_registry.py -- construction, registration, lookup, iteration, default factory
+
+**Phase 3 -- TrivySecretEngine (this session):**
+- Fixed f-string bug in timeout error message (missing `f` prefix)
+- 38 tests in test_trivy.py with full subprocess mocking -- identity, availability,
+  happy path (single/multiple secrets, clean scans), error handling (timeout, FileNotFoundError,
+  OSError, invalid JSON), command construction (secret_config, timeout), severity mapping,
+  finding details (evidence, remediation, deterministic IDs), tool failure findings
+
+**Cleanup (this session):**
+- Fixed `except Exception` in `correlation.py:81` -- narrowed to
+  `(TypeError, ValueError, KeyError, AttributeError, IndexError)`
+- Verified S105 renames consistent: `FindingCategory.LEAKED_CREDENTIAL = "secret"`,
+  `VerdictStatus.PASSED = "pass"`
+
+**Files created (4):**
+- `src/plsec/engine/registry.py`
+- `tests/engine/test_registry.py`
+- `tests/engine/test_trivy.py`
+
+**Files modified (2):**
+- `src/plsec/engine/trivy_secrets.py` -- f-string bug fix
+- `src/plsec/engine/correlation.py` -- narrowed except clause
+
+**Test counts:** 1007 pytest (171 engine), all passing.
+**Coverage:** types.py 100%, base.py 99%, verdict.py 100%, registry.py 100%, trivy_secrets.py 100%.
 
 ### Milestone 14a: Agent Monitoring Foundation
 
@@ -944,17 +995,24 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 14. ~~**Agent monitoring foundation**~~ (DONE -- compatibility registry,
     version probing (binary + data store), doctor checks D-1..D-3,
     adapter protocol stub, 836 tests, 80% cov)
-15. **Agent data adapters** - OpenCode SQLite + Claude Code JSONL
+15. ~~**Engine architecture (Phases 1-3)**~~ (DONE -- core types, base
+    abstractions, verdict strategies, engine registry, TrivySecretEngine,
+    1007 tests)
+16. **Engine architecture (Phases 4-5)** - Policy tests, correlation tests,
+    orchestrator tests
+17. **Engine architecture (Phases 6-8)** - Wire `plsec scan` to engine pipeline,
+    remaining scanner engines (Bandit, Semgrep, Trivy misconfig), doctor integration
+18. **Agent data adapters** - OpenCode SQLite + Claude Code JSONL
     adapters, plsec-status activity checks, auth token check D-4
 
 ### v0.2.0 milestones
 
-15. **`plsec monitor` command** - agent activity summary, audit view,
+19. **`plsec monitor` command** - agent activity summary, audit view,
     token tracking, security cross-reference with wrapper logs
-16. **`plsec run` command** - managed agent execution, container
+20. **`plsec run` command** - managed agent execution, container
     isolation (Podman default), `CLAUDE_CODE_SHELL_PREFIX` audit,
     pre/post-flight checks
-17. **MCP server harness** - `plsec create --mcp-server` generates
+21. **MCP server harness** - `plsec create --mcp-server` generates
     secured sample MCP server project
 
 ## Relevant files / directories
@@ -963,6 +1021,7 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `AGENTS.md` - Coding standards, build commands, project conventions
 - `PROJECT.md` - TODOs, architecture decisions
 - `TESTING.md` - Full 3-tier pytest test plan (22 files)
+- `docs/DESIGN-PLSEC-ENGINE.md` - Engine architecture design (DRAFT, Phases 1-3 implemented)
 - `docs/DESIGN-AGENT-MONITORING.md` - Agent data monitoring + compatibility registry (PROPOSED)
 - `docs/DESIGN-INSTALL-RESET-UNINSTALL.md` - Lifecycle commands (IMPLEMENTED)
 - `docs/DESIGN-PLSEC-REFACTOR.md` - Registry refactoring design (IMPLEMENTED)
@@ -975,6 +1034,23 @@ consumer changes. Design doc: `docs/DESIGN-PLSEC-REFACTOR.md`.
 - `src/plsec/core/config.py` - `PlsecConfig`, `StaticLayerConfig`, `RuntimeLayerConfig`, `merge_configs()`, `resolve_config()`, `_merge_dicts()`, provenance tracking
 - `src/plsec/core/presets.py` - `load_preset()`, `find_preset_file()`, `list_presets()`, `validate_preset_level()`, TOML-based preset loading
 - `src/plsec/configs/presets/` - 4 TOML preset files (minimal, balanced, strict, paranoid)
+
+### Engine architecture (new)
+- `src/plsec/engine/__init__.py` - Package docstring
+- `src/plsec/engine/types.py` - Finding, Location, Layer, Severity, FindingCategory, Preset, EngineStatus, AvailabilityResult, EnvironmentInfo, ScanContext
+- `src/plsec/engine/base.py` - Engine ABC, EngineGroup, EngineResult, LayerResult, ScanResult
+- `src/plsec/engine/verdict.py` - VerdictStatus, VerdictCounts, Verdict, three strategy classes, strategy_for_preset()
+- `src/plsec/engine/registry.py` - EngineRegistry, build_default_registry()
+- `src/plsec/engine/policy.py` - Suppression, Policy (sketch, needs tests)
+- `src/plsec/engine/correlation.py` - CorrelationRule, CorrelationEngine, 3 built-in rules (sketch, needs tests)
+- `src/plsec/engine/orchestrator.py` - Orchestrator, build_orchestrator (sketch, needs tests)
+- `src/plsec/engine/trivy_secrets.py` - TrivySecretEngine (tested, 100% coverage)
+- `src/plsec/engine/container_isolation.py` - ContainerIsolationEngine (sketch, needs tests)
+- `tests/engine/test_types.py` - 39 tests
+- `tests/engine/test_base.py` - 29 tests
+- `tests/engine/test_verdict.py` - 41 tests
+- `tests/engine/test_registry.py` - 24 tests
+- `tests/engine/test_trivy.py` - 38 tests
 
 ### Registry and core modules
 - `src/plsec/core/agents.py` - `AgentSpec`, `AGENTS`, `is_strict()`, `security_mode()`, `get_template()`, `resolve_agent_ids()`, validators
