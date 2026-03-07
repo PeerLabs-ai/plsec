@@ -35,6 +35,7 @@ secrets:
       - "tests/test_detector.py"
       - "tests/test_scanners.py"
       - "tests/test_templates.py"
+      - "tests/engine/test_trivy.py"
       - "tests/bats/test_helper/bats-file/.github/workflows/scorecard.yaml"
     statement: >-
       Source code that references scanner configs, detection patterns,

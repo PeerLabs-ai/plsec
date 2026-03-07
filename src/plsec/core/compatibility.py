@@ -10,7 +10,7 @@ Milestone 14b: Add local validation cache.
 See docs/DESIGN-AGENT-MONITORING.md for background.
 """
 
-import importlib.resources
+import importlib.resources  # nosemgrep: python37-compatibility-importlib2
 import logging
 import shutil
 import subprocess
