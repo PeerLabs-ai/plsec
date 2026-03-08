@@ -98,11 +98,17 @@ def build_default_registry() -> EngineRegistry:
     This is the standard construction path. The CLI calls this
     to get the full set of plsec engines.
     """
+    from plsec.engine.bandit import BanditEngine
     from plsec.engine.container_isolation import ContainerIsolationEngine
+    from plsec.engine.semgrep import SemgrepEngine
+    from plsec.engine.trivy_misconfig import TrivyMisconfigEngine
     from plsec.engine.trivy_secrets import TrivySecretEngine
 
     registry = EngineRegistry()
     registry.register(TrivySecretEngine())
+    registry.register(BanditEngine())
+    registry.register(SemgrepEngine())
+    registry.register(TrivyMisconfigEngine())
     registry.register(ContainerIsolationEngine())
 
     logger.info("Built default registry with %d engine(s)", len(registry))

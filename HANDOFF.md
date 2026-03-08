@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-03-05
-**Status:** `make ci` green (1 pre-existing BATS integration flake), `make scan` clean (all 4 scanners pass), 1007 pytest + 152 BATS unit + 89 BATS integration + 44 assembler tests
+**Last Updated:** 2026-03-07
+**Status:** `make ci` green, `make scan` runs via engine pipeline (exit 3 = WARN), 1109 pytest + 152 BATS unit + 88 BATS integration + 44 assembler tests
 
 ---
 
@@ -29,7 +29,9 @@ This project has had fifteen objectives across sessions:
 16. Agent monitoring foundation -- compatibility registry, version detection, doctor checks D-1 through D-3 (complete)
 17. Engine architecture foundation -- Phases 1-3: core types, base abstractions, verdict strategies, engine registry, TrivySecretEngine (complete)
 
-Items 1-17 are complete (Phases 1-3 of Milestone 16/17). Phases 4-8 remaining.
+18. Engine porting and scan command rewrite -- BanditEngine, SemgrepEngine, TrivyMisconfigEngine, full registry, scan.py rewritten to use engine pipeline (complete)
+
+Items 1-18 are complete. The scan command now uses the engine pipeline end-to-end. Remaining: test orchestrator/policy/correlation sketch code, remove old scanner system (Phase 8).
 
 ## Instructions
 
@@ -79,10 +81,68 @@ Items 1-17 are complete (Phases 1-3 of Milestone 16/17). Phases 4-8 remaining.
 
 ## Accomplished (this session)
 
-### Milestone 16/17: Engine Architecture Foundation (Phases 1-3)
+### Milestone 18: Engine Porting + Scan Command Rewrite
 
-Built the engine architecture that replaces the subprocess-wrapper scanning
-approach with a proper engine abstraction. Design doc: `docs/DESIGN-PLSEC-ENGINE.md`.
+Ported all remaining engines, wired the full registry, and rewrote `plsec scan`
+to use the engine orchestrator pipeline end-to-end.
+
+**Step 1b: SemgrepEngine (verified)**
+- `engine/semgrep.py` -- wraps `semgrep --config auto --json`, parses results
+- 33 tests in `test_semgrep.py`, 100% coverage, lint clean
+
+**Step 1c: TrivyMisconfigEngine (new)**
+- `engine/trivy_misconfig.py` -- wraps `trivy config --format json`, parses
+  `Results[].Misconfigurations[]` with ID, Title, Description, Severity, Message,
+  Resolution
+- Layer: CONFIG (not STATIC like the other trivy engine)
+- Presets: balanced, strict, paranoid (NOT minimal)
+- Category: `FindingCategory.MISCONFIG`
+- 40 tests in `test_trivy_misconfig.py`, 100% coverage, lint clean
+
+**Step 1d: Registry update**
+- `build_default_registry()` now registers 5 engines: TrivySecretEngine,
+  BanditEngine, SemgrepEngine, TrivyMisconfigEngine, ContainerIsolationEngine
+- All 24 registry tests pass including default registry tests
+
+**Step 2: Scan command rewrite**
+- `commands/scan.py` rewritten from 435 lines to 350 lines
+- Old pipeline: `SCANNERS` dict + `run_scanner()` + `ScanSummary`
+- New pipeline: `build_default_registry()` + `build_orchestrator()` +
+  `orchestrator.scan()` + `result.verdict.exit_code`
+- `_filter_registry()` replaces `_resolve_scanner_list()` -- builds filtered
+  EngineRegistry from `--scanner`, `--secrets`, `--code`, `--misconfig` flags
+- `_result_to_summary_dict()` writes `"overall_passed"` (not `"passed"`) for
+  backward compatibility with plsec-status bash grep
+- Exit code from `verdict.exit_code` (0=pass, 1=fail, 2=error, 3=warn)
+- Removed `--deps` flag (no engine for it yet)
+- 93% coverage on scan.py
+
+**Step 3: Test rewrite**
+- `tests/test_scan.py` rewritten from 917 lines to 673 lines
+- 42 tests (same count), now mock orchestrator instead of run_scanner
+- New test classes: TestRegistryFiltering (7 tests), TestVerdictExitCodes (3),
+  TestFindingDisplay (2), TestResultToSummaryDict (6)
+- Dropped old internal function tests (`_resolve_scanner_list`, `_result_to_dict`,
+  `_summary_to_dict`, `_print_json`)
+- All tests lint clean
+
+**Step 4: Verification**
+- `make ci` green: 1109 pytest, 152 BATS unit, 88 BATS integration
+- `make scan` runs end-to-end via engine pipeline (exit 3 = WARN from Containerfile
+  misconfig finding)
+
+**Files created (3):**
+- `src/plsec/engine/trivy_misconfig.py`
+- `tests/engine/test_trivy_misconfig.py`
+
+**Files modified (3):**
+- `src/plsec/engine/registry.py` -- added 3 new engines to `build_default_registry()`
+- `src/plsec/commands/scan.py` -- complete rewrite to engine pipeline
+- `tests/test_scan.py` -- complete rewrite to mock orchestrator
+
+**Test counts:** 1109 pytest (249 engine tests), 152 BATS unit, 88 BATS integration.
+
+### Previous session: Milestone 16/17: Engine Architecture Foundation (Phases 1-3)
 
 **Phase 1 -- Core Types + Base + Verdict (prior session, verified this session):**
 - `engine/types.py` -- Finding (frozen, content-hash ID, with_severity/with_suppressed),
