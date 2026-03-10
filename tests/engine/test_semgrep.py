@@ -227,6 +227,18 @@ class TestExecuteErrors:
         assert len(findings) == 1
         assert findings[0].category == FindingCategory.MISSING_CONTROL
 
+    @patch("plsec.engine.semgrep.subprocess.run")
+    def test_prefixed_stdout_recovered(self, mock_run) -> None:
+        """Non-JSON prefix before valid JSON is stripped by extract_json."""
+        result_item = _make_result(message="Found via noisy output")
+        prefixed = "Scanning... 42 rules loaded\n" + _semgrep_json_output([result_item])
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout=prefixed, stderr=""
+        )
+        findings = SemgrepEngine().execute(_make_ctx())
+        assert len(findings) == 1
+        assert findings[0].title == "Found via noisy output"
+
 
 # ---------------------------------------------------------------------------
 # Command construction

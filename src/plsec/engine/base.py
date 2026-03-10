@@ -1,16 +1,21 @@
 """
-plsec.engine.base — Abstract engine interface.
+plsec.engine.base — Abstract engine interface and shared utilities.
 
 This module defines the contract every engine must satisfy.
 The interface is deliberately minimal: configure, check, execute.
+
+It also provides ``extract_json()``, a defensive JSON extraction
+helper used by all engines that parse subprocess output.
+See ``docs/secure-tool-handling.md`` for design rationale.
 """
 
 from __future__ import annotations
 
 import abc
+import json
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from plsec.engine.types import (
     AvailabilityResult,
@@ -25,6 +30,83 @@ if TYPE_CHECKING:
     from plsec.engine.verdict import Verdict
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Defensive JSON extraction (see docs/secure-tool-handling.md)
+# ---------------------------------------------------------------------------
+
+
+def extract_json(stdout: str, tool_name: str) -> dict[str, Any] | None:
+    """Extract a JSON object from tool stdout.
+
+    Handles common tool output patterns defensively:
+
+    - Clean JSON output (fast path)
+    - JSON prefixed by progress bars, status messages, ANSI codes
+    - Empty or whitespace-only output
+    - Completely non-JSON output
+
+    Returns the parsed dict, or None if no JSON object could be
+    extracted.  Only returns ``dict`` — never ``list``, ``str``,
+    or other JSON types.  This type guard prevents injection of
+    unexpected data structures from tool output.
+
+    See ``docs/secure-tool-handling.md`` for design rationale.
+    """
+    if not stdout or not stdout.strip():
+        return None
+
+    # Fast path: clean JSON output
+    try:
+        data = json.loads(stdout)
+        if isinstance(data, dict):
+            return data
+        logger.warning(
+            "%s produced JSON of type %s (expected dict), discarding",
+            tool_name,
+            type(data).__name__,
+        )
+        return None
+    except json.JSONDecodeError:
+        pass
+
+    # Recovery: find embedded JSON object after non-JSON prefix
+    brace_pos = stdout.find("{")
+    if brace_pos < 0:
+        logger.warning(
+            "%s produced non-JSON output (%d bytes, first 200: %r)",
+            tool_name,
+            len(stdout),
+            stdout[:200],
+        )
+        return None
+
+    try:
+        data = json.loads(stdout[brace_pos:])
+        if isinstance(data, dict):
+            logger.info(
+                "%s output had non-JSON prefix (%d bytes skipped), recovered",
+                tool_name,
+                brace_pos,
+            )
+            return data
+        logger.warning(
+            "%s produced JSON of type %s after offset %d (expected dict), discarding",
+            tool_name,
+            type(data).__name__,
+            brace_pos,
+        )
+        return None
+    except json.JSONDecodeError as e:
+        logger.warning(
+            "%s output not parseable as JSON (tried offset %d): %s. First 200 bytes: %r",
+            tool_name,
+            brace_pos,
+            e,
+            stdout[:200],
+        )
+        return None
 
 
 class Engine(abc.ABC):

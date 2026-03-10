@@ -8,13 +8,12 @@ Terraform files, and other infrastructure-as-code formats.
 Output is parsed from trivy's JSON format into Finding objects.
 """
 
-import json
 import logging
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from plsec.engine.base import Engine
+from plsec.engine.base import Engine, extract_json
 from plsec.engine.types import (
     AvailabilityResult,
     EngineStatus,
@@ -109,16 +108,17 @@ class TrivyMisconfigEngine(Engine):
         except OSError as e:
             return [self._tool_failure(f"Failed to execute trivy: {e}")]
 
-        if not result.stdout.strip():
+        # Defensive JSON extraction (see docs/secure-tool-handling.md)
+        data = extract_json(result.stdout, self.engine_id)
+        if data is not None:
+            return self._parse_results(data)
+
+        # No usable JSON — determine whether this is a clean scan or a failure
+        if result.returncode == 0 and not result.stderr.strip():
             return []
 
-        try:
-            data = json.loads(result.stdout)
-        except json.JSONDecodeError as e:
-            logger.warning("Failed to parse trivy JSON output: %s", e)
-            return [self._tool_failure(f"Failed to parse trivy output: {e}")]
-
-        return self._parse_results(data)
+        stderr_hint = result.stderr.strip()[:200] if result.stderr else "no stderr"
+        return [self._tool_failure(f"exited with code {result.returncode}. {stderr_hint}")]
 
     def _parse_results(self, data: dict[str, Any]) -> list[Finding]:
         """Convert trivy config JSON output to Finding objects.

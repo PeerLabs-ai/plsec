@@ -236,13 +236,34 @@ class TestExecuteErrors:
     @patch("plsec.engine.trivy_secrets.subprocess.run")
     def test_invalid_json_produces_finding(self, mock_run) -> None:
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="not valid json", stderr=""
+            args=[], returncode=1, stdout="not valid json", stderr=""
         )
         findings = TrivySecretEngine().execute(_make_ctx())
 
         assert len(findings) == 1
         assert findings[0].category == FindingCategory.MISSING_CONTROL
-        assert "parse" in findings[0].description.lower()
+        assert "exited with code 1" in findings[0].description
+
+    @patch("plsec.engine.trivy_secrets.subprocess.run")
+    def test_invalid_json_exit_0_treated_as_clean(self, mock_run) -> None:
+        """Non-JSON stdout with exit 0 and no stderr is treated as clean scan."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout="not valid json", stderr=""
+        )
+        findings = TrivySecretEngine().execute(_make_ctx())
+        assert findings == []
+
+    @patch("plsec.engine.trivy_secrets.subprocess.run")
+    def test_prefixed_stdout_recovered(self, mock_run) -> None:
+        """Non-JSON prefix before valid JSON is stripped by extract_json."""
+        secret = _make_secret(title="Leaked via noisy output")
+        prefixed = "Downloading DB... done\n" + _trivy_json_output([secret])
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=prefixed, stderr=""
+        )
+        findings = TrivySecretEngine().execute(_make_ctx())
+        assert len(findings) == 1
+        assert findings[0].title == "Leaked via noisy output"
 
 
 # ---------------------------------------------------------------------------

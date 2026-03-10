@@ -7,15 +7,18 @@ issues (SQL injection, subprocess shell=True, hardcoded passwords,
 etc.).
 
 Output is parsed from bandit's JSON format into Finding objects.
+
+Exit codes:
+    0 -- no issues found
+    1 -- issues found (normal operation)
 """
 
-import json
 import logging
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from plsec.engine.base import Engine
+from plsec.engine.base import Engine, extract_json
 from plsec.engine.types import (
     AvailabilityResult,
     EngineStatus,
@@ -56,8 +59,9 @@ DEFAULT_TIMEOUT = 300
 class BanditEngine(Engine):
     """Bandit Python security scanner.
 
-    Wraps `bandit -r --format json` with severity filtering and
-    exclude-dir support.
+    Wraps `bandit -r -q --format json` with severity filtering and
+    exclude-dir support.  The ``-q`` flag suppresses progress bars
+    that would otherwise contaminate JSON stdout.
     """
 
     @property
@@ -106,6 +110,7 @@ class BanditEngine(Engine):
         cmd = [
             "bandit",
             "-r",
+            "-q",
             "-ll",
             "--format",
             "json",
@@ -128,16 +133,17 @@ class BanditEngine(Engine):
         except OSError as e:
             return [self._tool_failure(f"Failed to execute bandit: {e}")]
 
-        if not result.stdout.strip():
+        # Defensive JSON extraction (see docs/secure-tool-handling.md)
+        data = extract_json(result.stdout, self.engine_id)
+        if data is not None:
+            return self._parse_results(data)
+
+        # No usable JSON — determine whether this is a clean scan or a failure
+        if result.returncode == 0 and not result.stderr.strip():
             return []
 
-        try:
-            data = json.loads(result.stdout)
-        except json.JSONDecodeError as e:
-            logger.warning("Failed to parse bandit JSON output: %s", e)
-            return [self._tool_failure(f"Failed to parse bandit output: {e}")]
-
-        return self._parse_results(data)
+        stderr_hint = result.stderr.strip()[:200] if result.stderr else "no stderr"
+        return [self._tool_failure(f"exited with code {result.returncode}. {stderr_hint}")]
 
     def _parse_results(self, data: dict[str, Any]) -> list[Finding]:
         """Convert bandit JSON output to Finding objects.

@@ -256,6 +256,18 @@ class TestExecuteErrors:
         assert len(findings) == 1
         assert findings[0].category == FindingCategory.MISSING_CONTROL
 
+    @patch("plsec.engine.trivy_misconfig.subprocess.run")
+    def test_prefixed_stdout_recovered(self, mock_run) -> None:
+        """Non-JSON prefix before valid JSON is stripped by extract_json."""
+        misconfig = _make_misconfig(title="Found via noisy output")
+        prefixed = "Loading checks... done\n" + _trivy_config_json([misconfig])
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=prefixed, stderr=""
+        )
+        findings = TrivyMisconfigEngine().execute(_make_ctx())
+        assert len(findings) == 1
+        assert findings[0].title == "Found via noisy output"
+
 
 # ---------------------------------------------------------------------------
 # Command construction

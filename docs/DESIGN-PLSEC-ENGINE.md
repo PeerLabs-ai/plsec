@@ -44,9 +44,11 @@ missing is the engine abstraction underneath.
    engines. The orchestrator walks layers in order, feeding prior
    findings forward (defense-in-depth: each layer can see what
    earlier layers found).
-1. **Presets as policy, not code paths.**
-   The four presets (minimal → paranoid) are declarative configurations
-   that enable/disable engines and set thresholds. No if/else chains.
+1. **Presets determine execution mode, not just scan scope.**
+   The four presets (minimal → paranoid) control how the agent runs,
+   not just what gets scanned. At strict/paranoid, the agent runs
+   inside a container automatically. The preset is the single knob
+   the user turns; everything else follows from it.
 1. **Graceful degradation by default.**
    Missing tools degrade to a skip, not an error. The engine reports
    what it could not check, so the operator knows the gap.
@@ -69,30 +71,31 @@ plsec.yaml (Policy + Configuration)
      │  Handles availability checks          │
      └─────┬─────────────────────────────────┘
            │
-     ┌─────┴─────────────────────────────────-─────────┐
-     │              Layer Pipeline                     │
-     │                                                 │
-     │  Layer 1: STATIC                                │
-     │    ├── SecretScanEngine (Trivy secrets)         │
-     │    ├── CodeAnalysisEngine (Bandit, Semgrep)     │
-     │    └── DependencyEngine (pip-audit, Trivy vuln) │
-     │                                                 │
-     │  Layer 2: CONFIG                                │
-     │    ├── AgentConstraintEngine (CLAUDE.md, etc.)  │
-     │    └── DenyPatternEngine (file/cmd deny lists)  │
-     │                                                 │
-     │  Layer 3: ISOLATION                             │
-     │    ├── ContainerEngine (Podman/Docker check)    │
-     │    └── SandboxEngine (macOS sandbox check)      │
-     │                                                 │
-     │  Layer 4: RUNTIME                               │
-     │    ├── EgressProxyEngine (Pipelock)             │
-     │    └── DLPEngine (response scanning)            │
-     │                                                 │
-     │  Layer 5: AUDIT                                 │
-     │    ├── AuditLogEngine (structured logging)      │
-     │    └── IntegrityEngine (workspace hashing)      │
-     └────────────────────────────────────────-────────┘
+     ┌─────┴──────────────────────────────────────────────┐
+     │              Layer Pipeline                        │
+     │                                                    │
+     │  Layer 1: STATIC  (detection)                      │
+     │    ├── SecretScanEngine (Trivy secrets)            │
+     │    ├── CodeAnalysisEngine (Bandit, Semgrep)        │
+     │    └── DependencyEngine (pip-audit, Trivy vuln)    │
+     │                                                    │
+     │  Layer 2: CONFIG  (detection + validation)         │
+     │    ├── MisconfigEngine (Trivy misconfig)           │
+     │    ├── AgentConstraintEngine (CLAUDE.md, etc.)     │
+     │    └── DenyPatternEngine (file/cmd deny lists)     │
+     │                                                    │
+     │  Layer 3: ISOLATION  (harness validation)          │
+     │    ├── ContainerHarnessEngine (validate harness)   │
+     │    └── SandboxEngine (macOS sandbox check)         │
+     │                                                    │
+     │  Layer 4: RUNTIME  (runtime control validation)    │
+     │    ├── EgressProxyEngine (Pipelock)                │
+     │    └── DLPEngine (response scanning)               │
+     │                                                    │
+     │  Layer 5: AUDIT  (audit infrastructure validation) │
+     │    ├── AuditLogEngine (structured logging)         │
+     │    └── IntegrityEngine (workspace hashing)         │
+     └────────────────────────────────────────────────────┘
            │
            ▼
      ┌─────────────────────────────────────────-─────┐
@@ -194,39 +197,88 @@ Policy:
 
 ## Preset → Engine Mapping
 
-| Engine                | minimal | balanced | strict | paranoid |
-|-----------------------|---------|----------|--------|----------|
-| SecretScanEngine      | x       | x        | x      | x        |
-| CodeAnalysisEngine    |         | x        | x      | x        |
-| DependencyEngine      |         | x        | x      | x        |
-| AgentConstraintEngine |         | x        | x      | x        |
-| DenyPatternEngine     |         |          | x      | x        |
-| ContainerEngine       |         |          | x      | x        |
-| SandboxEngine         |         |          | x      | x        |
-| EgressProxyEngine     |         |          | x      | x        |
-| DLPEngine             |         |          |        | x        |
-| AuditLogEngine        |         | x        | x      | x        |
-| IntegrityEngine       |         |          |        | x        |
+Engines fall into two categories:
+
+- **Detection engines** (Layers 1-2): Scan artifacts for vulnerabilities,
+  secrets, misconfigurations. Produce findings of category SECRET,
+  VULNERABILITY, MISCONFIG.
+- **Control validation engines** (Layers 3-5): Verify that security
+  controls are in place. Produce findings of category MISSING_CONTROL
+  when infrastructure is absent. At strict/paranoid, plsec *provides*
+  these controls (container harness, egress proxy) and the engines
+  validate that they are correctly configured.
+
+| Engine                  | Type       | minimal | balanced | strict | paranoid |
+|-------------------------|------------|---------|----------|--------|----------|
+| SecretScanEngine        | detection  | x       | x        | x      | x        |
+| CodeAnalysisEngine      | detection  |         | x        | x      | x        |
+| DependencyEngine        | detection  |         | x        | x      | x        |
+| MisconfigEngine         | detection  |         | x        | x      | x        |
+| AgentConstraintEngine   | detection  |         | x        | x      | x        |
+| DenyPatternEngine       | detection  |         |          | x      | x        |
+| ContainerHarnessEngine  | control    |         |          | x      | x        |
+| SandboxEngine           | control    |         |          | x      | x        |
+| EgressProxyEngine       | control    |         |          | x      | x        |
+| DLPEngine               | control    |         |          |        | x        |
+| AuditLogEngine          | control    |         | x        | x      | x        |
+| IntegrityEngine         | control    |         |          |        | x        |
+
+### Preset → execution mode
+
+The preset determines not just which engines scan, but how the agent
+is executed. See the roadmap (v0.2.0) for full details.
+
+| Preset   | Agent execution | Network       | Key difference            |
+|----------|-----------------|---------------|---------------------------|
+| minimal  | Host            | Unrestricted  | Secrets scan only         |
+| balanced | Host            | Unrestricted  | Full static + config scan |
+| strict   | Container       | Restricted    | Isolated execution        |
+| paranoid | Container       | Egress proxy  | Full control + DLP        |
+
+At strict/paranoid, `plsec run` (and the wrapper scripts that delegate
+to it) automatically start the agent inside a container. The container
+harness engine then validates that the harness is correctly configured.
+The user does not need to opt in to containers -- the preset implies
+the execution mode.
+
+## Resolved Design Decisions
+
+1. **Correlation Engine is a separate abstraction.** It has a different
+   lifecycle (runs after all layers, consumes the full finding set)
+   and a different interface (`correlate(findings)` not `execute(ctx)`).
+   Implemented as `CorrelationEngine` with `CorrelationRule` instances.
+
+2. **Engine plugin discovery: explicit registration.** The registry
+   uses `build_default_registry()` with explicit `register()` calls.
+   Entry points are a future consideration if third-party engines
+   are needed.
+
+3. **Layers 3-5 use the Engine interface with control semantics.**
+   They implement `execute(ctx)` but produce MISSING_CONTROL findings
+   rather than vulnerability findings. At strict/paranoid, plsec
+   provides the infrastructure (container harness, proxy) and these
+   engines validate it. At balanced, the engines are either skipped
+   (not in preset) or report gaps as informational.
 
 ## Open Questions
 
-1. **Should the Correlation Engine be an Engine or a separate abstraction?**
-   It consumes all findings rather than scanning artifacts. Different
-   lifecycle from detection engines.
 1. **Async execution within layers?**
    Layer 1 engines (secret scan, code analysis, dependency scan) are
    independent and could run concurrently. Worth the complexity now
    or later?
-1. **Finding deduplication strategy.**
+
+2. **Finding deduplication strategy.**
    Same secret found by Trivy and detect-secrets. Deduplicate by
    location? By content hash? Engine priority?
-1. **Engine plugin discovery.**
-   Entry points? Explicit registration? Start explicit, consider
-   entry points later.
-1. **How do Layers 3/4 (ISOLATION, RUNTIME) fit the execute() model?**
-   They check whether infrastructure is in place rather than scanning
-   artifacts. The “finding” is “you lack this control” rather than
-   “we found this vulnerability.” Different engine semantics.
+
+3. **Container harness design.** Several sub-questions:
+   - Agent binary provisioning: baked into image or mounted from host?
+   - Container lifecycle: per-session (fresh) or long-lived with exec?
+   - Image management: pre-built, built by `plsec init`, pulled from
+     registry?
+   - File access: bind mount vs volume vs copy for project directory?
+   - Network policy: Podman `--network=none` / custom bridge (strict)
+     vs Pipelock egress proxy (paranoid)?
 
 ## Non-Goals (for this design phase)
 

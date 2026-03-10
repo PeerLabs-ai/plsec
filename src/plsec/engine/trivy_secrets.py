@@ -11,15 +11,18 @@ the Engine interface. The adapter handles:
 The engine itself has no detection logic. All intelligence lives
 in Trivy and its signature database. plsec's value is orchestration,
 normalization, and correlation — not reimplementation.
+
+Exit codes:
+    0 -- no findings (or findings below threshold)
+    1 -- findings found (with --exit-code 1)
 """
 
-import json
 import logging
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from plsec.engine.base import Engine
+from plsec.engine.base import Engine, extract_json
 from plsec.engine.types import (
     AvailabilityResult,
     EngineStatus,
@@ -121,17 +124,17 @@ class TrivySecretEngine(Engine):
         except OSError as e:
             return [self._tool_failure(f"Failed to execute trivy: {e}")]
 
-        # Parse JSON output
-        if not result.stdout.strip():
+        # Defensive JSON extraction (see docs/secure-tool-handling.md)
+        data = extract_json(result.stdout, self.engine_id)
+        if data is not None:
+            return self._parse_results(data, ctx.target_path)
+
+        # No usable JSON — determine whether this is a clean scan or a failure
+        if result.returncode == 0 and not result.stderr.strip():
             return []
 
-        try:
-            data = json.loads(result.stdout)
-        except json.JSONDecodeError as e:
-            logger.warning("Failed to parse trivy JSON output: %s", e)
-            return [self._tool_failure(f"Failed to parse trivy output: {e}")]
-
-        return self._parse_results(data, ctx.target_path)
+        stderr_hint = result.stderr.strip()[:200] if result.stderr else "no stderr"
+        return [self._tool_failure(f"exited with code {result.returncode}. {stderr_hint}")]
 
     def _parse_results(self, data: dict[str, Any], target: Path) -> list[Finding]:
         """Convert trivy JSON output to Finding objects.

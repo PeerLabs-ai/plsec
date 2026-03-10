@@ -6,15 +6,18 @@ performs pattern-based static analysis across multiple languages
 using community and custom rules.
 
 Output is parsed from semgrep's JSON format into Finding objects.
+
+Exit codes:
+    0 -- no findings
+    1 -- findings found (with --error flag)
 """
 
-import json
 import logging
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from plsec.engine.base import Engine
+from plsec.engine.base import Engine, extract_json
 from plsec.engine.types import (
     AvailabilityResult,
     EngineStatus,
@@ -106,16 +109,17 @@ class SemgrepEngine(Engine):
         except OSError as e:
             return [self._tool_failure(f"Failed to execute semgrep: {e}")]
 
-        if not result.stdout.strip():
+        # Defensive JSON extraction (see docs/secure-tool-handling.md)
+        data = extract_json(result.stdout, self.engine_id)
+        if data is not None:
+            return self._parse_results(data)
+
+        # No usable JSON — determine whether this is a clean scan or a failure
+        if result.returncode == 0 and not result.stderr.strip():
             return []
 
-        try:
-            data = json.loads(result.stdout)
-        except json.JSONDecodeError as e:
-            logger.warning("Failed to parse semgrep JSON output: %s", e)
-            return [self._tool_failure(f"Failed to parse semgrep output: {e}")]
-
-        return self._parse_results(data)
+        stderr_hint = result.stderr.strip()[:200] if result.stderr else "no stderr"
+        return [self._tool_failure(f"exited with code {result.returncode}. {stderr_hint}")]
 
     def _parse_results(self, data: dict[str, Any]) -> list[Finding]:
         """Convert semgrep JSON output to Finding objects.

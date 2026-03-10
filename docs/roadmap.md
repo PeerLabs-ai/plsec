@@ -127,24 +127,86 @@ sources).
 plsec security wrapping. This is the convergence point between bootstrap
 and CLI capabilities.
 
+### Core principle: preset determines execution mode
+
+The security preset controls *how* the agent runs, not just *what* gets
+scanned. At strict/paranoid, the agent runs inside a container
+automatically -- container isolation is the default execution mode, not
+an opt-in flag.
+
+| Preset   | Execution mode                                      |
+|----------|-----------------------------------------------------|
+| minimal  | Host execution, wrapper logging only                |
+| balanced | Host execution, full audit logging                  |
+| strict   | Container execution, network policies, audit        |
+| paranoid | Container execution, egress proxy, DLP, full audit  |
+
+This means `claude-safe` and `opencode-safe` at strict/paranoid start
+the agent inside a container with the appropriate security policies.
+The user doesn't need to know about containers -- the preset handles it.
+
 ### `plsec run` Command
 
     plsec run claude [-- <args>]
     plsec run opencode [-- <args>]
-    plsec run --container claude [-- <args>]
+    plsec run --no-container claude [-- <args>]   # override: force host
 
 **What it does:**
 1. Pre-flight checks (plsec configured? agent configs deployed?)
-2. Environment setup (`CLAUDE_CODE_SHELL_PREFIX`, OTEL exporters)
-3. Container mode (optional): Podman/Docker with project mounted,
-   network policies, agent running inside isolated environment
-4. Execute agent with all plsec security wrappers
-5. Post-flight: session summary, scan results, duration
+2. Resolve preset from `plsec.yaml` / CLI flag / project config
+3. If preset requires isolation: build/start container with policies
+4. Environment setup (`CLAUDE_CODE_SHELL_PREFIX`, OTEL exporters)
+5. Execute agent (inside container or on host, per preset)
+6. Post-flight: session summary, scan results, duration
+
+At strict/paranoid, step 3 creates the container with:
+- Project directory mounted (read-write by default, configurable)
+- Network policy (egress proxy at paranoid, restricted bridge at strict)
+- Agent binary/package available inside the container
+- plsec configs deployed inside the container
+- Audit log volume for persistence across sessions
+
+The `--no-container` flag is an escape hatch for strict/paranoid when
+container execution is not possible (CI environments, remote SSH, etc.).
+It downgrades execution mode and logs a warning.
 
 **Container runtime:**
 - **Default: Podman** (prominently communicated to user)
 - User-configurable via `plsec.yaml`
-- Docker and macOS sandbox as fallback options
+- Docker as fallback
+- macOS sandbox as lightweight alternative (no full container)
+
+### Wrapper script evolution
+
+Today `claude-safe` / `opencode-safe` are standalone bash scripts that
+wrap agent invocations with logging bookends. The end state:
+
+1. **v0.1.x (now)**: Wrapper scripts do logging, call agent directly
+2. **v0.2.0**: Wrapper scripts delegate to `plsec run`, which handles
+   preset resolution, container lifecycle, and audit. The wrapper
+   becomes a thin shell around `plsec run <agent>`.
+3. **Post v0.2.0**: Wrapper scripts may be replaced entirely by
+   `plsec run` aliases. The wrappers exist during the transition period
+   for backward compatibility.
+
+### Open design questions
+
+These must be resolved during implementation:
+
+1. **Agent binary provisioning**: Does the container image include the
+   agent binary, or is it mounted from the host? Baked-in is more
+   isolated but harder to keep current. Host-mounted is simpler but
+   leaks the host filesystem into the container.
+2. **Network policy mechanism**: Pipelock egress proxy (paranoid) vs
+   Podman `--network=none` or custom bridge with firewall rules (strict).
+   These are different levels of control with different complexity.
+3. **Container image management**: Pre-built images? `plsec init` builds
+   them? Pulled from a registry? Image-per-agent or shared base?
+4. **Session persistence**: Container per-session (fresh each time) or
+   long-lived container with exec? Fresh is safer but slower.
+5. **File sync**: Bind mount vs volume vs copy. Bind mounts are fast but
+   expose the host filesystem structure. Volumes are isolated but need
+   explicit sync.
 
 ### MCP Server Harness
 
@@ -252,6 +314,28 @@ text.
 
 ## Future Considerations
 
+- **Security posture review**: Revisit plsec's own security posture as the
+  tool matures. plsec is a security tool -- it should be held to a higher
+  standard than the projects it protects. Areas to evaluate:
+  - **Systems language rewrite**: Evaluate rewriting core scanning and
+    orchestration in Rust. Python is productive for rapid development but
+    a security tool benefits from memory safety guarantees, absence of
+    runtime injection vectors, and static binary distribution (no
+    virtualenv, no pip, no supply chain exposure through PyPI). Rust's
+    type system and ownership model make entire classes of bugs
+    impossible. The engine architecture (Engine trait, Finding struct,
+    Orchestrator) maps cleanly to Rust idioms.
+  - **Dependency minimisation**: Audit and reduce the Python dependency
+    tree. Every transitive dependency is attack surface. Evaluate which
+    dependencies can be replaced with stdlib or vendored code.
+  - **Binary distribution**: Ship plsec as a single static binary rather
+    than a pip-installed Python package. Eliminates virtualenv management,
+    pip supply chain risk, and Python version compatibility issues.
+  - **Input validation hardening**: Systematic review of all external
+    input boundaries (YAML config parsing, JSON tool output, filesystem
+    paths, CLI arguments) for injection, path traversal, and resource
+    exhaustion vulnerabilities.
+  - See `docs/secure-tool-handling.md` for current defensive patterns.
 - **Agent monitoring for additional agents**: Extend agent data adapters
   to Gemini CLI, Codex (OpenAI), CoPilot (GitHub), ollama, and other
   agents as they mature. Requires data source analysis for each agent's
@@ -268,9 +352,6 @@ text.
 - **Local server security parameters**: Rich set of controls for securing
   local development servers (ports, bindings, TLS, auth). Important for
   MCP servers running locally and for dev server security in general.
-- **Container-based execution**: Full Podman/Docker/macOS sandbox
-  integration via `plsec run --container`. Network policies, filesystem
-  isolation, resource limits. Prerequisite: Layer 3 (isolation) design.
 - **Signature database**: Ship with modified sqlite/duckdb instance for
   pattern storage, secret signatures, known-bad hashes. Enables offline
   scanning and faster pattern matching.

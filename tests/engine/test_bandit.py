@@ -244,6 +244,30 @@ class TestExecuteErrors:
         findings = BanditEngine().execute(_make_ctx())
         assert findings == []
 
+    @patch("plsec.engine.bandit.subprocess.run")
+    def test_prefixed_stdout_recovered(self, mock_run) -> None:
+        """Progress bar text before JSON is stripped by extract_json."""
+        result_item = _make_result(issue_text="SQL injection via progress bar")
+        prefixed = "Working... ━━━━━━━━━━ 100%\n" + _bandit_json_output([result_item])
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=1, stdout=prefixed, stderr=""
+        )
+        findings = BanditEngine().execute(_make_ctx())
+        assert len(findings) == 1
+        assert findings[0].title == "SQL injection via progress bar"
+
+    @patch("plsec.engine.bandit.subprocess.run")
+    def test_nonzero_exit_no_json_produces_failure(self, mock_run) -> None:
+        """Non-zero exit with no JSON stdout should report a tool failure."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=2, stdout="", stderr="fatal error"
+        )
+        findings = BanditEngine().execute(_make_ctx())
+        assert len(findings) == 1
+        assert findings[0].category == FindingCategory.MISSING_CONTROL
+        assert "exited with code 2" in findings[0].description
+        assert "fatal error" in findings[0].description
+
 
 # ---------------------------------------------------------------------------
 # Command construction
