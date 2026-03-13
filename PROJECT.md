@@ -352,6 +352,12 @@ _(Items requiring decisions or external input)_
 - Single metadata source timeline: when does the CLI fully subsume bootstrap?
 - Signature database architecture: sqlite vs duckdb, embedded vs external,
   update mechanism for pattern distribution.
+- Trivy engine `--skip-dirs` / `--config` gap: the new engine pipeline passes
+  `--ignorefile` but not `--skip-dirs` or `--config`. The old scanner system
+  passed `--skip-dirs` as CLI flags. The deployed `trivy.yaml` at
+  `~/.peerlabs/plsec/trivy/trivy.yaml` contains these settings but the
+  engines don't point trivy at it. Low priority -- only matters when scanning
+  outside the project root (trivy auto-discovers `trivy.yaml` in cwd).
 
 ## Scan Bugs (resolved)
 

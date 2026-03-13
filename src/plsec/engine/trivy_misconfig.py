@@ -94,6 +94,10 @@ class TrivyMisconfigEngine(Engine):
             str(ctx.target_path),
         ]
 
+        ignorefile = ctx.target_path / ".trivyignore.yaml"
+        if ignorefile.is_file():
+            cmd.extend(["--ignorefile", str(ignorefile)])
+
         try:
             result = subprocess.run(
                 cmd,

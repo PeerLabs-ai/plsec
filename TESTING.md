@@ -8,37 +8,36 @@ implemented. The original `test_plsec.py` has been redistributed:
 duplicate tests deleted, unique tests moved to `test_cli.py` and
 `test_config.py`.
 
-| Test file | Tests | Tier | Target module |
-|-----------|-------|------|---------------|
-| `test_cli.py` | 4 | -- | `cli.py` (top-level app smoke tests) |
-| `test_config.py` | 28 | 1 | `core/config.py` + package version |
-| `test_tools.py` | 21 | 1 | `core/tools.py` |
-| `test_templates.py` | 66 | 1 | `configs/templates.py` (+ wrapper cross-checks) |
-| `test_integrity.py` | 29 | 1 | `commands/integrity.py` |
-| `test_validate.py` | 18 | 1 | `commands/validate.py` |
-| `test_agents.py` | 40 | 1 | `core/agents.py` (registry) |
-| `test_scanners.py` | 58 | 1+3 | `core/scanners.py` (registry + ScanResult/ScanSummary) |
-| `test_processes.py` | 23 | 1+3 | `core/processes.py` (registry) |
-| `test_health.py` | 55 | 1+2 | `core/health.py` (+ wrapper script checks) |
-| `test_inventory.py` | 43 | 1+2 | `core/inventory.py` (artifact model) |
-| `test_detector.py` | 34 | 2 | `core/detector.py` |
-| `test_init.py` | 19 | 2 | `commands/init.py` |
-| `test_create.py` | 20 | 2 | `commands/create.py` |
-| `test_output.py` | 20 | 2 | `core/output.py` |
-| `test_install_cmd.py` | 67 | 2+3 | `commands/install.py` (+ wrappers, aliases) |
-| `test_reset.py` | 20 | 2+3 | `commands/reset.py` (lifecycle, log preservation) |
-| `test_uninstall.py` | 19 | 2+3 | `commands/uninstall.py` (lifecycle) |
-| `test_secure.py` | 39 | 3 | `commands/secure.py` |
-| `test_scan.py` | 29 | 3 | `commands/scan.py` (+ persistence, JSON output) |
-| `test_doctor.py` | 14 | 3 | `commands/doctor.py` |
-| `test_proxy.py` | 14 | 3 | `commands/proxy.py` |
+| Test file             | Tests | Tier | Target module                                     |
+|-----------------------|-------|------|---------------------------------------------------|
+| `test_cli.py`         | 4     | --   | `cli.py` (top-level app smoke tests)              |
+| `test_config.py`      | 28    | 1    | `core/config.py` + package version                |
+| `test_tools.py`       | 21    | 1    | `core/tools.py`                                   |
+| `test_templates.py`   | 66    | 1    | `configs/templates.py` (+ wrapper cross-checks)   |
+| `test_integrity.py`   | 29    | 1    | `commands/integrity.py`                           |
+| `test_validate.py`    | 18    | 1    | `commands/validate.py`                            |
+| `test_agents.py`      | 40    | 1    | `core/agents.py` (registry)                       |
+| `test_processes.py`   | 23    | 1+3  | `core/processes.py` (registry)                    |
+| `test_health.py`      | 55    | 1+2  | `core/health.py` (+ wrapper script checks)        |
+| `test_inventory.py`   | 43    | 1+2  | `core/inventory.py` (artifact model)              |
+| `test_detector.py`    | 34    | 2    | `core/detector.py`                                |
+| `test_init.py`        | 19    | 2    | `commands/init.py`                                |
+| `test_create.py`      | 20    | 2    | `commands/create.py`                              |
+| `test_output.py`      | 20    | 2    | `core/output.py`                                  |
+| `test_install_cmd.py` | 67    | 2+3  | `commands/install.py` (+ wrappers, aliases)       |
+| `test_reset.py`       | 20    | 2+3  | `commands/reset.py` (lifecycle, log preservation) |
+| `test_uninstall.py`   | 19    | 2+3  | `commands/uninstall.py` (lifecycle)               |
+| `test_secure.py`      | 39    | 3    | `commands/secure.py`                              |
+| `test_scan.py`        | 29    | 3    | `commands/scan.py` (+ persistence, JSON output)   |
+| `test_doctor.py`      | 14    | 3    | `commands/doctor.py`                              |
+| `test_proxy.py`       | 14    | 3    | `commands/proxy.py`                               |
 
 ### BATS Tests (Bootstrap Scripts)
 
-| Test file | Tests | Target module |
-|-----------|-------|---------------|
-| `bats/unit/test_status.bats` | 58 | `plsec-status.sh` (health check functions) |
-| `bats/integration/test_status.bats` | 25 | `plsec-status.sh` (full execution, JSON, flags) |
+| Test file                           | Tests | Target module                                   |
+|-------------------------------------|-------|-------------------------------------------------|
+| `bats/unit/test_status.bats`        | 58    | `plsec-status.sh` (health check functions)      |
+| `bats/integration/test_status.bats` | 25    | `plsec-status.sh` (full execution, JSON, flags) |
 
 ## Test Structure (implemented)
 
@@ -65,9 +64,21 @@ tests/
 ├── test_secure.py             # commands/secure.py - retrofit security
 ├── test_proxy.py              # commands/proxy.py - pipelock management
 ├── test_agents.py             # core/agents.py - agent registry
-├── test_scanners.py           # core/scanners.py - scanner registry
 ├── test_processes.py          # core/processes.py - process registry
 ├── test_health.py             # core/health.py - health check functions
+├── engine/                    # Engine architecture tests
+│   ├── test_types.py          # engine/types.py - Finding, Layer, Severity, etc.
+│   ├── test_base.py           # engine/base.py - Engine ABC, EngineGroup, extract_json
+│   ├── test_verdict.py        # engine/verdict.py - VerdictStrategy implementations
+│   ├── test_registry.py       # engine/registry.py - EngineRegistry
+│   ├── test_policy.py         # engine/policy.py - Suppression, Policy
+│   ├── test_correlation.py    # engine/correlation.py - CorrelationEngine, rules
+│   ├── test_orchestrator.py   # engine/orchestrator.py - Orchestrator, scan lifecycle
+│   ├── test_trivy.py          # engine/trivy_secrets.py - TrivySecretEngine
+│   ├── test_bandit.py         # engine/bandit.py - BanditEngine
+│   ├── test_semgrep.py        # engine/semgrep.py - SemgrepEngine
+│   ├── test_trivy_misconfig.py # engine/trivy_misconfig.py - TrivyMisconfigEngine
+│   └── test_container_isolation.py # engine/container_isolation.py
 └── bats/                      # BATS shell script tests
     ├── unit/
     │   └── test_status.bats   # plsec-status.sh unit tests (58 tests)

@@ -316,6 +316,31 @@ class TestCommandConstruction:
         TrivyMisconfigEngine().execute(ctx)
         assert mock_run.call_args[1]["timeout"] == 120
 
+    @patch("plsec.engine.trivy_misconfig.subprocess.run")
+    def test_ignorefile_passed_when_present(self, mock_run, tmp_path) -> None:
+        """--ignorefile is added when .trivyignore.yaml exists in target."""
+        (tmp_path / ".trivyignore.yaml").write_text("misconfigurations: []\n")
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=_trivy_config_json(), stderr=""
+        )
+        TrivyMisconfigEngine().execute(_make_ctx(target=str(tmp_path)))
+
+        cmd = mock_run.call_args[0][0]
+        assert "--ignorefile" in cmd
+        ignorefile_idx = cmd.index("--ignorefile")
+        assert cmd[ignorefile_idx + 1] == str(tmp_path / ".trivyignore.yaml")
+
+    @patch("plsec.engine.trivy_misconfig.subprocess.run")
+    def test_no_ignorefile_when_absent(self, mock_run) -> None:
+        """--ignorefile is not added when .trivyignore.yaml does not exist."""
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=_trivy_config_json(), stderr=""
+        )
+        TrivyMisconfigEngine().execute(_make_ctx())
+
+        cmd = mock_run.call_args[0][0]
+        assert "--ignorefile" not in cmd
+
 
 # ---------------------------------------------------------------------------
 # Severity mapping

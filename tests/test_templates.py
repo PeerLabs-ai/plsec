@@ -207,12 +207,11 @@ class TestTrivyConfigYaml:
         assert "node_modules" in skip_dirs
         assert "__pycache__" in skip_dirs
 
-    def test_skip_dirs_matches_scanners(self):
-        """trivy.yaml skip-dirs should match _TRIVY_SKIP_DIRS in scanners.py."""
-        from plsec.core.scanners import _TRIVY_SKIP_DIRS
-
+    def test_skip_dirs_complete(self):
+        """trivy.yaml skip-dirs should include all standard exclusions."""
+        expected = [".venv", ".tox", "node_modules", "build", "dist", ".eggs", "__pycache__"]
         data = yaml.safe_load(TRIVY_CONFIG_YAML)
-        assert sorted(data["scan"]["skip-dirs"]) == sorted(_TRIVY_SKIP_DIRS)
+        assert sorted(data["scan"]["skip-dirs"]) == sorted(expected)
 
     def test_has_skip_files(self):
         """trivy.yaml must skip compiled bytecode files."""
@@ -220,12 +219,11 @@ class TestTrivyConfigYaml:
         skip_files = data["scan"]["skip-files"]
         assert "**/*.pyc" in skip_files
 
-    def test_skip_files_matches_scanners(self):
-        """trivy.yaml skip-files should match _TRIVY_SKIP_FILES in scanners.py."""
-        from plsec.core.scanners import _TRIVY_SKIP_FILES
-
+    def test_skip_files_complete(self):
+        """trivy.yaml skip-files should include all standard exclusions."""
+        expected = ["**/*.pyc"]
         data = yaml.safe_load(TRIVY_CONFIG_YAML)
-        assert sorted(data["scan"]["skip-files"]) == sorted(_TRIVY_SKIP_FILES)
+        assert sorted(data["scan"]["skip-files"]) == sorted(expected)
 
 
 class TestPreCommitHook:

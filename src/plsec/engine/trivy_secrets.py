@@ -110,6 +110,10 @@ class TrivySecretEngine(Engine):
         if secret_config_path:
             cmd.extend(["--secret-config", str(secret_config_path)])
 
+        ignorefile = ctx.target_path / ".trivyignore.yaml"
+        if ignorefile.is_file():
+            cmd.extend(["--ignorefile", str(ignorefile)])
+
         try:
             result = subprocess.run(
                 cmd,
