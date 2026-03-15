@@ -87,5 +87,7 @@ jobs:
         run: uv sync --dev
       - name: Install scan tools
         run: uv run pip install bandit semgrep
+      - name: Deploy scanner configs
+        run: uv run plsec install
       - name: Run plsec scan
         run: uv run plsec scan .
