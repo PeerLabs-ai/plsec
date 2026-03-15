@@ -1,6 +1,6 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-03-09
+**Last Updated:** 2026-03-14
 **Status:** `make ci` green, `make scan` clean (exit 0), 1232 pytest + 152 BATS unit + 88 BATS integration + 44 assembler tests
 
 ---
@@ -78,6 +78,23 @@ Preset determines which engines run and which verdict strategy applies:
 6. **Roadmap and design doc updated** -- Container execution is
    preset-driven (not opt-in). Wrapper scripts evolve to delegate to
    `plsec run`. Open design questions captured for container harness.
+
+7. **Old scanner system removed** -- Deleted `core/scanners.py` (443 lines)
+   and `tests/test_scanners.py` (66 tests). Fixed `test_templates.py`
+   cross-references (inlined expected values). Removed stale entry from
+   `.trivyignore.yaml`. Updated `TESTING.md` test inventory.
+
+8. **PROJECT.md rewritten** -- Fresh document covering engine architecture,
+   preset-driven execution model, module inventory, known gaps, and
+   documentation index. Old version archived at
+   `docs/archive/PROJECT-20260313.md`.
+
+9. **`test-plsec.yml` GitHub Actions workflow** -- Three-job CI for Python
+   code: lint (ruff + ty), test (pytest with Python 3.12 + 3.14 matrix),
+   scan (dogfood `plsec scan` with trivy, bandit, semgrep installed via
+   `aquasecurity/setup-trivy@v0.2.5` and pip). Triggers on `src/**`,
+   `tests/**` (excluding BATS), `pyproject.toml`, `uv.lock` changes.
+   Uses `astral-sh/setup-uv@v7` with caching.
 
 ## Instructions
 
