@@ -121,6 +121,32 @@ cross-reference between agent bash command records and plsec wrapper
 audit logs (defense-in-depth: two independent command execution data
 sources).
 
+### Milestone 9: Dependency Scanning
+
+Add dependency vulnerability scanning to the engine pipeline, starting
+with Python (pip-audit). Dependency scanning is language-specific --
+each language ecosystem has its own audit tool and output format.
+
+**Python (pip-audit):**
+- Implement `PipAuditEngine` in `engine/pip_audit.py`
+- pip-audit JSON output is a top-level list (not a dict). Either extend
+  `extract_json()` to accept lists or handle parsing internally.
+- Key flags: `--format json --progress-spinner off --desc on --aliases on`
+- Exit codes: 0 = no vulnerabilities, 1 = vulnerabilities found
+- No severity levels in output -- all findings map to a fixed severity
+- pip-audit is already in `KNOWN_TOOLS` in `orchestrator.py`
+
+**Design consideration:** DependencyEngine must be language-specific.
+A family of engines (PipAuditEngine, CargoAuditEngine, NpmAuditEngine)
+rather than a single polymorphic engine. Each has different output
+formats, severity models, and invocation patterns. Language detection
+via `ProjectDetector` determines which engine(s) to register.
+
+**Future dependency engines** (blocked on language support):
+- `cargo audit` for Rust (v0.3+)
+- `npm audit` / `yarn audit` / `pnpm audit` for JS/TS (v0.3)
+- `govulncheck` for Go (future)
+
 ## v0.2.0 - Managed Agent Execution
 
 `plsec run` command: managed execution of AI coding agents with full
@@ -219,6 +245,28 @@ plsec security baked in at every level:
 
 This serves as a reference implementation and template for building
 secure MCP servers that interoperate with plsec-managed agents.
+
+### Additional Harnesses
+
+Extend harness support beyond Claude Code and OpenCode. Each new harness
+requires:
+- `AgentSpec` registry entry with config filename, templates, and validator
+- Wrapper script template (`wrapper-<agent>.sh`)
+- Bootstrap integration (agent detection, config generation)
+- Compatibility entry in `compatibility.yaml`
+
+**Gemini CLI** is the highest-priority addition. Google's Gemini CLI is
+gaining traction as an AI coding assistant and shares the same threat
+model as Claude Code and OpenCode (filesystem access, shell execution,
+network egress). Requirements:
+- Determine config format and location (likely JSON or YAML)
+- Analyze Gemini CLI's permission model and map to plsec deny patterns
+- Implement `GEMINI_SHELL_PREFIX` equivalent if available (audit logging)
+- Add to `plsec run` command for managed execution
+- Data adapter for monitoring (data store format TBD)
+
+**Other candidates** (lower priority, tracked in Future Considerations):
+Codex (OpenAI), CoPilot (GitHub), ollama-based agents, Cursor.
 
 ## v0.3 - JS/TS Ecosystem Support
 
@@ -339,8 +387,10 @@ text.
 - **Agent monitoring for additional agents**: Extend agent data adapters
   to Gemini CLI, Codex (OpenAI), CoPilot (GitHub), ollama, and other
   agents as they mature. Requires data source analysis for each agent's
-  local storage format. Community contributions welcome -- submit PRs
-  adding validated versions to `compatibility.yaml`.
+  local storage format. Harness support (configs, wrappers) is a
+  prerequisite -- see [Additional Harnesses](#additional-harnesses) in
+  v0.2.0. Community contributions welcome -- submit PRs adding validated
+  versions to `compatibility.yaml`.
   See [DESIGN-AGENT-MONITORING.md](DESIGN-AGENT-MONITORING.md).
 - **MCP server securing**: Monitor, audit, and enforce security policies
   on third-party MCP servers that agents connect to. Includes permission
@@ -365,8 +415,15 @@ text.
 - **User tool selection**: Allow users to choose between equivalent tools
   (e.g., mypy vs ty, black vs ruff format). Currently plsec ships opinionated
   defaults. See PROJECT.md Outstanding Items.
-- **Additional language ecosystems**: Go, Rust, Java/Kotlin, Ruby -
+- **Additional language ecosystems**: Go, Rust, Java/Kotlin, Ruby --
   each with their own dependency and security tooling landscape.
+  See [SUPPORTED-CONFIGS.md](../SUPPORTED-CONFIGS.md) for current matrix.
+- **Windows support**: The Python CLI runs on Windows (platform detection
+  returns `"windows"` in `EnvironmentInfo`) but has zero test coverage and
+  no CI. Bootstrap is bash-only and will not work on Windows without WSL.
+  Windows support requires: PowerShell wrapper scripts, Windows-native
+  paths in config deployment, CI matrix expansion, and WSL detection/bridge.
+  Low priority -- most AI coding assistant usage is on macOS and Linux.
 - **CI/CD integration**: GitHub Actions, GitLab CI templates for running
   plsec scans in pipelines.
 - **Team/org features**: Shared security policies, centralized dashboards,

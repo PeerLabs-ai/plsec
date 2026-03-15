@@ -218,6 +218,7 @@ plsec/
 | `docs/roadmap.md`                  | Version roadmap, milestones, v0.2.0 plan         |
 | `docs/secure-tool-handling.md`     | Defensive subprocess output handling             |
 | `docs/writing-engines.md`          | Developer guide for custom engines               |
+| `SUPPORTED-CONFIGS.md`             | Compatibility matrix (OS, language, harness, tooling) |
 | `CONTRIBUTING.md`                  | Contributor guide (setup, workflow, standards)   |
 | `SECURITY.md`                      | Vulnerability disclosure policy                  |
 | `docs/archive/HANDOFF-20260309.md` | Previous handoff (sessions 1-18)                 |
