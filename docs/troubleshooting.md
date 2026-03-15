@@ -561,7 +561,7 @@ If these fixes don't resolve your issue:
    ls -la ~/.peerlabs/plsec/
    ```
 
-4. **File an issue**: https://github.com/peerlabs/plsec/issues
+4. **File an issue**: https://github.com/PeerLabs-ai/plsec/issues
 
    Include:
    - plsec version (`plsec --version`)

@@ -1,9 +1,7 @@
 # plsec Engine Architecture Design
 
 **Status**: Draft / Interface Design
-
 **Date**: 2026-03-04
-
 **Context**: Evolving plsec from subprocess wrappers to a proper engine
 abstraction
 

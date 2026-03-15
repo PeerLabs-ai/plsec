@@ -3,10 +3,13 @@
 ## Summary
 
 - BATS is the right choice for unit and integration testing of bin/bootstrap.sh
-- Testing breaks into three tiers: unit (helper functions, argument parsing), integration (file generation, idempotency), and platform (macOS/Linux in CI)
+- Testing breaks into three tiers: unit (helper functions, argument parsing),
+  integration (file generation, idempotency), and platform (macOS/Linux in CI)
 - BATS tests coexist with the existing pytest suite under tests/bats/
-- The existing --dry-run mode serves double duty: user-facing feature and test scaffolding
-- CI runs both pytest (Python CLI) and BATS (bootstrap) on GitHub Actions with a platform matrix
+- The existing --dry-run mode serves double duty: user-facing feature and test
+  scaffolding
+- CI runs both pytest (Python CLI) and BATS (bootstrap) on GitHub Actions with a
+  platform matrix
 
 ## Why BATS
 

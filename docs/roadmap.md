@@ -371,3 +371,6 @@ text.
   plsec scans in pipelines.
 - **Team/org features**: Shared security policies, centralized dashboards,
   compliance reporting.
+- **Security disclosure process**: Improve vulnerability disclosure beyond
+  email-only. Evaluate GitHub Security Advisories, a bug bounty program,
+  and PGP-encrypted reporting. Current process documented in SECURITY.md.

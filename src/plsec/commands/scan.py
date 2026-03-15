@@ -444,7 +444,7 @@ def scan(
     # Footer
     print()
     print_info("Scanner limitations: docs/scanner-limitations.md")
-    print_info("Report issues: https://github.com/peerlabs/plsec/issues")
+    print_info("Report issues: https://github.com/PeerLabs-ai/plsec/issues")
 
     # Exit with verdict exit code
     verdict = result.verdict

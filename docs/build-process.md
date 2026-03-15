@@ -16,7 +16,7 @@ bootstrap assembler, see `build-process-design.md`.
 ## Getting Started
 
 ```bash
-git clone https://github.com/peerlabs/plsec
+git clone https://github.com/PeerLabs-ai/plsec
 cd plsec
 make setup          # uv sync --dev
 make dev-check      # quick local validation

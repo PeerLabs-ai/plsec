@@ -11,62 +11,30 @@ without modifying command logic.
 
 ## Installation
 
-### Using uv (Recommended)
+### Bootstrap (zero dependencies, quick start)
 
 ```bash
-# Install globally with uv
-uv tool install plsec
-
-# Or run without installing
-uvx plsec doctor
-
-# Development install
-uv pip install -e ".[dev]"
+curl -fsSL https://raw.githubusercontent.com/PeerLabs-ai/plsec/main/build/bootstrap.sh | bash
 ```
 
-### Using pipx
+The bootstrap script installs wrapper scripts, agent configs, and shell
+aliases into `~/.peerlabs/plsec/`. It requires only Bash and curl -- no
+Python, no package manager.
+
+### From Source (contributor path)
 
 ```bash
-# Install in isolated environment
-pipx install plsec
-```
-
-### Using pip
-
-```bash
-# Install globally (not recommended)
-pip install plsec
-
-# Install in virtual environment
-python -m venv .venv
-source .venv/bin/activate
-pip install plsec
-```
-
-### Using Homebrew (macOS)
-
-```bash
-# Add the tap
-brew tap peerlabs/tap
-
-# Install plsec with dependencies
-brew install plsec
-
-# Or install with optional tools
-brew install plsec pipelock podman
-```
-
-### From Source
-
-```bash
-# Clone and install with uv
-git clone https://github.com/peerlabs/plsec
+git clone https://github.com/PeerLabs-ai/plsec
 cd plsec
-uv pip install -e ".[dev]"
-
-# Or with pip
-pip install -e ".[dev]"
+make setup    # requires Python 3.12+ and uv
+make ci       # lint, type-check, build, test -- validates everything
 ```
+
+This gives you the full `plsec` CLI plus the development toolchain.
+
+### PyPI / Homebrew
+
+Coming soon. For now use Bootstrap or From Source above.
 
 ## Quick Start
 
@@ -252,16 +220,16 @@ make reset                     # Factory reset (preserves logs)
 
 The test suite has two layers:
 
-- **pytest** (666 tests, 77% coverage) -- Python CLI across 3 tiers:
+- **pytest** (1232 tests) -- Python CLI across 3 tiers:
   pure logic (config, tools, templates, integrity, validation),
   filesystem with `tmp_path` (detector, init, create, output, install,
   reset, uninstall, inventory), and subprocess mocking (scan, doctor,
   proxy, secure). Includes registry module tests for agents, scanners,
   processes, and health. Wrapper deployment and shell alias
   injection/removal are tested with full filesystem isolation.
-- **BATS** (172 tests) -- Bootstrap shell script: 75 unit tests
+- **BATS** (284 tests) -- Bootstrap shell script: 152 unit tests
   (directory structure, agent configs, wrapper scripts, logging fields),
-  53 integration tests (idempotency, agent switching, dry-run), and
+  88 integration tests (idempotency, agent switching, dry-run), and
   44 assembler escaping tests.
 
 ```bash

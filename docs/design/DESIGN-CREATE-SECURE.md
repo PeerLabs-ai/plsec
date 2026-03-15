@@ -9,10 +9,10 @@
 
 Two complementary commands for project security setup:
 
-| Command | Use Case | User Journey |
-|---------|----------|--------------|
-| `plsec create <name>` | New project | "I'm starting fresh, give me a secure foundation" |
-| `plsec secure [path]` | Existing project | "I have code, help me lock it down" |
+| Command               | Use Case         | User Journey                                      |
+|-----------------------|------------------|---------------------------------------------------|
+| `plsec create <name>` | New project      | "I'm starting fresh, give me a secure foundation" |
+| `plsec secure [path]` | Existing project | "I have code, help me lock it down"               |
 
 Both use an interactive wizard to understand needs and generate appropriate configuration.
 
@@ -22,7 +22,8 @@ Both use an interactive wizard to understand needs and generate appropriate conf
 
 ### 1.1 Purpose
 
-Scaffold a new project with security built-in from day one. Creates directory structure, configuration files, and optional tooling.
+Scaffold a new project with security built-in from day one. Creates directory
+structure, configuration files, and optional tooling.
 
 ### 1.2 Command Signature
 
@@ -109,7 +110,7 @@ Posture:     Balanced
 Data:        API keys, Database credentials
 Providers:   AWS, DigitalOcean
 
-Create project? [Y/n] 
+Create project? [Y/n]
 
 Creating my-api/
   [OK] Created directory structure
@@ -141,7 +142,7 @@ my-api/
   README.md               # Project readme
   trivy/
     trivy-secret.yaml     # Custom secret patterns
-  
+
   # Python template
   pyproject.toml
   src/
@@ -149,7 +150,7 @@ my-api/
       __init__.py
   tests/
     __init__.py
-  
+
   # Optional (strict/paranoid)
   Dockerfile              # Isolated dev environment
   docker-compose.yaml     # Container orchestration
@@ -303,14 +304,14 @@ Next steps:
 Before the wizard, `plsec secure` analyzes the project:
 
 **Detection:**
-| What | How |
-|------|-----|
-| Project type | pyproject.toml, package.json, go.mod, Cargo.toml |
-| Package manager | uv (pyproject.toml), pip (requirements.txt), npm, yarn, pnpm |
-| Test framework | pytest.ini, jest.config, go test |
-| Cloud providers | Requirements, imports, config files |
-| Existing security | .pre-commit-config.yaml, CLAUDE.md, .gitignore |
-| Git status | .git directory, uncommitted changes |
+| What              | How                                                          |
+|-------------------|--------------------------------------------------------------|
+| Project type      | pyproject.toml, package.json, go.mod, Cargo.toml             |
+| Package manager   | uv (pyproject.toml), pip (requirements.txt), npm, yarn, pnpm |
+| Test framework    | pytest.ini, jest.config, go test                             |
+| Cloud providers   | Requirements, imports, config files                          |
+| Existing security | .pre-commit-config.yaml, CLAUDE.md, .gitignore               |
+| Git status        | .git directory, uncommitted changes                          |
 
 **Quick Scan:**
 - Run Trivy secret scan (fast mode)
@@ -321,12 +322,12 @@ Before the wizard, `plsec secure` analyzes the project:
 
 Changes are categorized:
 
-| Category | Description | User Control |
-|----------|-------------|--------------|
-| CREATE | New files | Can skip individual files |
-| MODIFY | Append/merge to existing | Shows diff, can skip |
-| SKIP | Already exists, no changes | Informational |
-| CONFLICT | Exists but different | Requires --force or manual resolution |
+| Category | Description                | User Control                          |
+|----------|----------------------------|---------------------------------------|
+| CREATE   | New files                  | Can skip individual files             |
+| MODIFY   | Append/merge to existing   | Shows diff, can skip                  |
+| SKIP     | Already exists, no changes | Informational                         |
+| CONFLICT | Exists but different       | Requires --force or manual resolution |
 
 **Selective Mode:**
 
@@ -482,22 +483,22 @@ plsec secure ./my-project \
 
 ### 5.1 plsec create
 
-| Error | Handling |
-|-------|----------|
-| Directory exists | Abort with message, suggest `plsec secure` |
-| No write permission | Abort with clear error |
-| Git not installed | Warn, skip git init |
-| Pre-commit not installed | Warn, skip hook installation |
+| Error                    | Handling                                   |
+|--------------------------|--------------------------------------------|
+| Directory exists         | Abort with message, suggest `plsec secure` |
+| No write permission      | Abort with clear error                     |
+| Git not installed        | Warn, skip git init                        |
+| Pre-commit not installed | Warn, skip hook installation               |
 
 ### 5.2 plsec secure
 
-| Error | Handling |
-|-------|----------|
-| Not a directory | Abort with message |
-| No write permission | Abort with clear error |
-| Not a git repo | Warn, skip git-related features |
-| Uncommitted changes | Warn, suggest committing first |
-| Existing conflicts | List conflicts, require --force or manual |
+| Error               | Handling                                  |
+|---------------------|-------------------------------------------|
+| Not a directory     | Abort with message                        |
+| No write permission | Abort with clear error                    |
+| Not a git repo      | Warn, skip git-related features           |
+| Uncommitted changes | Warn, suggest committing first            |
+| Existing conflicts  | List conflicts, require --force or manual |
 
 ---
 
@@ -535,12 +536,12 @@ plsec secure ./my-project \
 
 ## 7. Open Questions
 
-| Question | Options | Leaning |
-|----------|---------|---------|
-| Prompt library | questionary vs rich.prompt vs InquirerPy | rich.prompt (fewer deps) |
-| Template format | Jinja2 vs string.Template vs f-strings | Jinja2 (powerful, familiar) |
-| Config merging | Append vs deep merge vs replace | Append for .gitignore, replace for others |
-| Scan before secure | Always vs optional vs skip | Always (quick scan is fast) |
+| Question           | Options                                  | Leaning                                   |
+|--------------------|------------------------------------------|-------------------------------------------|
+| Prompt library     | questionary vs rich.prompt vs InquirerPy | rich.prompt (fewer deps)                  |
+| Template format    | Jinja2 vs string.Template vs f-strings   | Jinja2 (powerful, familiar)               |
+| Config merging     | Append vs deep merge vs replace          | Append for .gitignore, replace for others |
+| Scan before secure | Always vs optional vs skip               | Always (quick scan is fast)               |
 
 ---
 

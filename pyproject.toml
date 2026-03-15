@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
 authors = [
-    { name = "Peerlabs", email = "security@peerlabs.io" }
+    { name = "Peerlabs", email = "security@peerlabs.ai" }
 ]
 keywords = [
     "security",
@@ -54,10 +54,10 @@ dev = [
 plsec = "plsec.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/peerlabs/plsec"
-Documentation = "https://github.com/peerlabs/plsec#readme"
-Repository = "https://github.com/peerlabs/plsec"
-Issues = "https://github.com/peerlabs/plsec/issues"
+Homepage = "https://github.com/PeerLabs-ai/plsec"
+Documentation = "https://github.com/PeerLabs-ai/plsec#readme"
+Repository = "https://github.com/PeerLabs-ai/plsec"
+Issues = "https://github.com/PeerLabs-ai/plsec/issues"
 
 [tool.hatch.version]
 path = "VERSION"

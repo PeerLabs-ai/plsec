@@ -307,7 +307,7 @@ go run .
     readme += """
 ## Security
 
-This project uses [plsec](https://github.com/peerlabs/plsec) for security.
+This project uses [plsec](https://github.com/PeerLabs-ai/plsec) for security.
 
 ```bash
 # Check security status

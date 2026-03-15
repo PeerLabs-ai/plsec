@@ -7,7 +7,7 @@ This directory contains the Homebrew formula for plsec.
 To distribute via Homebrew, create a separate repository:
 
 ```
-github.com/peerlabs/homebrew-tap/
+github.com/PeerLabs-ai/homebrew-tap/
   Formula/
     plsec.rb          # This formula
     pipelock.rb       # Optional: Pipelock formula
@@ -30,12 +30,12 @@ cp path/to/plsec.rb Formula/
 
 # 4. Update SHA256 hashes
 # After publishing a release, get the SHA256:
-curl -sL https://github.com/peerlabs/plsec/archive/refs/tags/v0.1.0.tar.gz | shasum -a 256
+curl -sL https://github.com/PeerLabs-ai/plsec/archive/refs/tags/v0.1.0.tar.gz | shasum -a 256
 
 # 5. Push to GitHub
 git add .
 git commit -m "Add plsec formula"
-git remote add origin git@github.com:peerlabs/homebrew-tap.git
+git remote add origin git@github.com:PeerLabs-ai/homebrew-tap.git
 git push -u origin main
 ```
 
@@ -45,13 +45,13 @@ Once the tap is published:
 
 ```bash
 # Add the tap
-brew tap peerlabs/tap
+brew tap PeerLabs-ai/tap
 
 # Install plsec
 brew install plsec
 
 # Or install directly without tapping
-brew install peerlabs/tap/plsec
+brew install PeerLabs-ai/tap/plsec
 ```
 
 ## Formula Development
@@ -77,7 +77,7 @@ When releasing a new version:
 1. Create a GitHub release with a tag (e.g., v0.2.0)
 2. Get the tarball SHA256:
    ```bash
-   curl -sL https://github.com/peerlabs/plsec/archive/refs/tags/v0.2.0.tar.gz | shasum -a 256
+   curl -sL https://github.com/PeerLabs-ai/plsec/archive/refs/tags/v0.2.0.tar.gz | shasum -a 256
    ```
 3. Update the formula:
    - Change `url` to new version
@@ -129,10 +129,10 @@ jobs:
           SHA256=$(curl -sL https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz | shasum -a 256 | cut -d' ' -f1)
 
           # Clone tap repo and update formula
-          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/peerlabs/homebrew-tap.git
+          git clone https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/PeerLabs-ai/homebrew-tap.git
           cd homebrew-tap
 
-          sed -i "s|url \".*\"|url \"https://github.com/peerlabs/plsec/archive/refs/tags/v${VERSION}.tar.gz\"|" Formula/plsec.rb
+          sed -i "s|url \".*\"|url \"https://github.com/PeerLabs-ai/plsec/archive/refs/tags/v${VERSION}.tar.gz\"|" Formula/plsec.rb
           sed -i "s|sha256 \".*\"|sha256 \"${SHA256}\"|" Formula/plsec.rb
 
           git config user.name "GitHub Actions"

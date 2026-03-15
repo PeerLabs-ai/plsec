@@ -18,11 +18,11 @@ When an engine runs a subprocess, the result falls into one of
 three states. The engine must distinguish all three -- conflating
 any two is a bug.
 
-| State      | Meaning                             | Engine response           |
-|------------|-------------------------------------|---------------------------|
-| **Clean**  | Tool ran, found nothing             | Return `[]` (no findings) |
-| **Degraded** | Tool output is non-standard but recoverable | Extract data, log warning |
-| **Failed** | Tool crashed or produced unusable output | Return `tool_failure` finding |
+| State        | Meaning                                     | Engine response               |
+|--------------|---------------------------------------------|-------------------------------|
+| **Clean**    | Tool ran, found nothing                     | Return `[]` (no findings)     |
+| **Degraded** | Tool output is non-standard but recoverable | Extract data, log warning     |
+| **Failed**   | Tool crashed or produced unusable output    | Return `tool_failure` finding |
 
 ### How to distinguish
 

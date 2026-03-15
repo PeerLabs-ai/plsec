@@ -51,26 +51,26 @@ plsec-status --json
 
 **Field reference**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `version` | string | plsec version (includes `+bootstrap` suffix) |
-| `mode` | string | Security mode: `strict`, `balanced`, or `unknown` |
-| `agents` | array | Configured agents: `["claude"]`, `["opencode"]`, `["claude", "opencode"]` |
-| `overall` | string | Overall verdict: `ok` or `fail` |
-| `warnings` | int | Count of warnings (non-blocking) |
-| `errors` | int | Count of failures (blocking) |
-| `timestamp` | string | ISO 8601 UTC timestamp |
-| `checks` | array | Individual check results (see below) |
+| Field       | Type   | Description                                                               |
+|-------------|--------|---------------------------------------------------------------------------|
+| `version`   | string | plsec version (includes `+bootstrap` suffix)                              |
+| `mode`      | string | Security mode: `strict`, `balanced`, or `unknown`                         |
+| `agents`    | array  | Configured agents: `["claude"]`, `["opencode"]`, `["claude", "opencode"]` |
+| `overall`   | string | Overall verdict: `ok` or `fail`                                           |
+| `warnings`  | int    | Count of warnings (non-blocking)                                          |
+| `errors`    | int    | Count of failures (blocking)                                              |
+| `timestamp` | string | ISO 8601 UTC timestamp                                                    |
+| `checks`    | array  | Individual check results (see below)                                      |
 
 **Check object**:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Check identifier (`I-1`, `C-3`, `A-1`, `F-1`, etc.) |
+| Field      | Type   | Description                                                             |
+|------------|--------|-------------------------------------------------------------------------|
+| `id`       | string | Check identifier (`I-1`, `C-3`, `A-1`, `F-1`, etc.)                     |
 | `category` | string | Check category: `installation`, `configuration`, `activity`, `findings` |
-| `name` | string | Human-readable check name |
-| `verdict` | string | Check verdict: `ok`, `warn`, `fail`, `skip` |
-| `detail` | string | Additional detail (path, message, count, etc.) |
+| `name`     | string | Human-readable check name                                               |
+| `verdict`  | string | Check verdict: `ok`, `warn`, `fail`, `skip`                             |
+| `detail`   | string | Additional detail (path, message, count, etc.)                          |
 
 ## Quiet Mode
 
@@ -100,15 +100,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: Install plsec via bootstrap
         run: |
           curl -fsSL https://raw.githubusercontent.com/peerlabs/plsec/main/bin/bootstrap.default.sh | bash
           source ~/.bashrc
-      
       - name: Check plsec health
         run: plsec-status
-      
       - name: Run security scans
         run: plsec scan --all
 ```
@@ -125,31 +122,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
       - name: Install plsec
         run: |
           curl -fsSL https://raw.githubusercontent.com/peerlabs/plsec/main/bin/bootstrap.default.sh | bash
           source ~/.bashrc
-      
       - name: Check plsec status (JSON)
         id: status
         run: |
           plsec-status --json | tee status.json
           echo "verdict=$(jq -r '.overall' status.json)" >> $GITHUB_OUTPUT
-      
       - name: Parse warnings and errors
         run: |
           warnings=$(jq -r '.warnings' status.json)
           errors=$(jq -r '.errors' status.json)
-          echo "⚠️  Warnings: $warnings"
-          echo "❌ Errors: $errors"
-      
+          echo "Warnings: $warnings"
+          echo ""Errors: $errors"
       - name: Fail on errors
         if: steps.status.outputs.verdict == 'fail'
         run: |
           echo "plsec health check failed"
           exit 1
-      
       - name: Upload status report
         if: always()
         uses: actions/upload-artifact@v4
@@ -200,7 +192,7 @@ plsec:gate:
 ```groovy
 pipeline {
     agent any
-    
+
     stages {
         stage('Security Health') {
             steps {
@@ -209,27 +201,27 @@ pipeline {
                     source ~/.bashrc
                     plsec-status --json | tee status.json
                 '''
-                
+
                 script {
                     def status = readJSON file: 'status.json'
                     echo "Overall: ${status.overall}"
                     echo "Warnings: ${status.warnings}"
                     echo "Errors: ${status.errors}"
-                    
+
                     if (status.overall == 'fail') {
                         error "plsec health check failed with ${status.errors} error(s)"
                     }
                 }
             }
         }
-        
+
         stage('Security Scan') {
             steps {
                 sh 'plsec scan --all --json'
             }
         }
     }
-    
+
     post {
         always {
             archiveArtifacts artifacts: '~/.peerlabs/plsec/logs/**/*.json', allowEmptyArchive: true
@@ -262,17 +254,17 @@ jobs:
       - image: cimg/base:2024.01
     steps:
       - checkout
-      
+
       - run:
           name: Install plsec
           command: |
             curl -fsSL https://raw.githubusercontent.com/peerlabs/plsec/main/bin/bootstrap.default.sh | bash
             source ~/.bashrc
-      
+
       - run:
           name: plsec health check
           command: plsec-status --json | tee status.json
-      
+
       - run:
           name: Verify health
           command: |
@@ -281,7 +273,7 @@ jobs:
               echo "Health check failed"
               exit 1
             fi
-      
+
       - store_artifacts:
           path: status.json
           destination: plsec-status
@@ -313,7 +305,7 @@ warnings=$(plsec-status --json | jq -r '.warnings')
 echo "Errors: $errors, Warnings: $warnings"
 
 if [ "$errors" -gt 0 ]; then
-  echo "❌ $errors checks failed"
+  echo "$errors checks failed"
   exit 1
 fi
 ```
@@ -335,7 +327,7 @@ installation_failures = [
 ]
 
 if installation_failures:
-    print(f"❌ {len(installation_failures)} installation checks failed:")
+    print(f"{len(installation_failures)} installation checks failed:")
     for check in installation_failures:
         print(f"  - {check['name']}: {check['detail']}")
     sys.exit(1)
@@ -356,7 +348,7 @@ console.log(`Warnings: ${status.warnings}`);
 console.log(`Errors: ${status.errors}`);
 
 if (status.overall === 'fail') {
-  console.error('❌ plsec health check failed');
+  console.error('plsec health check failed');
   process.exit(1);
 }
 
@@ -373,7 +365,7 @@ warnings=$(jq -r '.warnings' status.json)
 errors=$(jq -r '.errors' status.json)
 
 if [ "$errors" -gt 0 ] || [ "$warnings" -gt 0 ]; then
-  echo "❌ Failed with $errors error(s) and $warnings warning(s)"
+  echo "Failed with $errors error(s) and $warnings warning(s)"
   jq '.checks[] | select(.verdict == "fail" or .verdict == "warn") | "\(.category): \(.name) - \(.detail)"' status.json
   exit 1
 fi
@@ -386,7 +378,7 @@ fi
 findings_failures=$(plsec-status --json | jq '[.checks[] | select(.category == "findings" and .verdict == "fail")] | length')
 
 if [ "$findings_failures" -gt 0 ]; then
-  echo "❌ $findings_failures security findings detected"
+  echo "$findings_failures security findings detected"
   exit 1
 fi
 ```

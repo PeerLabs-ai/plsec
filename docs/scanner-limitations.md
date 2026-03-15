@@ -26,18 +26,18 @@ code discussions frequently mention the word "secret." Without this limitation, 
 flag hundreds of false positives in legitimate files.
 
 **Tradeoff**:
-- ✅ **Benefit**: Reduces false positives in documentation, comments, and test assertions
-- ❌ **Risk**: May miss secrets in unusual formats without clear assignment operators
+- **Benefit**: Reduces false positives in documentation, comments, and test assertions
+- **Risk**: May miss secrets in unusual formats without clear assignment operators
 
 **Examples**:
 
 ```python
-# ✅ DETECTED (assignment context present)
+# DETECTED (assignment context present)
 API_KEY = "sk-abc123456789012345678901234567890"
 config = {"secret": "token123456789012345"}
 export SECRET_TOKEN=xyz789012345678901234567890
 
-# ❌ NOT DETECTED (no assignment context)
+# NOT DETECTED (no assignment context)
 # Comment: "store your secret in environment variables"
 assert "secret" in preset.description
 print(f"secret value: {token}")  # May miss this pattern
@@ -134,12 +134,12 @@ secure temporary directories instead of hardcoded `/tmp` paths. This prevents:
 
 ### Preset-Driven Defaults
 
-| Preset | Scanner Behavior | False Positive Rate | Detection Coverage |
-|--------|------------------|---------------------|-------------------|
-| `minimal` | Aggressive suppression | Very Low | Medium |
-| `balanced` | Reasonable defaults | Low | High |
-| `strict` | Minimal suppression | Medium | Very High |
-| `paranoid` | No suppression | High | Maximum |
+| Preset     | Scanner Behavior       | False Positive Rate | Detection Coverage |
+|------------|------------------------|---------------------|--------------------|
+| `minimal`  | Aggressive suppression | Very Low            | Medium             |
+| `balanced` | Reasonable defaults    | Low                 | High               |
+| `strict`   | Minimal suppression    | Medium              | Very High          |
+| `paranoid` | No suppression         | High                | Maximum            |
 
 ### Customization
 
@@ -179,7 +179,7 @@ plsec with:
 If plsec's scanners miss a real security issue:
 
 1. **Verify it's real** (not a test fixture or example)
-2. **Report to**: [GitHub Issues](https://github.com/peerlabs/plsec/issues)
+2. **Report to**: [GitHub Issues](https://github.com/PeerLabs-ai/plsec/issues)
 3. **Include**:
    - Scanner that should have caught it (Trivy, Bandit, Semgrep)
    - Minimal reproduction case (sanitized)

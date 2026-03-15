@@ -4,19 +4,23 @@
 
 - Makefile is the right interface: `make`, `make test`, `make clean`, `make golden`
 - Templates stored as natural files (valid markdown, JSON, YAML, bash) -- independently lintable and reviewable
-- A small shell assembler script reads a skeleton and substitutes template content with correct heredoc escaping
-- Two escaping contexts: "content templates" (CLAUDE.md, opencode.json) where `${PLSEC_DIR}` resolves at bootstrap runtime, and "script templates" (wrapper scripts) where `${PLSEC_DIR}` bakes in at generation time but runtime variables like `$LOG_FILE` are preserved
+- A small shell assembler script reads a skeleton and substitutes template
+  content with correct heredoc escaping
+- Two escaping contexts: "content templates" (CLAUDE.md, opencode.json) where
+  `${PLSEC_DIR}` resolves at bootstrap runtime, and "script templates" (wrapper
+  scripts) where `${PLSEC_DIR}` bakes in at generation time but runtime
+  variables like `$LOG_FILE` are preserved
 - Build output is `bin/bootstrap.sh` -- a single distributable file, checked into version control
 
 ## Why Makefile
 
-| Approach | Pros | Cons |
-|---|---|---|
-| **Makefile** | Universal, dependency-aware, parallel targets, zero extra deps | Syntax quirks (tabs, escaping) |
-| Just(file) | Cleaner syntax, cross-platform | Extra dependency, less universal |
-| Python script | Full language, Jinja2 templating | Wrong language for a bash build; adds Python as build dep |
-| Shell script only | No extra deps | No dependency tracking, reruns everything |
-| Task (Go) | Fast, typed | Overkill, Go dependency |
+| Approach          | Pros                                                           | Cons                                                      |
+|-------------------|----------------------------------------------------------------|-----------------------------------------------------------|
+| **Makefile**      | Universal, dependency-aware, parallel targets, zero extra deps | Syntax quirks (tabs, escaping)                            |
+| Just(file)        | Cleaner syntax, cross-platform                                 | Extra dependency, less universal                          |
+| Python script     | Full language, Jinja2 templating                               | Wrong language for a bash build; adds Python as build dep |
+| Shell script only | No extra deps                                                  | No dependency tracking, reruns everything                 |
+| Task (Go)         | Fast, typed                                                    | Overkill, Go dependency                                   |
 
 Makefile wins on universality and dependency tracking. The project already uses
 bash and standard Unix tools. Make's dependency graph ensures templates are
@@ -33,14 +37,14 @@ different escaping strategies during assembly:
 Files written to `${PLSEC_DIR}/configs/` at bootstrap time. They contain
 `${PLSEC_DIR}` references that resolve at bootstrap runtime.
 
-| Template | Destination | Variables |
-|---|---|---|
-| `claude-md-strict.md` | `${PLSEC_DIR}/configs/CLAUDE.md` | `${PLSEC_DIR}` |
-| `claude-md-balanced.md` | `${PLSEC_DIR}/configs/CLAUDE.md` | `${PLSEC_DIR}` |
-| `opencode-json-strict.json` | `${PLSEC_DIR}/configs/opencode.json` | none |
-| `opencode-json-balanced.json` | `${PLSEC_DIR}/configs/opencode.json` | none |
-| `trivy-secret.yaml` | `${PLSEC_DIR}/trivy/trivy-secret.yaml` | none |
-| `trivy.yaml` | `${PLSEC_DIR}/trivy/trivy.yaml` | none |
+| Template                      | Destination                            | Variables      |
+|-------------------------------|----------------------------------------|----------------|
+| `claude-md-strict.md`         | `${PLSEC_DIR}/configs/CLAUDE.md`       | `${PLSEC_DIR}` |
+| `claude-md-balanced.md`       | `${PLSEC_DIR}/configs/CLAUDE.md`       | `${PLSEC_DIR}` |
+| `opencode-json-strict.json`   | `${PLSEC_DIR}/configs/opencode.json`   | none           |
+| `opencode-json-balanced.json` | `${PLSEC_DIR}/configs/opencode.json`   | none           |
+| `trivy-secret.yaml`           | `${PLSEC_DIR}/trivy/trivy-secret.yaml` | none           |
+| `trivy.yaml`                  | `${PLSEC_DIR}/trivy/trivy.yaml`        | none           |
 
 **Escaping rule:** These are stored in bash variables (double-quoted strings or
 heredocs). Any `$` in the template content not intended as a bootstrap variable
@@ -77,13 +81,13 @@ contain runtime shell syntax (`$LOG_FILE`, `$(date)`, `$$`, `$@`) that must
 be preserved literally in the generated file, plus `${PLSEC_DIR}` which
 should bake in the actual path at generation time.
 
-| Template | Destination |
-|---|---|
-| `wrapper-claude.sh` | `${PLSEC_DIR}/claude-wrapper.sh` |
+| Template              | Destination                        |
+|-----------------------|------------------------------------|
+| `wrapper-claude.sh`   | `${PLSEC_DIR}/claude-wrapper.sh`   |
 | `wrapper-opencode.sh` | `${PLSEC_DIR}/opencode-wrapper.sh` |
-| `wrapper-scan.sh` | `${PLSEC_DIR}/scan.sh` |
-| `hook-pre-commit.sh` | `${PLSEC_DIR}/configs/pre-commit` |
-| `pipelock-start.sh` | `${PLSEC_DIR}/pipelock-start.sh` |
+| `wrapper-scan.sh`     | `${PLSEC_DIR}/scan.sh`             |
+| `hook-pre-commit.sh`  | `${PLSEC_DIR}/configs/pre-commit`  |
+| `pipelock-start.sh`   | `${PLSEC_DIR}/pipelock-start.sh`   |
 
 **Current approach (in assembled bootstrap.sh):** Unquoted heredocs with
 manually escaped runtime variables (`\$LOG_FILE`, `\$(date)`, etc.).
@@ -107,11 +111,11 @@ individually by substituting a test path for the marker.
 
 ## Placeholder Convention
 
-| Marker | Resolves at | Meaning |
-|---|---|---|
-| `@@PLSEC_DIR@@` | Bootstrap runtime | The PLSEC_DIR path |
-| `@@PLSEC_VERSION@@` | Build time | Version string from Makefile |
-| (future markers) | As defined | Follow `@@NAME@@` pattern |
+| Marker              | Resolves at       | Meaning                      |
+|---------------------|-------------------|------------------------------|
+| `@@PLSEC_DIR@@`     | Bootstrap runtime | The PLSEC_DIR path           |
+| `@@PLSEC_VERSION@@` | Build time        | Version string from Makefile |
+| (future markers)    | As defined        | Follow `@@NAME@@` pattern    |
 
 Markers use `@@` delimiters to avoid collision with shell syntax, markdown,
 JSON, or YAML content.

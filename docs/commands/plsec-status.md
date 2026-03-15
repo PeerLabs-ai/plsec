@@ -165,12 +165,12 @@ $ plsec-status --watch --interval 3 --tail-lines 8 --project /path/to/project
 
 ### Verdicts
 
-| Verdict | Display | Meaning                                                |
-|---------|---------|--------------------------------------------------------|
-| OK      | ✓       | Component is present, configured, and active           |
-| WARN    | ⚠       | Component is degraded or stale (non-blocking)          |
-| FAIL    | ✗       | Component is missing, broken, or has blocking issues   |
-| SKIP    | -       | Component not applicable (e.g., different agent)       |
+| Verdict | Display | Meaning                                              |
+|---------|---------|------------------------------------------------------|
+| OK      | ✓       | Component is present, configured, and active         |
+| WARN    | ⚠      | Component is degraded or stale (non-blocking)        |
+| FAIL    | ✗       | Component is missing, broken, or has blocking issues |
+| SKIP    | -       | Component not applicable (e.g., different agent)     |
 
 ### Exit Codes
 
@@ -183,40 +183,40 @@ $ plsec-status --watch --interval 3 --tail-lines 8 --project /path/to/project
 
 ### Installation Checks
 
-| ID   | Name                    | OK                | WARN                   | FAIL                |
-|------|-------------------------|-------------------|------------------------|---------------------|
-| I-1  | plsec directory         | Exists            | -                      | Missing             |
-| I-1  | subdirectories          | All present       | Some missing           | -                   |
-| I-agent | CLAUDE.md config     | Exists, non-empty | Empty file             | Missing             |
-| I-agent | opencode.json config | Exists, non-empty | Empty file             | Missing             |
-| I-tool | git                   | Found             | -                      | Not found (required) |
-| I-tool | trivy                 | Found             | -                      | Not found (required) |
-| I-tool | bandit                | Found             | Not found (optional)   | -                   |
-| I-tool | semgrep               | Found             | Not found (optional)   | -                   |
-| I-tool | detect-secrets        | Found             | Not found (optional)   | -                   |
-| I-scanner | Trivy secret rules  | Exists            | Missing                | -                   |
-| I-scanner | Trivy configuration | Exists            | Missing                | -                   |
-| I-scanner | Pre-commit template | Exists            | Missing                | -                   |
-| I-7  | Claude Code wrapper     | Exists, executable| Not executable         | Missing             |
-| I-7  | OpenCode wrapper        | Exists, executable| Not executable         | Missing             |
+| ID        | Name                 | OK                 | WARN                 | FAIL                 |
+|-----------|----------------------|--------------------|----------------------|----------------------|
+| I-1       | plsec directory      | Exists             | -                    | Missing              |
+| I-1       | subdirectories       | All present        | Some missing         | -                    |
+| I-agent   | CLAUDE.md config     | Exists, non-empty  | Empty file           | Missing              |
+| I-agent   | opencode.json config | Exists, non-empty  | Empty file           | Missing              |
+| I-tool    | git                  | Found              | -                    | Not found (required) |
+| I-tool    | trivy                | Found              | -                    | Not found (required) |
+| I-tool    | bandit               | Found              | Not found (optional) | -                    |
+| I-tool    | semgrep              | Found              | Not found (optional) | -                    |
+| I-tool    | detect-secrets       | Found              | Not found (optional) | -                    |
+| I-scanner | Trivy secret rules   | Exists             | Missing              | -                    |
+| I-scanner | Trivy configuration  | Exists             | Missing              | -                    |
+| I-scanner | Pre-commit template  | Exists             | Missing              | -                    |
+| I-7       | Claude Code wrapper  | Exists, executable | Not executable       | Missing              |
+| I-7       | OpenCode wrapper     | Exists, executable | Not executable       | Missing              |
 
 ### Configuration Checks
 
-| ID  | Name              | OK                     | WARN                  | FAIL           |
-|-----|-------------------|------------------------|-----------------------|----------------|
-| C-1 | Security mode     | Detected (strict/balanced) | -                 | Not detected   |
-| C-2 | Active agents     | Detected               | -                     | No agents configured |
-| C-3 | Pre-commit hook   | Installed, references plsec | No plsec reference | Not installed or not a git repo |
-| C-project | CLAUDE.md (project) | Matches template   | Differs from template | Not found      |
-| C-project | opencode.json (project) | Matches template | Differs from template | Not found    |
+| ID        | Name                    | OK                          | WARN                  | FAIL                            |
+|-----------|-------------------------|-----------------------------|-----------------------|---------------------------------|
+| C-1       | Security mode           | Detected (strict/balanced)  | -                     | Not detected                    |
+| C-2       | Active agents           | Detected                    | -                     | No agents configured            |
+| C-3       | Pre-commit hook         | Installed, references plsec | No plsec reference    | Not installed or not a git repo |
+| C-project | CLAUDE.md (project)     | Matches template            | Differs from template | Not found                       |
+| C-project | opencode.json (project) | Matches template            | Differs from template | Not found                       |
 
 ### Activity Checks
 
-| ID  | Name          | OK          | WARN         | FAIL       |
-|-----|---------------|-------------|--------------|------------|
-| A-1 | Wrapper logs  | < 24h       | 24h - 7d     | > 7d or no logs |
-| A-2 | Sessions today| ≥ 1 today   | 0 today (but logs exist) | No session logs |
-| A-3 | Last scan     | < 24h       | > 24h        | No scan evidence |
+| ID  | Name           | OK        | WARN                     | FAIL             |
+|-----|----------------|-----------|--------------------------|------------------|
+| A-1 | Wrapper logs   | < 24h     | 24h - 7d                 | > 7d or no logs  |
+| A-2 | Sessions today | ≥ 1 today | 0 today (but logs exist) | No session logs  |
+| A-3 | Last scan      | < 24h     | > 24h                    | No scan evidence |
 
 **Staleness thresholds**:
 - **24 hours** = warn threshold (logs, scans)
@@ -224,10 +224,10 @@ $ plsec-status --watch --interval 3 --tail-lines 8 --project /path/to/project
 
 ### Findings Checks
 
-| ID  | Name           | OK              | WARN | FAIL             | SKIP |
-|-----|----------------|-----------------|------|------------------|------|
-| F-1 | Secrets        | None detected   | -    | Secrets detected | No scan data |
-| F-2 | Hook blocks    | None detected   | -    | Blocks detected  | No logs |
+| ID  | Name        | OK            | WARN | FAIL             | SKIP         |
+|-----|-------------|---------------|------|------------------|--------------|
+| F-1 | Secrets     | None detected | -    | Secrets detected | No scan data |
+| F-2 | Hook blocks | None detected | -    | Blocks detected  | No logs      |
 
 **Note**: Findings checks are SKIP when there is no data to analyze (e.g., no `scan-latest.json` for F-1, no log files for F-2).
 

@@ -6,7 +6,7 @@
 - **CLI Framework**: typer + rich
 - **Data Validation**: dataclasses, typing.Literal
 - **Configuration**: pyyaml, tomllib
-- **Build System**: hatchling, make, uv-native 
+- **Build System**: hatchling, make, uv-native
 - **Package Manager**: uv (recommended), pip, homebrew (macOS), apt (linux)
 - **Testing**: pytest + pytest-cov (Python), BATS (shell scripts)
 - **Quality**: ruff (lint + format), ty

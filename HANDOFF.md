@@ -1,7 +1,8 @@
 # plsec - HANDOFF
 
-**Last Updated:** 2026-03-14
-**Status:** `make ci` green, `make scan` clean (exit 0), 1232 pytest + 152 BATS unit + 88 BATS integration + 44 assembler tests
+**Last Updated:** 2026-03-15
+**Status:** `make ci` green, `make scan` clean (exit 0), 1232 pytest + 152 BATS
+unit + 88 BATS integration + 44 assembler tests
 
 ---
 
@@ -50,12 +51,12 @@ See `docs/secure-tool-handling.md` for the exemplar pattern.
 `plsec scan` (`commands/scan.py`) uses the engine pipeline end-to-end.
 Preset determines which engines run and which verdict strategy applies:
 
-| Preset   | Engines | Verdict strategy | Fail threshold |
-|----------|---------|------------------|----------------|
-| minimal  | 3 (static only) | Threshold | CRITICAL |
-| balanced | 4 (+misconfig) | Threshold | HIGH |
-| strict   | 5 (+container) | Strict | Any finding |
-| paranoid | 5 (+container) | Strict | Any finding |
+| Preset   | Engines         | Verdict strategy | Fail threshold |
+|----------|-----------------|------------------|----------------|
+| minimal  | 3 (static only) | Threshold        | CRITICAL       |
+| balanced | 4 (+misconfig)  | Threshold        | HIGH           |
+| strict   | 5 (+container)  | Strict           | Any finding    |
+| paranoid | 5 (+container)  | Strict           | Any finding    |
 
 ### What was completed in recent sessions
 
@@ -95,6 +96,24 @@ Preset determines which engines run and which verdict strategy applies:
    `aquasecurity/setup-trivy@v0.2.5` and pip). Triggers on `src/**`,
    `tests/**` (excluding BATS), `pyproject.toml`, `uv.lock` changes.
    Uses `astral-sh/setup-uv@v7` with caching.
+
+10. **Repo readiness for contributors** -- Completed 5-step plan:
+    - Fixed all GitHub URLs across 10 files (`peerlabs/plsec` ->
+      `PeerLabs-ai/plsec`, `peerlabs.io` -> `peerlabs.ai`, homebrew
+      tap URLs updated). Zero stale URLs remain.
+    - Rewrote README installation section: Bootstrap (zero-dep quick
+      start), From Source (contributor path with `make setup` + `make ci`),
+      PyPI/Homebrew marked "coming soon".
+    - Created `CONTRIBUTING.md` -- prerequisites, setup, dev workflow,
+      coding standards (points to AGENTS.md), testing expectations, PR
+      process.
+    - Created `SECURITY.md` -- email-based vulnerability disclosure to
+      `security@peerlabs.ai`, scope definition, coordinated disclosure.
+      Added disclosure process improvement to roadmap Future Considerations.
+    - Rewrote `docs/INSTALL.md` -- aligned with README's three-path
+      structure, removed stale PyPI/Homebrew instructions, updated
+      bootstrap URL.
+    - Updated README test counts (1232 pytest, 284 BATS).
 
 ## Instructions
 
@@ -148,16 +167,16 @@ when scanning outside the project root.
 The design doc (`DESIGN-PLSEC-ENGINE.md`) describes 12 engines. 5 are
 implemented. Missing:
 
-| Engine | Layer | Priority |
-|--------|-------|----------|
-| DependencyEngine (pip-audit) | STATIC | High -- restores `--deps` flag |
-| AgentConstraintEngine | CONFIG | Medium -- validates CLAUDE.md/opencode.json |
-| DenyPatternEngine | CONFIG | Medium -- verifies deny lists match preset |
-| SandboxEngine | ISOLATION | Low -- macOS sandbox check |
-| EgressProxyEngine | RUNTIME | Blocked on `plsec run` |
-| DLPEngine | RUNTIME | Blocked on `plsec run` |
-| AuditLogEngine | AUDIT | Blocked on audit infrastructure |
-| IntegrityEngine | AUDIT | Blocked on audit infrastructure |
+| Engine                       | Layer     | Priority                                    |
+|------------------------------|-----------|---------------------------------------------|
+| DependencyEngine (pip-audit) | STATIC    | High -- restores `--deps` flag              |
+| AgentConstraintEngine        | CONFIG    | Medium -- validates CLAUDE.md/opencode.json |
+| DenyPatternEngine            | CONFIG    | Medium -- verifies deny lists match preset  |
+| SandboxEngine                | ISOLATION | Low -- macOS sandbox check                  |
+| EgressProxyEngine            | RUNTIME   | Blocked on `plsec run`                      |
+| DLPEngine                    | RUNTIME   | Blocked on `plsec run`                      |
+| AuditLogEngine               | AUDIT     | Blocked on audit infrastructure             |
+| IntegrityEngine              | AUDIT     | Blocked on audit infrastructure             |
 
 ### Container harness (v0.2.0)
 
@@ -190,16 +209,18 @@ plsec/
 
 ## Relevant Documentation
 
-| Document | Purpose |
-|----------|---------|
-| `AGENTS.md` | Coding standards, build commands, conventions |
-| `TESTING.md` | Test plan, inventory, tiers |
-| `PROJECT.md` | TODOs, architecture decisions, outstanding items |
-| `docs/DESIGN-PLSEC-ENGINE.md` | Engine architecture design |
-| `docs/roadmap.md` | Version roadmap, milestones, v0.2.0 plan |
-| `docs/secure-tool-handling.md` | Defensive subprocess output handling |
-| `docs/writing-engines.md` | Developer guide for custom engines |
-| `docs/HANDOFF-20260309.md` | Previous handoff (sessions 1-18) |
+| Document                           | Purpose                                          |
+|------------------------------------|--------------------------------------------------|
+| `AGENTS.md`                        | Coding standards, build commands, conventions    |
+| `TESTING.md`                       | Test plan, inventory, tiers                      |
+| `PROJECT.md`                       | TODOs, architecture decisions, outstanding items |
+| `docs/DESIGN-PLSEC-ENGINE.md`      | Engine architecture design                       |
+| `docs/roadmap.md`                  | Version roadmap, milestones, v0.2.0 plan         |
+| `docs/secure-tool-handling.md`     | Defensive subprocess output handling             |
+| `docs/writing-engines.md`          | Developer guide for custom engines               |
+| `CONTRIBUTING.md`                  | Contributor guide (setup, workflow, standards)   |
+| `SECURITY.md`                      | Vulnerability disclosure policy                  |
+| `docs/archive/HANDOFF-20260309.md` | Previous handoff (sessions 1-18)                 |
 
 ## Build Commands
 

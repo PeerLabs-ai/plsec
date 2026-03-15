@@ -1,8 +1,8 @@
 # Homebrew Formula for plsec
 #
 # To use this formula:
-#   1. Create a tap: brew tap peerlabs/tap
-#   2. Install: brew install peerlabs/tap/plsec
+#   1. Create a tap: brew tap PeerLabs-ai/tap
+#   2. Install: brew install PeerLabs-ai/tap/plsec
 #
 # Or install directly:
 #   brew install --formula ./homebrew/plsec.rb
@@ -14,11 +14,11 @@ class Plsec < Formula
   include Language::Python::Virtualenv
 
   desc "Security tooling for AI coding assistants"
-  homepage "https://github.com/peerlabs/plsec"
-  url "https://github.com/peerlabs/plsec/archive/refs/tags/v0.1.0.tar.gz"
+  homepage "https://github.com/PeerLabs-ai/plsec"
+  url "https://github.com/PeerLabs-ai/plsec/archive/refs/tags/v0.1.0.tar.gz"
   sha256 "PLACEHOLDER_SHA256"  # Update with actual sha256
   license "MIT"
-  head "https://github.com/peerlabs/plsec.git", branch: "main"
+  head "https://github.com/PeerLabs-ai/plsec.git", branch: "main"
 
   depends_on "python@3.12"
   depends_on "trivy"
