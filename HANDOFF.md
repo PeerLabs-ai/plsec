@@ -115,6 +115,17 @@ Preset determines which engines run and which verdict strategy applies:
       bootstrap URL.
     - Updated README test counts (1232 pytest, 284 BATS).
 
+11. **SUPPORTED-CONFIGS.md** -- Compatibility matrix (4 configs: macOS/Linux
+    x Claude Code/OpenCode, all Python). Factored-out Python tooling
+    profile table. Planned section linking to roadmap. Roadmap updated
+    with Milestone 9 (pip-audit dependency scanning), Additional Harnesses
+    (Gemini CLI), and Future Considerations (Windows, mkdocs).
+
+12. **README documentation index** -- Expanded from 4 links to 20 docs
+    across 5 categories (Getting Started, Guides, Architecture,
+    Development, Project). Structured to map to future mkdocs nav.
+    Archived superseded pydantic docs to `docs/archive/`.
+
 ## Instructions
 
 - **Read AGENTS.md** for coding standards, build commands, project conventions

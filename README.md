@@ -255,19 +255,38 @@ make test-integration
 
 ## Documentation
 
-Comprehensive guides and references:
+### Getting Started
 
-- [Scanner Limitations](docs/scanner-limitations.md) - Detection tradeoffs and false positive/negative rates
-- [CI/CD Integration](docs/ci-cd-integration.md) - Integrating plsec-status into your pipeline
-- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
-- [plsec-status Command](docs/commands/plsec-status.md) - Health check reference
+- [Installation Guide](docs/INSTALL.md)
+- [Supported Configurations](SUPPORTED-CONFIGS.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
-For command-specific help:
-```bash
-plsec --help
-plsec scan --help
-plsec-status --help
-```
+### Guides
+
+- [Scanner Limitations](docs/scanner-limitations.md) -- Detection tradeoffs and false positive/negative rates
+- [CI/CD Integration](docs/ci-cd-integration.md) -- Running plsec in pipelines
+- [plsec-status Command](docs/commands/plsec-status.md) -- Health check reference
+
+### Architecture
+
+- [Engine Architecture](docs/design/DESIGN-PLSEC-ENGINE.md) -- Layered engine pipeline design
+- [Secure Tool Handling](docs/secure-tool-handling.md) -- Defensive subprocess output patterns
+- [Agent Monitoring Design](docs/design/DESIGN-AGENT-MONITORING.md) -- Agent data adapter design
+- Additional design documents in [docs/design/](docs/design/)
+
+### Development
+
+- [Contributing](CONTRIBUTING.md) -- Setup, workflow, standards
+- [Writing Engines](docs/writing-engines.md) -- Custom engine developer guide
+- [Testing](TESTING.md) -- Test plan, tiers, inventory
+- [Build Process](docs/build-process.md) -- Assembling bootstrap.sh
+- [Coding Standards](AGENTS.md) -- Code style and conventions
+
+### Project
+
+- [Roadmap](docs/roadmap.md) -- Version plan and milestones
+- [Security Policy](SECURITY.md) -- Vulnerability disclosure
+- [Project Status](PROJECT.md) -- Active TODOs and outstanding items
 
 ## License
 

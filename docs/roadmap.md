@@ -431,3 +431,8 @@ text.
 - **Security disclosure process**: Improve vulnerability disclosure beyond
   email-only. Evaluate GitHub Security Advisories, a bug bounty program,
   and PGP-encrypted reporting. Current process documented in SECURITY.md.
+- **Documentation site (mkdocs)**: Set up mkdocs-material with GitHub
+  Pages deployment when docs stabilize. The README documentation index is
+  structured to map to mkdocs `nav:` entries. Enables search, sidebar
+  navigation, and a professional hosted site. Target: when the contributor
+  base grows beyond core maintainers.
