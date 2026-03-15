@@ -121,26 +121,49 @@ cross-reference between agent bash command records and plsec wrapper
 audit logs (defense-in-depth: two independent command execution data
 sources).
 
-### Milestone 9: Dependency Scanning
+### Milestone 9: Dependency Scanning (SCA)
 
-Add dependency vulnerability scanning to the engine pipeline, starting
-with Python (pip-audit). Dependency scanning is language-specific --
-each language ecosystem has its own audit tool and output format.
+Two-phase approach: cross-language baseline first, then language-specific
+depth. See [dependency-vulnerability-scanners.md](dependency-vulnerability-scanners.md)
+for the landscape analysis.
 
-**Python (pip-audit):**
-- Implement `PipAuditEngine` in `engine/pip_audit.py`
-- pip-audit JSON output is a top-level list (not a dict). Either extend
-  `extract_json()` to accept lists or handle parsing internally.
+The `DependencyEngine` abstract class (`engine/dependency.py`) extends
+`Engine` and pins `layer=STATIC`. It provides shared CVE severity mapping
+and finding construction. Concrete subclasses implement tool-specific
+invocation and output parsing. Findings use the `DEPENDENCY_VULNERABILITY`
+category, distinct from code vulnerabilities (`CODE_ISSUE`).
+
+**Phase 1: TrivyDependencyEngine (cross-language baseline)**
+
+`engine/trivy_dependency.py` wraps `trivy fs --scanners vuln`:
+- Covers Python, Node.js, Go, Rust, Java, Ruby, PHP, .NET
+- Available at balanced, strict, paranoid presets (not minimal)
+- Available to every user (Trivy is required)
+- Reuses existing Trivy JSON parsing infrastructure and `extract_json()`
+- Wires `.trivyignore.yaml` like the other Trivy engines
+
+**Phase 2: PipAuditEngine (Python-specific depth)**
+
+`engine/pip_audit.py` wraps `pip-audit --format json`:
+- Available at strict and paranoid presets only
+- pip-audit JSON output is a top-level list (not a dict) -- requires
+  either extending `extract_json()` to accept lists or internal parsing
 - Key flags: `--format json --progress-spinner off --desc on --aliases on`
 - Exit codes: 0 = no vulnerabilities, 1 = vulnerabilities found
 - No severity levels in output -- all findings map to a fixed severity
-- pip-audit is already in `KNOWN_TOOLS` in `orchestrator.py`
+- pip-audit already in `KNOWN_TOOLS` in `orchestrator.py`
 
-**Design consideration:** DependencyEngine must be language-specific.
-A family of engines (PipAuditEngine, CargoAuditEngine, NpmAuditEngine)
-rather than a single polymorphic engine. Each has different output
-formats, severity models, and invocation patterns. Language detection
-via `ProjectDetector` determines which engine(s) to register.
+**Design:** Dependency scanning *can* be language-specific. Ecosystem-native
+tools (`cargo audit`, `npm audit`, `govulncheck`) often identify and fix
+supply chain issues faster than cross-language databases. The two-tier
+model provides:
+- **Tier 1** (cross-language): `TrivyDependencyEngine` at balanced+ --
+  broad coverage using the required tool every user already has
+- **Tier 2** (language-specific): `PipAuditEngine`, future `CargoAuditEngine`,
+  `NpmAuditEngine` etc. at strict/paranoid -- deeper ecosystem-native coverage
+
+This mirrors the existing SAST pattern: Trivy provides the baseline,
+Bandit and Semgrep add language-specific depth.
 
 **Future dependency engines** (blocked on language support):
 - `cargo audit` for Rust (v0.3+)
@@ -431,6 +454,22 @@ text.
 - **Security disclosure process**: Improve vulnerability disclosure beyond
   email-only. Evaluate GitHub Security Advisories, a bug bounty program,
   and PGP-encrypted reporting. Current process documented in SECURITY.md.
+- **Tool provenance and trust**: At strict/paranoid presets, verify that
+  external tools (Trivy, Bandit, Semgrep, pip-audit, etc.) are authentic
+  and unmodified. Current `check_available()` only confirms a binary
+  exists in PATH. Progressive trust levels:
+  - **Version pinning**: Verify tool versions against known-good ranges
+  - **Path validation**: Check expected install locations, reject
+    unexpected paths
+  - **Provenance verification**: Signed binaries, package attestation
+    (PEP 740, Homebrew bottle signatures, sigstore/cosign)
+  - **SLSA attestation**: Full supply chain provenance for tools and
+    their dependencies
+  Design consideration: the Engine interface (`check_available` or a new
+  `check_trusted` method) should be extensible to support trust validation
+  without requiring changes to every concrete engine. Trust policy should
+  be preset-driven (minimal/balanced = existence check only,
+  strict/paranoid = provenance verification).
 - **Documentation site (mkdocs)**: Set up mkdocs-material with GitHub
   Pages deployment when docs stabilize. The README documentation index is
   structured to map to mkdocs `nav:` entries. Enables search, sidebar
