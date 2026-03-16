@@ -15,8 +15,8 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." > /dev/null && pwd)"
 TEMPLATE_DIR="${PROJECT_ROOT}/templates/bootstrap"
 SKELETON="${TEMPLATE_DIR}/skeleton.bash"
 
