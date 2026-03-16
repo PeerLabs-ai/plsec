@@ -42,6 +42,9 @@ uv run plsec doctor
 uv run plsec scan .
 ```
 
+**Next steps:** See [CONTRIBUTING.md](../CONTRIBUTING.md) for the
+development workflow and coding standards.
+
 ## PyPI / Homebrew
 
 Coming soon. Not yet published.

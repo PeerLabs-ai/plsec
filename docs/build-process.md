@@ -45,6 +45,22 @@ This is a superset of `dev-check`.  It adds:
 
 `make all` is an alias for `make ci`.
 
+### Pull request workflow
+
+This project uses
+[GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow).
+All work happens on feature branches off `main`:
+
+1. Create an issue (required for non-trivial changes)
+2. Branch from `main`: `git checkout -b feature/my-feature`
+3. Work, commit, run `make dev-check` locally
+4. Create PR: `gh pr create`
+5. Address review feedback, push additional commits
+6. Merge after approval: `gh pr merge --delete-branch`
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for full details including
+branch naming conventions and coding standards.
+
 ### After changing bootstrap templates
 
 ```bash

@@ -143,13 +143,63 @@ Preset determines which engines run and which verdict strategy applies:
     links). SUPPORTED-CONFIGS.md updated with trivy-vuln engine. `make
     scan` now shows 5 OK (was 4). 1299 pytest tests (was 1232, +67 new).
 
+14. **GitHub Flow permissions + CI fixes** -- Implemented GitHub Flow
+    workflow across all permission files. AGENTS.md now has a full GitHub
+    Flow section (branch naming, agent permissions, useful `gh` commands).
+    CLAUDE.md (root) updated with `gh` CLI in ASK FIRST and expanded git
+    operations in Allowed Operations. Four template updates in
+    `templates.py`: balanced CLAUDE.md (gh with approval), strict CLAUDE.md
+    (gh read-only allowed, write as ask-first), balanced opencode.json
+    (gh commands as ask), strict opencode.json (gh read-only allow, write
+    ask). Paranoid unchanged -- `gh` remains fully blocked via default deny.
+    All four bootstrap templates (`templates/bootstrap/`) synced with
+    Python constants. Golden fixtures and `bin/bootstrap.default.sh`
+    regenerated. CONTRIBUTING.md rewritten with full GitHub Flow steps
+    including `gh` CLI examples and branch naming table.
+    `docs/build-process.md` updated with PR workflow section.
+    `docs/INSTALL.md` updated with next-steps pointer to CONTRIBUTING.md.
+
+    Also synced `PLSEC_STATUS_SH` in `templates.py` with the canonical
+    template at `templates/bootstrap/plsec-status.sh`. Backslashes properly
+    escaped for Python string context. Fixed 4 long lines (>100 chars) in
+    both files. Added 4 watch-mode tests in `test_templates.py`. The DRY
+    violation between `templates.py` and bootstrap templates is documented
+    in PROJECT.md as a known technical gap.
+
+15. **Bootstrap assembler + CI regression fixes** --
+    - **CDPATH / `cd` interaction**: Fixed `scripts/assemble-bootstrap.sh`
+      lines 18-19. When `CDPATH` is set (common in developer shells), `cd`
+      outputs the target directory to stdout. The pattern
+      `SCRIPT_DIR="$(cd ... && pwd)"` captured both the `cd` output AND
+      the `pwd` output, separated by a newline, breaking all path
+      resolution. Fix: redirect `cd` stdout to `/dev/null`. This is a
+      frequently forgotten shell portability issue -- `cd` is only silent
+      when `CDPATH` is unset or empty.
+    - **`setup-trivy` action version**: Both CI workflows referenced
+      non-existent versions of `aquasecurity/setup-trivy`. The
+      `test-bootstrap.yml` had `@v0.7.0` (hallucinated by a prior Copilot
+      suggestion -- confused trivy's version 0.69.x with the setup action's
+      version 0.2.x). The `test-plsec.yml` had `@v0.2.5` (correct). Both
+      now use `@v0.2.5`, the actual latest release.
+    - **Workflow self-trigger**: `test-bootstrap.yml` now includes itself
+      in the `paths` trigger list, matching what `test-plsec.yml` already
+      does. Changes to the workflow file itself now trigger a CI run.
+    - **macOS `timeout` portability**: Watch-mode integration tests used
+      bare `timeout` which doesn't exist on stock macOS. Added
+      `timeout_cmd` helper to `test_status.bats` that finds `timeout` or
+      `gtimeout`, with `skip` fallback. Added `brew install coreutils` +
+      gnubin PATH setup to the macOS CI job as belt-and-suspenders.
+    - 1303 pytest tests (was 1299, +4 watch-mode template tests).
+
 ## Instructions
 
 - **Read AGENTS.md** for coding standards, build commands, project conventions
 - **Read TESTING.md** for the pytest test plan and test inventory
 - **Read `docs/DESIGN-PLSEC-ENGINE.md`** for the engine architecture design
 - **Read `docs/roadmap.md`** for the version roadmap and milestone plan
-- **Git operations**: Do NOT touch git. The user handles all commits.
+- **Git workflow**: GitHub Flow. The agent may create branches, commits,
+  issues, and PRs with user approval. The agent MUST NOT push to remote --
+  all pushes are done by the user. See AGENTS.md "Git Workflow" section.
 - **Never suppress lint warnings** (`# noqa`, `per-file-ignores`). Fix the code.
 - **Never use `except Exception`** -- catch specific exception types.
 - **Use `Annotated` typer syntax** for CLI parameters.

@@ -20,24 +20,53 @@ make setup    # installs all dev dependencies via uv
 
 ## Development Workflow
 
-1. Create a feature branch from `main`:
+This project uses
+[GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow).
+There is no `develop` branch and no release branches. All work branches
+off `main` and merges back to `main`.
+
+### Branch naming
+
+| Prefix     | Use                                     |
+|------------|-----------------------------------------|
+| `feature/` | New functionality                       |
+| `fix/`     | Bug fixes                               |
+| `chore/`   | Maintenance, CI, docs, dependency bumps |
+
+### Steps
+
+1. **Create an issue** (required for non-trivial changes):
+   ```bash
+   gh issue create --title "Add feature X" --body "Description..."
+   ```
+
+2. **Create a feature branch** from `main`:
    ```bash
    git checkout -b feature/my-feature main
    ```
 
-2. Make your changes. Write tests first -- tests define the contracts.
+3. **Make your changes.** Write tests first -- tests define the contracts.
 
-3. Run the quick local check before pushing:
+4. **Run the quick local check** before pushing:
    ```bash
    make dev-check    # lint + types + tests + build
    ```
 
-4. For full validation (matches CI):
+5. **For full validation** (matches CI):
    ```bash
    make ci           # lint + types + build + all tests + golden
    ```
 
-5. Open a pull request against `main`.
+6. **Create a pull request** against `main`:
+   ```bash
+   gh pr create --title "Add feature X"
+   gh pr checks      # view CI status
+   ```
+
+7. **Merge** after approval:
+   ```bash
+   gh pr merge --delete-branch
+   ```
 
 ## Coding Standards
 
@@ -88,10 +117,12 @@ templates/bootstrap/ # Bootstrap script templates
 
 ## Pull Request Process
 
-- Feature branches + PRs to `main`
+- Feature branches off `main`, PRs back to `main`
+- Create an issue first for non-trivial changes
 - `make ci` must pass (CI runs automatically via GitHub Actions)
 - Keep PRs focused -- one concern per PR
 - Update tests and documentation as needed
+- Delete the branch after merge (`gh pr merge --delete-branch`)
 
 ## Questions?
 
