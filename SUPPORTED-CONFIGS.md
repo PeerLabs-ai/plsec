@@ -39,6 +39,7 @@ and security tooling.
 | Tool           | Engine               | Layer     | Purpose                          | Required |
 |----------------|----------------------|-----------|----------------------------------|----------|
 | Trivy          | `trivy-secrets`      | STATIC    | Secret scanning in source files  | Yes      |
+| Trivy          | `trivy-vuln`         | STATIC    | Dependency vulnerability scanning | No       |
 | Bandit         | `bandit`             | STATIC    | Python security analysis (SAST)  | No       |
 | Semgrep        | `semgrep`            | STATIC    | Multi-language pattern matching   | No       |
 | Trivy          | `trivy-misconfig`    | CONFIG    | Dockerfile/IaC misconfiguration  | No       |
@@ -53,8 +54,9 @@ when available. Run `plsec doctor` to check which tools are installed.
 **Bootstrap vs plsec CLI**: Both paths deploy the same agent configs and
 wrapper scripts. The key difference is scanning depth. Bootstrap wraps
 Trivy for secret scanning only. The plsec CLI runs the full engine
-pipeline: 4 scanner engines (Trivy secrets, Bandit, Semgrep, Trivy
-misconfig) plus the container isolation check, with policy evaluation,
+pipeline: 5 scanner engines (Trivy secrets, Trivy dependency, Bandit,
+Semgrep, Trivy misconfig) plus the container isolation check, with policy
+evaluation,
 cross-layer correlation, and preset-aware verdict strategies.
 
 **Presets**: The security preset determines which engines run and how

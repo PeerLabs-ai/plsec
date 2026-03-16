@@ -101,6 +101,7 @@ def build_default_registry() -> EngineRegistry:
     from plsec.engine.bandit import BanditEngine
     from plsec.engine.container_isolation import ContainerIsolationEngine
     from plsec.engine.semgrep import SemgrepEngine
+    from plsec.engine.trivy_dependency import TrivyDependencyEngine
     from plsec.engine.trivy_misconfig import TrivyMisconfigEngine
     from plsec.engine.trivy_secrets import TrivySecretEngine
 
@@ -108,6 +109,7 @@ def build_default_registry() -> EngineRegistry:
     registry.register(TrivySecretEngine())
     registry.register(BanditEngine())
     registry.register(SemgrepEngine())
+    registry.register(TrivyDependencyEngine())
     registry.register(TrivyMisconfigEngine())
     registry.register(ContainerIsolationEngine())
 

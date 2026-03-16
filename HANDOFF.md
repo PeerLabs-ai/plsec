@@ -1,7 +1,7 @@
 # plsec - HANDOFF
 
 **Last Updated:** 2026-03-15
-**Status:** `make ci` green, `make scan` clean (exit 0), 1232 pytest + 152 BATS
+**Status:** `make ci` green, `make scan` clean (exit 0, 5 OK), 1299 pytest + 152 BATS
 unit + 88 BATS integration + 44 assembler tests
 
 ---
@@ -33,10 +33,11 @@ plsec.yaml (config) -> Orchestrator -> Registry -> Layer Pipeline -> Correlation
 - `correlation.py` -- CorrelationEngine, CorrelationRule, 3 built-in rules
 - `orchestrator.py` -- Orchestrator, `build_orchestrator()`
 
-**Concrete engines** (5 implemented, all at 100% test coverage):
+**Concrete engines** (6 implemented, all at 100% test coverage):
 - `trivy_secrets.py` -- TrivySecretEngine (Layer 1: STATIC)
 - `bandit.py` -- BanditEngine (Layer 1: STATIC)
 - `semgrep.py` -- SemgrepEngine (Layer 1: STATIC)
+- `trivy_dependency.py` -- TrivyDependencyEngine (Layer 1: STATIC)
 - `trivy_misconfig.py` -- TrivyMisconfigEngine (Layer 2: CONFIG)
 - `container_isolation.py` -- ContainerIsolationEngine (Layer 3: ISOLATION)
 
@@ -51,20 +52,20 @@ See `docs/secure-tool-handling.md` for the exemplar pattern.
 `plsec scan` (`commands/scan.py`) uses the engine pipeline end-to-end.
 Preset determines which engines run and which verdict strategy applies:
 
-| Preset   | Engines         | Verdict strategy | Fail threshold |
-|----------|-----------------|------------------|----------------|
-| minimal  | 3 (static only) | Threshold        | CRITICAL       |
-| balanced | 4 (+misconfig)  | Threshold        | HIGH           |
-| strict   | 5 (+container)  | Strict           | Any finding    |
-| paranoid | 5 (+container)  | Strict           | Any finding    |
+| Preset   | Engines           | Verdict strategy | Fail threshold |
+|----------|-------------------|------------------|----------------|
+| minimal  | 3 (static only)   | Threshold        | CRITICAL       |
+| balanced | 5 (+misconfig,dep)| Threshold        | HIGH           |
+| strict   | 6 (+container)    | Strict           | Any finding    |
+| paranoid | 6 (+container)    | Strict           | Any finding    |
 
 ### What was completed in recent sessions
 
 1. **Engine architecture** -- Full implementation: types, base, verdict,
    registry, policy, correlation, orchestrator. All at 100% coverage.
 
-2. **5 concrete engines** -- TrivySecret, Bandit, Semgrep, TrivyMisconfig,
-   ContainerIsolation. All at 100% coverage.
+2. **5 concrete engines** (now 6, see item 13) -- TrivySecret, Bandit,
+   Semgrep, TrivyMisconfig, ContainerIsolation. All at 100% coverage.
 
 3. **Scan command rewrite** -- `commands/scan.py` rewritten to use engine
    pipeline. Old `core/scanners.py` removed.
@@ -126,6 +127,22 @@ Preset determines which engines run and which verdict strategy applies:
     Development, Project). Structured to map to future mkdocs nav.
     Archived superseded pydantic docs to `docs/archive/`.
 
+13. **DependencyEngine + TrivyDependencyEngine (Milestone 9 Phase 1)** --
+    Two-tier SCA architecture implemented. `DependencyEngine` abstract base
+    class (`engine/dependency.py`) extends Engine with `layer=STATIC`,
+    shared `map_cve_severity()`, and `make_dependency_finding()` builder
+    (17 tests). `TrivyDependencyEngine` (`engine/trivy_dependency.py`)
+    wraps `trivy fs --scanners vuln` for cross-language dependency scanning
+    covering Python, Node.js, Go, Rust, Java, Ruby, PHP, .NET (49 tests).
+    New `DEPENDENCY_VULNERABILITY` FindingCategory added to types.py.
+    Engine registered in `build_default_registry()` at balanced+ presets.
+    Roadmap Milestone 9 rewritten as two-phase (Phase 1: Trivy cross-lang
+    baseline, Phase 2: PipAuditEngine for Python-specific depth). Tool
+    provenance/trust added to roadmap Future Considerations. README doc
+    index updated with `dependency-vulnerability-scanners.md` (now 21
+    links). SUPPORTED-CONFIGS.md updated with trivy-vuln engine. `make
+    scan` now shows 5 OK (was 4). 1299 pytest tests (was 1232, +67 new).
+
 ## Instructions
 
 - **Read AGENTS.md** for coding standards, build commands, project conventions
@@ -175,12 +192,12 @@ when scanning outside the project root.
 
 ### Engine gaps vs. design
 
-The design doc (`DESIGN-PLSEC-ENGINE.md`) describes 12 engines. 5 are
+The design doc (`DESIGN-PLSEC-ENGINE.md`) describes 12 engines. 6 are
 implemented. Missing:
 
 | Engine                       | Layer     | Priority                                    |
 |------------------------------|-----------|---------------------------------------------|
-| DependencyEngine (pip-audit) | STATIC    | High -- restores `--deps` flag              |
+| PipAuditEngine               | STATIC    | High -- Python-specific depth (M9 Phase 2)  |
 | AgentConstraintEngine        | CONFIG    | Medium -- validates CLAUDE.md/opencode.json |
 | DenyPatternEngine            | CONFIG    | Medium -- verifies deny lists match preset  |
 | SandboxEngine                | ISOLATION | Low -- macOS sandbox check                  |
@@ -207,11 +224,11 @@ plsec/
 │   ├── cli.py              # Entry point, typer app
 │   ├── commands/           # Subcommands (scan, doctor, init, install, etc.)
 │   ├── core/               # Business logic (config, agents, tools, health)
-│   ├── engine/             # Engine architecture (13 modules)
+│   ├── engine/             # Engine architecture (15 modules)
 │   └── configs/            # Embedded templates
 ├── tests/
-│   ├── engine/             # 12 engine test files (469 tests)
-│   ├── test_*.py           # 19 other test files (763 tests)
+│   ├── engine/             # 14 engine test files (536 tests)
+│   ├── test_*.py           # 23 other test files (763 tests)
 │   └── bats/               # BATS shell script tests (240 tests)
 ├── docs/                   # Design docs, roadmap, guides
 ├── templates/bootstrap/    # Bootstrap script templates

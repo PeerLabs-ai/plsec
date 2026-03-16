@@ -47,6 +47,7 @@ class FindingCategory(enum.Enum):
 
     LEAKED_CREDENTIAL = "secret"
     VULNERABILITY = "vulnerability"
+    DEPENDENCY_VULNERABILITY = "dependency_vulnerability"
     MISCONFIG = "misconfiguration"
     CODE_ISSUE = "code_issue"
     POLICY_VIOLATION = "policy_violation"

@@ -298,11 +298,19 @@ check_project_config() {
         return
     fi
 
-    if [[ -f "$template_config" ]] && diff -q "$project_config" "$template_config" > /dev/null 2>&1; then
-        record_check "C-project" "configuration" "${filename} (project)" "ok" "matches template"
+    local diff_ok=false
+    if [[ -f "$template_config" ]]; then
+        diff -q "$project_config" "$template_config" > /dev/null 2>&1 \
+            && diff_ok=true
+    fi
+
+    if [[ "$diff_ok" == true ]]; then
+        record_check "C-project" "configuration" \
+            "${filename} (project)" "ok" "matches template"
         echo "ok"
     else
-        record_check "C-project" "configuration" "${filename} (project)" "warn" "differs from template"
+        record_check "C-project" "configuration" \
+            "${filename} (project)" "warn" "differs from template"
         echo "warn"
     fi
 }
@@ -459,14 +467,20 @@ check_secrets_findings() {
 check_hook_blocks() {
     local log_dir="${PLSEC_DIR}/logs"
 
-    if [[ ! -d "$log_dir" ]] || ! find "$log_dir" -name "*.log" -type f 2>/dev/null | grep -q .; then
+    local has_logs=false
+    if [[ -d "$log_dir" ]]; then
+        find "$log_dir" -name "*.log" -type f 2>/dev/null \
+            | grep -q . && has_logs=true
+    fi
+    if [[ "$has_logs" == false ]]; then
         record_check "F-2" "findings" "hook blocks" "skip" "no logs"
         echo "skip"
         return
     fi
 
     # Look for hook rejection evidence in recent logs
-    if grep -rq "ERROR.*secret\|hook.*blocked\|commit.*rejected" "${log_dir}/"*.log 2>/dev/null; then
+    local pattern="ERROR.*secret\|hook.*blocked\|commit.*rejected"
+    if grep -rq "$pattern" "${log_dir}/"*.log 2>/dev/null; then
         record_check "F-2" "findings" "hook blocks" "fail" "rejection detected"
         echo "fail"
     else

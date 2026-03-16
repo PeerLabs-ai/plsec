@@ -1,7 +1,7 @@
 # PROJECT.md - plsec Project Overview
 
 **Version:** 0.1.0
-**Status:** Engine architecture implemented, 5 of 12 engines complete, all at
+**Status:** Engine architecture implemented, 6 of 12 engines complete, all at
 100% test coverage
 
 ---
@@ -23,7 +23,7 @@ Security controls are organised into 5 layers, each addressable by dedicated eng
 
 | Layer | Name      | Control Type           | Implemented Engines          | Planned Engines                          |
 |-------|-----------|------------------------|------------------------------|------------------------------------------|
-| 1     | STATIC    | Detection              | TrivySecret, Bandit, Semgrep | DependencyEngine (pip-audit)             |
+| 1     | STATIC    | Detection              | TrivySecret, Bandit, Semgrep, TrivyDependency | PipAuditEngine (Phase 2)      |
 | 2     | CONFIG    | Detection + Validation | TrivyMisconfig               | AgentConstraintEngine, DenyPatternEngine |
 | 3     | ISOLATION | Control Validation     | ContainerIsolationEngine     | SandboxEngine (macOS sandbox)            |
 | 4     | RUNTIME   | Control Validation     | —                            | EgressProxyEngine, DLPEngine             |
@@ -72,13 +72,14 @@ plsec.yaml (config)
 | **EngineRegistry**    | Central catalog. `register()`, `group_for(layer)`, `get(id)`, `build_default_registry()`.                                                                                             | `engine/registry.py`     |
 | **CorrelationEngine** | Cross-layer risk detection. Runs after all layers, produces synthetic findings for compound risks (e.g., secret + no egress control = CRITICAL).                                      | `engine/correlation.py`  |
 
-#### Implemented Engines (5)
+#### Implemented Engines (6)
 
 | Engine ID             | Layer     | Category  | What It Does                                                  |
 |-----------------------|-----------|-----------|---------------------------------------------------------------|
 | `trivy-secrets`       | STATIC    | Detection | Trivy secret scanning (leaked credentials, API keys)          |
 | `bandit`              | STATIC    | Detection | Python static analysis (B-class security issues)              |
 | `semgrep`             | STATIC    | Detection | Multi-language SAST (pattern-based security rules)            |
+| `trivy-vuln`          | STATIC    | Detection | Cross-language dependency vulnerability scanning              |
 | `trivy-misconfig`     | CONFIG    | Detection | IaC misconfiguration scanning (Dockerfiles, Kubernetes, etc.) |
 | `container-isolation` | ISOLATION | Control   | Container runtime + config check (Podman/Docker presence)     |
 
@@ -119,7 +120,7 @@ src/plsec/
 │   ├── wizard.py              # Interactive wizards
 │   ├── compatibility.py       # Agent data adapter version probing
 │   └── adapters/              # Agent data adapters (Claude, OpenCode)
-├── engine/                    # Scan pipeline (13 modules, 2,815 lines)
+├── engine/                    # Scan pipeline (15 modules, 2,887 lines)
 │   ├── types.py               # Core types (Finding, Layer, Severity, ScanContext)
 │   ├── base.py                # Engine ABC, EngineGroup, extract_json
 │   ├── registry.py            # Engine catalog
@@ -127,9 +128,11 @@ src/plsec/
 │   ├── policy.py              # Post-detection filtering
 │   ├── correlation.py         # Cross-layer risk detection
 │   ├── verdict.py             # Outcome strategies
+│   ├── dependency.py          # DependencyEngine ABC
 │   ├── bandit.py              # Bandit engine
 │   ├── semgrep.py             # Semgrep engine
 │   ├── trivy_secrets.py       # Trivy secret engine
+│   ├── trivy_dependency.py    # Trivy dependency vuln engine
 │   ├── trivy_misconfig.py     # Trivy misconfig engine
 │   └── container_isolation.py # Container isolation engine
 └── configs/                   # Embedded templates (3 modules, 1,418 lines)
@@ -138,7 +141,7 @@ src/plsec/
 **11 CLI Commands:** `create`, `secure`, `doctor`, `init`, `install`, `reset`,
 `scan`, `uninstall`, `validate`, `proxy`, `integrity`.
 
-**45 Python modules, 11,645 lines of source code.**
+**47 Python modules, 12,169 lines of source code.**
 
 ### Bootstrap
 
@@ -174,12 +177,12 @@ functionality. Future goal: CLI subsumes all bootstrap capabilities.
 
 The preset is the single knob that determines scan scope, execution mode, and verdict strategy.
 
-| Preset   | Engines (count) | Execution Mode | Verdict Strategy | Fail Threshold |
-|----------|-----------------|----------------|------------------|----------------|
-| minimal  | 3 (static only) | Host           | Threshold        | CRITICAL       |
-| balanced | 4 (+misconfig)  | Host           | Threshold        | HIGH           |
-| strict   | 5 (+container)  | **Container**  | Strict           | Any finding    |
-| paranoid | 5 (+container)  | **Container**  | Strict           | Any finding    |
+| Preset   | Engines (count)    | Execution Mode | Verdict Strategy | Fail Threshold |
+|----------|--------------------|----------------|------------------|----------------|
+| minimal  | 3 (static only)    | Host           | Threshold        | CRITICAL       |
+| balanced | 5 (+misconfig,dep) | Host           | Threshold        | HIGH           |
+| strict   | 6 (+container)     | **Container**  | Strict           | Any finding    |
+| paranoid | 6 (+container)     | **Container**  | Strict           | Any finding    |
 
 **Key architectural decision:** At strict/paranoid, the agent runs inside a
 container automatically. Container isolation is not opt-in — the preset
@@ -195,7 +198,8 @@ everything else follows from it.
 | SemgrepEngine           | detection  |         | x        | x      | x        |
 | TrivyMisconfigEngine    | detection  |         | x        | x      | x        |
 | ContainerIsolationEngine| control    |         |          | x      | x        |
-| DependencyEngine        | detection  | —       | planned  | planned| planned  |
+| TrivyDependencyEngine   | detection  |         | x        | x      | x        |
+| PipAuditEngine          | detection  | —       | —        | planned| planned  |
 | AgentConstraintEngine   | detection  | —       | planned  | planned| planned  |
 | DenyPatternEngine       | detection  | —       | —        | planned| planned  |
 | SandboxEngine           | control    | —       | —        | planned| planned  |
@@ -226,8 +230,8 @@ everything else follows from it.
 - **Template-based bootstrap**: Shell script assembled from modular templates
   for maintainability
 - **Test-first**: Tests define contracts. Write tests before fixing sketch code.
-- **Dual test strategy**: pytest for Python (1,232 tests), BATS for shell
-  scripts (240 tests)
+- **Dual test strategy**: pytest for Python (1,303 tests), BATS for shell
+  scripts (284 tests)
 
 ---
 
@@ -242,14 +246,14 @@ everything else follows from it.
 
 | Suite            |     Count | Notes                                                   |
 |------------------|----------:|---------------------------------------------------------|
-| pytest           |     1,232 | 31% statement coverage (3,763 statements, 2,615 missed) |
+| pytest           |     1,303 | Engine + template tests updated for M9 + watch mode     |
 | BATS unit        |       152 | Bootstrap script unit tests                             |
 | BATS integration |        88 | Bootstrap end-to-end tests                              |
 | Assembler        |        44 | Template escaping edge cases                            |
-| **Total**        | **1,516** | All passing                                             |
+| **Total**        | **1,587** | All passing                                             |
 
-**Engine test coverage:** All 5 implemented engines at 100% coverage. 12 engine
-test files, 5,774 lines, 93 test classes, 469 tests.
+**Engine test coverage:** All 6 implemented engines at 100% coverage. 14 engine
+test files, 536 tests.
 
 ### CI Status
 
@@ -268,8 +272,8 @@ test files, 5,774 lines, 93 test classes, 469 tests.
 **Fully Implemented:**
 - Engine architecture (types, base, verdict, registry, orchestrator, policy,
   correlation)
-- 5 concrete engines (TrivySecret, Bandit, Semgrep, TrivyMisconfig,
-  ContainerIsolation)
+- 6 concrete engines (TrivySecret, Bandit, Semgrep, TrivyDependency,
+  TrivyMisconfig, ContainerIsolation)
 - Scan command rewritten to use engine pipeline
 - Lifecycle management (install, reset, uninstall)
 - Enhanced wrapper logging (Tier 1 + Tier 2 with `CLAUDE_CODE_SHELL_PREFIX`)
@@ -278,7 +282,7 @@ test files, 5,774 lines, 93 test classes, 469 tests.
 
 **In Progress / Near-term:**
 - `test-plsec.yml` GitHub Actions workflow
-- DependencyEngine (pip-audit wrapper)
+- PipAuditEngine (Python-specific depth, Milestone 9 Phase 2)
 - AgentConstraintEngine (validates CLAUDE.md/opencode.json deploy)
 
 **Planned (v0.2.0):**
@@ -293,11 +297,11 @@ test files, 5,774 lines, 93 test classes, 469 tests.
 
 | Subsystem   | Modules |      Lines | Description                                                                                                    |
 |-------------|--------:|-----------:|----------------------------------------------------------------------------------------------------------------|
-| `engine/`   |      13 |      2,815 | Scan pipeline: types, base, registry, orchestrator, 5 engines, policy, correlation, verdict                    |
-| `core/`     |      15 |      3,574 | Business logic: config, tools, agents, processes, health, inventory, detector, adapters                        |
+| `engine/`   |      15 |      2,887 | Scan pipeline: types, base, registry, orchestrator, 6 engines, policy, correlation, verdict                    |
+| `core/`     |      15 |      3,764 | Business logic: config, tools, agents, processes, health, inventory, detector, adapters                        |
 | `commands/` |      12 |      3,734 | CLI command modules: create, secure, doctor, init, install, reset, scan, uninstall, validate, proxy, integrity |
-| `configs/`  |       3 |      1,418 | Embedded templates: CLAUDE.md, opencode.json, trivy configs, wrapper scripts                                   |
-| **Total**   |  **45** | **11,645** | Full Python codebase                                                                                           |
+| `configs/`  |       3 |      1,670 | Embedded templates: CLAUDE.md, opencode.json, trivy configs, wrapper scripts                                   |
+| **Total**   |  **47** | **12,169** | Full Python codebase                                                                                           |
 
 ---
 
@@ -365,8 +369,9 @@ Make is the unified entry point. See `docs/build-process.md` for developer workf
 ### Engine Gaps (Priority Order)
 
 **High Priority:**
-- **DependencyEngine** (pip-audit wrapper) — Layer 1 STATIC. Restores `--deps`
-  flag to scan command.
+- **PipAuditEngine** — Layer 1 STATIC. Python-specific depth engine for
+  Milestone 9 Phase 2. TrivyDependencyEngine (cross-language baseline) is
+  already implemented at balanced+.
 - **AgentConstraintEngine** — Layer 2 CONFIG. Validates that
   CLAUDE.md/opencode.json deny patterns are deployed and match the preset.
 
@@ -399,6 +404,21 @@ Make is the unified entry point. See `docs/build-process.md` for developer workf
   BATS tests. `test-plsec.yml` is planned but not implemented. Should trigger on
   `src/**`, `tests/**`, run lint + type check + pytest with Python version
   matrix (3.12, 3.14).
+
+- **Standalone script template drift (DRY violation).** `plsec-status.sh` and
+  `plsec-audit.sh` each exist in two places: the canonical template
+  (`templates/bootstrap/`) and a Python string constant (`PLSEC_STATUS_SH` /
+  `PLSEC_AUDIT_SH` in `src/plsec/configs/templates.py`). The `plsec install`
+  command deploys from the Python constant, not the template file. When
+  templates evolve, the embedded constants can fall behind — this happened with
+  the `--watch` feature in `plsec-status.sh`, which was implemented in the
+  template but missing from the deployed script. **Resolution:** Either generate
+  the Python constants from the templates at build time (a `make sync-templates`
+  target), or change `plsec install` to read the template files directly. Both
+  approaches require packaging the templates as package data. Backslash escaping
+  adds complexity: raw bash backslashes must be doubled in Python string
+  literals (e.g., `\\` -> `\\\\`), so a build-time generator is preferable to
+  manual syncing.
 
 ### Open Questions
 

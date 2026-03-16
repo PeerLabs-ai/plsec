@@ -78,6 +78,7 @@ class TestFindingCategory:
         expected = {
             "secret",
             "vulnerability",
+            "dependency_vulnerability",
             "misconfiguration",
             "code_issue",
             "policy_violation",

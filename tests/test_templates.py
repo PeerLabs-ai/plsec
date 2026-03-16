@@ -388,6 +388,25 @@ class TestPlsecStatusSh:
         assert "exit 0" in PLSEC_STATUS_SH
         assert "exit 1" in PLSEC_STATUS_SH
 
+    def test_has_watch_mode(self):
+        """Status script must support --watch for continuous refresh."""
+        assert "--watch" in PLSEC_STATUS_SH
+        assert "run_watch" in PLSEC_STATUS_SH
+
+    def test_has_watch_options(self):
+        """Watch mode must support interval and tail-lines options."""
+        assert "--interval" in PLSEC_STATUS_SH
+        assert "--tail-lines" in PLSEC_STATUS_SH
+
+    def test_has_delta_tracking(self):
+        """Watch mode must compute deltas between refresh cycles."""
+        assert "compute_session_delta" in PLSEC_STATUS_SH
+        assert "compute_scan_delta" in PLSEC_STATUS_SH
+
+    def test_has_log_tail(self):
+        """Watch mode must show recent log lines."""
+        assert "print_log_tail" in PLSEC_STATUS_SH
+
 
 class TestWrapperRegistries:
     """Verify WRAPPER_TEMPLATES and STANDALONE_SCRIPTS are consistent."""

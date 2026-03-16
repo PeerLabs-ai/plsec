@@ -264,6 +264,7 @@ make test-integration
 ### Guides
 
 - [Scanner Limitations](docs/scanner-limitations.md) -- Detection tradeoffs and false positive/negative rates
+- [Dependency Vulnerability Scanners](docs/dependency-vulnerability-scanners.md) -- SCA landscape analysis
 - [CI/CD Integration](docs/ci-cd-integration.md) -- Running plsec in pipelines
 - [plsec-status Command](docs/commands/plsec-status.md) -- Health check reference
 

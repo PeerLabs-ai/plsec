@@ -246,6 +246,11 @@ class TestBuildDefaultRegistry:
         reg = build_default_registry()
         assert "trivy-secrets" in reg
 
+    def test_has_trivy_dependency(self) -> None:
+        """TrivyDependencyEngine should be in the default registry."""
+        reg = build_default_registry()
+        assert "trivy-vuln" in reg
+
     def test_has_container_isolation(self) -> None:
         """ContainerIsolationEngine should be in the default registry."""
         reg = build_default_registry()
