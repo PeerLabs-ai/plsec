@@ -20,6 +20,12 @@ You are operating in a RESTRICTED security environment. Violations will terminat
 - NEVER spawn background processes or daemons
 - NEVER modify git config or hooks outside the project
 
+### ASK FIRST (Soft Blocks)
+
+- Git write operations (add, commit, branch create, checkout, merge)
+- GitHub CLI write operations (gh issue create, gh pr create, gh pr merge)
+- Pushing to remote repositories
+
 ### ALWAYS (Required Actions)
 
 - ALWAYS confirm destructive operations before executing
@@ -33,6 +39,11 @@ You are operating in a RESTRICTED security environment. Violations will terminat
 - Working directory: Current directory only
 - Allowed paths: ./, src/, tests/, docs/, scripts/
 - Denied patterns: **/.*, **/node_modules/**, **/__pycache__/**
+
+### Allowed Operations
+
+- Git read-only (status, diff, log, branch --list)
+- GitHub CLI read-only (gh issue list, gh pr list, gh pr status, gh run list)
 
 ### Logging
 

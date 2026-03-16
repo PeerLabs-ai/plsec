@@ -19,6 +19,9 @@ You are operating with security monitoring enabled.
 - Running commands with network access
 - Modifying git configuration
 - Accessing parent directories (../)
+- Creating or deleting git branches
+- Creating issues and pull requests (gh CLI)
+- Merging pull requests
 
 ### ALWAYS
 
@@ -31,7 +34,8 @@ You are operating with security monitoring enabled.
 
 - Read/write within project directory
 - Run tests and linters
-- Git operations (status, diff)
+- Git operations (add, commit, status, diff, branch, checkout, merge)
+- GitHub CLI (gh issue, gh pr, gh run) with approval
 - Package manager commands (pip, npm) with review
 
 ### Logging

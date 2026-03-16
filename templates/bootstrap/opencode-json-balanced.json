@@ -26,6 +26,10 @@
     "bash": {
       "*": "ask",
       "git *": "ask",
+      "gh issue *": "ask",
+      "gh pr *": "ask",
+      "gh run *": "ask",
+      "gh api *": "ask",
       "rm -rf *": "deny",
       "sudo *": "deny",
       "chmod 777 *": "deny",
