@@ -52,6 +52,10 @@ jobs:
           submodules: true
       - name: Install BATS
         run: brew install bats-core
+      - name: Install GNU coreutils (for timeout)
+        run: |
+          brew install coreutils
+          echo "$(brew --prefix)/opt/coreutils/libexec/gnubin" >> "$GITHUB_PATH"
       - name: Install Trivy
         uses: aquasecurity/setup-trivy@v0.2.5
       - name: Install Python (for JSON/YAML validation)

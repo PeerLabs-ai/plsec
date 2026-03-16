@@ -315,6 +315,17 @@ setup_healthy() {
 # longer-term plan (--batch-mode, data/display separation).
 # ===========================================================================
 
+# Helper: find timeout command (GNU coreutils on macOS installs as gtimeout).
+timeout_cmd() {
+    if command -v timeout >/dev/null 2>&1; then
+        echo timeout
+    elif command -v gtimeout >/dev/null 2>&1; then
+        echo gtimeout
+    else
+        echo ""
+    fi
+}
+
 # Helper: set up watch mode environment with clear stubbed out.
 # Places a no-op `clear` script on PATH ahead of the real one.
 setup_watch() {
@@ -328,8 +339,11 @@ setup_watch() {
 
 @test "plsec-status --watch runs and can be killed by timeout" {
     setup_watch
+    local t
+    t="$(timeout_cmd)"
+    [[ -n "$t" ]] || skip "timeout/gtimeout not available"
     # timeout sends SIGTERM which triggers our trap -> exit 0
-    run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
+    run "$t" 3 "${PLSEC_DIR}/plsec-status.sh" \
         --watch --interval 1 --project "$PROJECT"
     # Exit code 0 (trap caught SIGTERM) or 124 (timeout killed it)
     [[ "$status" -eq 0 ]] || [[ "$status" -eq 124 ]]
@@ -337,18 +351,24 @@ setup_watch() {
 
 @test "plsec-status --watch shows log tail content" {
     setup_watch
+    local t
+    t="$(timeout_cmd)"
+    [[ -n "$t" ]] || skip "timeout/gtimeout not available"
     local today
     today=$(date +%Y%m%d)
     echo "WATCH_LOG_MARKER" >> "${PLSEC_DIR}/logs/claude-${today}.log"
 
-    run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
+    run "$t" 3 "${PLSEC_DIR}/plsec-status.sh" \
         --watch --interval 1 --project "$PROJECT"
     assert_output --partial "WATCH_LOG_MARKER"
 }
 
 @test "plsec-status --watch shows key hints" {
     setup_watch
-    run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
+    local t
+    t="$(timeout_cmd)"
+    [[ -n "$t" ]] || skip "timeout/gtimeout not available"
+    run "$t" 3 "${PLSEC_DIR}/plsec-status.sh" \
         --watch --interval 1 --project "$PROJECT"
     assert_output --partial "[q]uit"
     assert_output --partial "[r]efresh"
@@ -357,6 +377,9 @@ setup_watch() {
 
 @test "plsec-status --watch respects --tail-lines count" {
     setup_watch
+    local t
+    t="$(timeout_cmd)"
+    [[ -n "$t" ]] || skip "timeout/gtimeout not available"
     local today
     today=$(date +%Y%m%d)
     local log="${PLSEC_DIR}/logs/claude-${today}.log"
@@ -366,7 +389,7 @@ setup_watch() {
     done
 
     # Request only 3 lines
-    run timeout 3 "${PLSEC_DIR}/plsec-status.sh" \
+    run "$t" 3 "${PLSEC_DIR}/plsec-status.sh" \
         --watch --tail-lines 3 --interval 1 --project "$PROJECT"
     # Should see the last 3 lines
     assert_output --partial "TAIL_LINE_8"
