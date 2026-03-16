@@ -7,9 +7,9 @@ name: Test bootstrap.sh
 
 on:
   push:
-    paths: ['bin/bootstrap.sh', 'tests/bats/**', 'templates/**']
+    paths: ['bin/bootstrap.sh', 'tests/bats/**', 'templates/**', '.github/workflows/test-bootstrap.yml']
   pull_request:
-    paths: ['bin/bootstrap.sh', 'tests/bats/**', 'templates/**']
+    paths: ['bin/bootstrap.sh', 'tests/bats/**', 'templates/**', '.github/workflows/test-bootstrap.yml']
   release:
     types: [published]
 
