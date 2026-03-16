@@ -105,6 +105,50 @@ make scan                   # Run plsec scan on own codebase
 make deploy                 # Force redeploy global configs
 ```
 
+## Git Workflow (GitHub Flow)
+
+This project uses [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow):
+
+1. Create an issue (`gh issue create`)
+2. Create a feature branch off `main` (`git checkout -b feature/...`)
+3. Implement changes, commit to the branch
+4. Create a pull request (`gh pr create`)
+5. Address review feedback, push additional commits
+6. Merge to `main` after approval (`gh pr merge --delete-branch`)
+
+There is no `develop` branch, no release branches. All work branches off
+`main` and merges back to `main`.
+
+### Branch naming
+
+| Prefix      | Use                                    |
+|-------------|----------------------------------------|
+| `feature/`  | New functionality                      |
+| `fix/`      | Bug fixes                              |
+| `chore/`    | Maintenance, CI, docs, dependency bumps|
+
+### Agent permissions
+
+- The agent may create branches, commits, issues, and PRs with user approval
+- The agent MUST NOT push to remote -- all pushes are done by the user
+- When `gh pr create` offers to push the branch, the user approves via the
+  tool permission system -- this is acceptable
+- The agent may merge PRs with user approval (`gh pr merge`)
+- The agent MUST NOT force-push or delete remote branches
+
+### Useful commands
+
+```bash
+gh issue create --title "..." --body "..."   # Create issue
+gh issue list                                # List open issues
+gh pr create --title "..." --body "..."      # Create PR
+gh pr list                                   # List open PRs
+gh pr checks                                 # View CI status
+gh pr merge --delete-branch                  # Merge and cleanup
+gh run list                                  # View workflow runs
+gh run view <id>                             # View run details
+```
+
 ## Architecture and Design Guidelines
 
 Follow John Ousterhout's *A Philosophy of Software Design*:

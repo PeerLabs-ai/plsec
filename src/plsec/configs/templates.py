@@ -26,6 +26,12 @@ You are operating in a RESTRICTED security environment. Violations will terminat
 - NEVER spawn background processes or daemons
 - NEVER modify git config or hooks outside the project
 
+### ASK FIRST (Soft Blocks)
+
+- Git write operations (add, commit, branch create, checkout, merge)
+- GitHub CLI write operations (gh issue create, gh pr create, gh pr merge)
+- Pushing to remote repositories
+
 ### ALWAYS (Required Actions)
 
 - ALWAYS confirm destructive operations before executing
@@ -39,6 +45,11 @@ You are operating in a RESTRICTED security environment. Violations will terminat
 - Working directory: Current directory only
 - Allowed paths: ./, src/, tests/, docs/, scripts/
 - Denied patterns: **/.*, **/node_modules/**, **/__pycache__/**
+
+### Allowed Operations
+
+- Git read-only (status, diff, log, branch --list)
+- GitHub CLI read-only (gh issue list, gh pr list, gh pr status, gh run list)
 
 ### Logging
 
@@ -66,6 +77,9 @@ You are operating with security monitoring enabled.
 - Running commands with network access
 - Modifying git configuration
 - Accessing parent directories (../)
+- Creating or deleting git branches
+- Creating issues and pull requests (gh CLI)
+- Merging pull requests
 
 ### ALWAYS
 
@@ -78,7 +92,8 @@ You are operating with security monitoring enabled.
 
 - Read/write within project directory
 - Run tests and linters
-- Git operations (add, commit, status, diff)
+- Git operations (add, commit, status, diff, branch, checkout, merge)
+- GitHub CLI (gh issue, gh pr, gh run) with approval
 - Package manager commands (pip, npm) with review
 
 ### Logging
@@ -101,6 +116,22 @@ OPENCODE_JSON_STRICT = """{
       "git log *": "allow",
       "git branch": "allow",
       "git branch *": "allow",
+      "git add *": "ask",
+      "git commit *": "ask",
+      "git checkout *": "ask",
+      "git merge *": "ask",
+      "gh issue list *": "allow",
+      "gh issue view *": "allow",
+      "gh pr list *": "allow",
+      "gh pr status": "allow",
+      "gh pr view *": "allow",
+      "gh pr checks *": "allow",
+      "gh run list *": "allow",
+      "gh run view *": "allow",
+      "gh issue create *": "ask",
+      "gh pr create *": "ask",
+      "gh pr merge *": "ask",
+      "gh api *": "ask",
       "ls *": "allow",
       "cat *": "ask",
       "head *": "allow",
@@ -151,7 +182,13 @@ OPENCODE_JSON_BALANCED = """{
       "git branch *": "allow",
       "git add *": "ask",
       "git commit *": "ask",
+      "git checkout *": "ask",
+      "git merge *": "ask",
       "git push *": "ask",
+      "gh issue *": "ask",
+      "gh pr *": "ask",
+      "gh run *": "ask",
+      "gh api *": "ask",
       "ls *": "allow",
       "cat *": "allow",
       "head *": "allow",
