@@ -279,9 +279,9 @@ test files, 536 tests.
 - Enhanced wrapper logging (Tier 1 + Tier 2 with `CLAUDE_CODE_SHELL_PREFIX`)
 - Scan result persistence (JSONL logs, JSON summary)
 - `plsec-status` Phase 1 (bash script, Python integration)
+- `test-plsec.yml` GitHub Actions workflow (3 jobs: lint, test matrix, scan)
 
 **In Progress / Near-term:**
-- `test-plsec.yml` GitHub Actions workflow
 - PipAuditEngine (Python-specific depth, Milestone 9 Phase 2)
 - AgentConstraintEngine (validates CLAUDE.md/opencode.json deploy)
 
@@ -300,8 +300,8 @@ test files, 536 tests.
 | `engine/`   |      15 |      2,887 | Scan pipeline: types, base, registry, orchestrator, 6 engines, policy, correlation, verdict                    |
 | `core/`     |      15 |      3,764 | Business logic: config, tools, agents, processes, health, inventory, detector, adapters                        |
 | `commands/` |      12 |      3,734 | CLI command modules: create, secure, doctor, init, install, reset, scan, uninstall, validate, proxy, integrity |
-| `configs/`  |       3 |      1,670 | Embedded templates: CLAUDE.md, opencode.json, trivy configs, wrapper scripts                                   |
-| **Total**   |  **47** | **12,169** | Full Python codebase                                                                                           |
+| `configs/`  |       3 |      1,717 | Embedded templates: CLAUDE.md, opencode.json, trivy configs, wrapper scripts                                   |
+| **Total**   |  **47** | **12,216** | Full Python codebase (includes top-level __init__.py and cli.py: 138 lines)                                    |
 
 ---
 
@@ -399,11 +399,6 @@ Make is the unified entry point. See `docs/build-process.md` for developer workf
   point trivy at it. Low priority — only matters when scanning outside the
   project root (trivy auto-discovers `trivy.yaml` in cwd). See `HANDOFF.md` for
   details.
-
-- **GitHub Actions CI for Python code.** `test-bootstrap.yml` exists and runs
-  BATS tests. `test-plsec.yml` is planned but not implemented. Should trigger on
-  `src/**`, `tests/**`, run lint + type check + pytest with Python version
-  matrix (3.12, 3.14).
 
 - **Standalone script template drift (DRY violation).** `plsec-status.sh` and
   `plsec-audit.sh` each exist in two places: the canonical template
