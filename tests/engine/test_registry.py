@@ -251,6 +251,11 @@ class TestBuildDefaultRegistry:
         reg = build_default_registry()
         assert "trivy-vuln" in reg
 
+    def test_has_agent_constraint(self) -> None:
+        """AgentConstraintEngine should be in the default registry."""
+        reg = build_default_registry()
+        assert "agent-constraint" in reg
+
     def test_has_container_isolation(self) -> None:
         """ContainerIsolationEngine should be in the default registry."""
         reg = build_default_registry()
