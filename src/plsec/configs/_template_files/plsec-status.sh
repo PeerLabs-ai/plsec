@@ -1050,7 +1050,8 @@ main() {
     exit 0
 }
 
-# Source guard: execute main only when run directly, not when sourced
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+# Source guard: execute main when run directly or piped via stdin.
+# ${BASH_SOURCE[0]:-} prevents "unbound variable" under set -u when piped.
+if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]] || [[ -z "${BASH_SOURCE[0]:-}" ]]; then
     main "$@"
 fi

@@ -149,3 +149,15 @@ teardown() {
     assert [ -d "${BATS_TEST_TMPDIR}/custom/plsec/configs" ]
     assert [ -f "${BATS_TEST_TMPDIR}/custom/plsec/configs/CLAUDE.md" ]
 }
+
+# ---------------------------------------------------------------------------
+# stdin pipe (curl | bash simulation)
+# ---------------------------------------------------------------------------
+
+@test "bootstrap.sh works when piped via stdin (curl simulation)" {
+    # Simulates: curl -fsSL https://...bootstrap.sh | bash
+    # BASH_SOURCE[0] is unset when reading from stdin; set -u must not abort.
+    run bash < "${BOOTSTRAP}"
+    refute_output --partial "unbound variable"
+    refute_output --partial "BASH_SOURCE"
+}

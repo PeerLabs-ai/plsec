@@ -398,3 +398,16 @@ setup_watch() {
     # Should NOT see early lines (use TAIL_LINE_2 to avoid prefix match on TAIL_LINE_10)
     refute_output --partial "TAIL_LINE_2"
 }
+
+# ---------------------------------------------------------------------------
+# stdin pipe (curl | bash simulation)
+# ---------------------------------------------------------------------------
+
+@test "plsec-status.sh works when piped via stdin" {
+    # BASH_SOURCE[0] is unset when reading from stdin; set -u must not abort.
+    # Use the source template (not deployed copy, which requires plsec install).
+    local script_dir
+    script_dir="$(cd "${BATS_TEST_DIRNAME}/../../.." > /dev/null && pwd)"
+    run bash < "${script_dir}/src/plsec/configs/_template_files/plsec-status.sh"
+    refute_output --partial "unbound variable"
+}

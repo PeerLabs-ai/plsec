@@ -34,6 +34,7 @@ WORKDIR /workspace
 # Copy project files
 COPY build/bootstrap.sh /workspace/build/bootstrap.sh
 COPY bin/bootstrap.default.sh /workspace/bin/bootstrap.default.sh
+COPY src/plsec/configs/_template_files/ /workspace/src/plsec/configs/_template_files/
 COPY tests/bats/ /workspace/tests/bats/
 
 # Ensure bootstrap is executable
