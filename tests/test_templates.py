@@ -380,8 +380,8 @@ class TestPlsecStatusSh:
         assert "json_escape" in PLSEC_STATUS_SH
 
     def test_has_source_guard(self):
-        """Status script must have source guard to allow unit testing."""
-        assert 'if [[ "${BASH_SOURCE[0]}" == "${0}" ]]' in PLSEC_STATUS_SH
+        """Status script must have source guard safe for stdin pipe (set -u)."""
+        assert "${BASH_SOURCE[0]:-}" in PLSEC_STATUS_SH
 
     def test_has_exit_codes(self):
         """Status script must exit 0 for ok, 1 for fail."""
