@@ -15,7 +15,7 @@
 
 VERSION := $(shell cat VERSION 2>/dev/null || echo "0.0.0-dev")
 
-TEMPLATE_DIR  := templates/bootstrap
+TEMPLATE_DIR  := src/plsec/configs/_template_files
 SKELETON      := $(TEMPLATE_DIR)/skeleton.bash
 TEMPLATES     := $(wildcard $(TEMPLATE_DIR)/*.md) \
                  $(wildcard $(TEMPLATE_DIR)/*.json) \

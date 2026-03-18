@@ -17,7 +17,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." > /dev/null && pwd)"
-TEMPLATE_DIR="${PROJECT_ROOT}/templates/bootstrap"
+TEMPLATE_DIR="${PROJECT_ROOT}/src/plsec/configs/_template_files"
 SKELETON="${TEMPLATE_DIR}/skeleton.bash"
 
 VERSION="${1:?Usage: assemble-bootstrap.sh VERSION [OUTPUT]}"
