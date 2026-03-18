@@ -272,8 +272,8 @@ test files, 536 tests.
 **Fully Implemented:**
 - Engine architecture (types, base, verdict, registry, orchestrator, policy,
   correlation)
-- 6 concrete engines (TrivySecret, Bandit, Semgrep, TrivyDependency,
-  TrivyMisconfig, ContainerIsolation)
+- 7 concrete engines (TrivySecret, Bandit, Semgrep, TrivyDependency,
+  TrivyMisconfig, AgentConstraint, ContainerIsolation)
 - Scan command rewritten to use engine pipeline
 - Lifecycle management (install, reset, uninstall)
 - Enhanced wrapper logging (Tier 1 + Tier 2 with `CLAUDE_CODE_SHELL_PREFIX`)
@@ -283,7 +283,7 @@ test files, 536 tests.
 
 **In Progress / Near-term:**
 - PipAuditEngine (Python-specific depth, Milestone 9 Phase 2)
-- AgentConstraintEngine (validates CLAUDE.md/opencode.json deploy)
+- Tool class redesign (OS-aware install hints, see issue #6)
 
 **Planned (v0.2.0):**
 - `plsec run` command (managed agent execution, preset-driven container
@@ -399,6 +399,14 @@ Make is the unified entry point. See `docs/build-process.md` for developer workf
   point trivy at it. Low priority — only matters when scanning outside the
   project root (trivy auto-discovers `trivy.yaml` in cwd). See `HANDOFF.md` for
   details.
+
+- **Tool class lacks OS-aware install hints (issue #6).** `Tool.install_hint`
+  is a single string hardcoded to macOS (`brew install trivy`). The same
+  brew-only hints are duplicated in `tools.py`, `health.py`, `doctor.py`,
+  engine remediation strings, and `skeleton.bash`. Needs redesign: either
+  `install_hint: str | dict[str, str]` keyed by platform, or a centralized
+  tool registry with closures for install resolution. This blocks correct
+  Linux support in `plsec doctor` output. See issue #6.
 
 ### Open Questions
 
