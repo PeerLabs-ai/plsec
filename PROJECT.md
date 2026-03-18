@@ -400,21 +400,6 @@ Make is the unified entry point. See `docs/build-process.md` for developer workf
   project root (trivy auto-discovers `trivy.yaml` in cwd). See `HANDOFF.md` for
   details.
 
-- **Standalone script template drift (DRY violation).** `plsec-status.sh` and
-  `plsec-audit.sh` each exist in two places: the canonical template
-  (`templates/bootstrap/`) and a Python string constant (`PLSEC_STATUS_SH` /
-  `PLSEC_AUDIT_SH` in `src/plsec/configs/templates.py`). The `plsec install`
-  command deploys from the Python constant, not the template file. When
-  templates evolve, the embedded constants can fall behind — this happened with
-  the `--watch` feature in `plsec-status.sh`, which was implemented in the
-  template but missing from the deployed script. **Resolution:** Either generate
-  the Python constants from the templates at build time (a `make sync-templates`
-  target), or change `plsec install` to read the template files directly. Both
-  approaches require packaging the templates as package data. Backslash escaping
-  adds complexity: raw bash backslashes must be doubled in Python string
-  literals (e.g., `\\` -> `\\\\`), so a build-time generator is preferable to
-  manual syncing.
-
 ### Open Questions
 
 - **Container runtime default communication.** Podman is the default. How

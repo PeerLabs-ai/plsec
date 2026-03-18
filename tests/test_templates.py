@@ -237,8 +237,8 @@ class TestPreCommitHook:
         assert "trivy" in PRE_COMMIT_HOOK
 
     def test_references_plsec_dir(self):
-        """Hook should reference the plsec config directory."""
-        assert ".peerlabs/plsec" in PRE_COMMIT_HOOK
+        """Hook should reference the plsec dir placeholder for deploy-time substitution."""
+        assert "PLSEC_DIR" in PRE_COMMIT_HOOK
 
 
 # -----------------------------------------------------------------------
