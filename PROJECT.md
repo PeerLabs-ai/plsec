@@ -285,6 +285,10 @@ test files, 536 tests.
 - PipAuditEngine (Python-specific depth, Milestone 9 Phase 2)
 - Tool class redesign (OS-aware install hints, see issue #6)
 
+**Planned Design Docs:**
+- DESIGN-BOOTSTRAP-INSTALL-FLOW.md -- Bootstrap to full toolchain install
+  (shell template boundary, plsec self-install to ~/.peerlabs)
+
 **Planned (v0.2.0):**
 - `plsec run` command (managed agent execution, preset-driven container
   isolation)
