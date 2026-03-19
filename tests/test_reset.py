@@ -293,7 +293,7 @@ class TestResetCLI:
     def test_reset_redeploys_preset_files(self, tmp_path: Path):
         """Reset should redeploy preset TOML files after wipe."""
         plsec_home = self._setup_installed(tmp_path)
-        preset_dir = plsec_home / "config" / "presets"
+        preset_dir = plsec_home / "configs" / "presets"
         # Verify presets exist before reset
         assert (preset_dir / "balanced.toml").exists()
         # Corrupt a preset file

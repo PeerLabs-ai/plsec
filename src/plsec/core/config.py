@@ -513,7 +513,7 @@ def resolve_config(
 
     Resolution hierarchy (low to high priority):
     1. Defaults (PlsecConfig factory defaults)
-    2. Preset file (~/.peerlabs/plsec/config/presets/{preset}.toml or built-in)
+    2. Preset file (~/.peerlabs/plsec/configs/presets/{preset}.toml or built-in)
     3. Global config (~/.peerlabs/plsec/plsec.toml)
     4. Project config (./plsec.toml or ancestor directories)
     5. CLI arguments (highest priority)

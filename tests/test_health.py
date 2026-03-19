@@ -676,7 +676,7 @@ class TestCheckPresetFiles:
     def test_partial_files(self, tmp_path: Path):
         """Some presets present, others missing -- mixed verdicts."""
         home = tmp_path / "plsec"
-        preset_dir = home / "config" / "presets"
+        preset_dir = home / "configs" / "presets"
         preset_dir.mkdir(parents=True)
         (preset_dir / "balanced.toml").write_text("[layers.static]\nenabled = true\n")
         results = check_preset_files(home)
@@ -687,10 +687,10 @@ class TestCheckPresetFiles:
     def test_expected_presets_constant(self):
         """PLSEC_EXPECTED_PRESETS should contain all four preset files."""
         names = [name for name, _ in PLSEC_EXPECTED_PRESETS]
-        assert "config/presets/minimal.toml" in names
-        assert "config/presets/balanced.toml" in names
-        assert "config/presets/strict.toml" in names
-        assert "config/presets/paranoid.toml" in names
+        assert "configs/presets/minimal.toml" in names
+        assert "configs/presets/balanced.toml" in names
+        assert "configs/presets/strict.toml" in names
+        assert "configs/presets/paranoid.toml" in names
 
 
 # -----------------------------------------------------------------------

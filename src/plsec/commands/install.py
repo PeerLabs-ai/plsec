@@ -317,7 +317,7 @@ def deploy_global_configs(
         )
 
     # Deploy built-in preset TOML files
-    preset_dest = plsec_home / "config" / "presets"
+    preset_dest = plsec_home / "configs" / "presets"
     for toml_file in sorted(BUILTIN_PRESET_DIR.glob("*.toml")):
         _deploy_file(preset_dest / toml_file.name, toml_file.read_text(), force=force)
 

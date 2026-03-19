@@ -149,7 +149,7 @@ class TestDeployGlobalConfigs:
         """All 4 built-in preset TOML files should be deployed."""
         plsec_home = tmp_path / ".peerlabs" / "plsec"
         deploy_global_configs(plsec_home, agents=AGENTS)
-        preset_dir = plsec_home / "config" / "presets"
+        preset_dir = plsec_home / "configs" / "presets"
         assert preset_dir.is_dir()
         for name in ("minimal.toml", "balanced.toml", "strict.toml", "paranoid.toml"):
             assert (preset_dir / name).exists(), f"Missing preset: {name}"
@@ -158,7 +158,7 @@ class TestDeployGlobalConfigs:
         """Deployed preset files should not be empty."""
         plsec_home = tmp_path / ".peerlabs" / "plsec"
         deploy_global_configs(plsec_home, agents=AGENTS)
-        preset_dir = plsec_home / "config" / "presets"
+        preset_dir = plsec_home / "configs" / "presets"
         for name in ("minimal.toml", "balanced.toml", "strict.toml", "paranoid.toml"):
             content = (preset_dir / name).read_text()
             assert len(content) > 0, f"Empty preset: {name}"
@@ -168,7 +168,7 @@ class TestDeployGlobalConfigs:
         """Preset files should not be overwritten without --force."""
         plsec_home = tmp_path / ".peerlabs" / "plsec"
         deploy_global_configs(plsec_home, agents=AGENTS)
-        marker_file = plsec_home / "config" / "presets" / "balanced.toml"
+        marker_file = plsec_home / "configs" / "presets" / "balanced.toml"
         marker_file.write_text("custom preset\n")
         deploy_global_configs(plsec_home, agents=AGENTS)
         assert marker_file.read_text() == "custom preset\n"
@@ -177,17 +177,17 @@ class TestDeployGlobalConfigs:
         """Preset files should be overwritten with --force."""
         plsec_home = tmp_path / ".peerlabs" / "plsec"
         deploy_global_configs(plsec_home, agents=AGENTS)
-        marker_file = plsec_home / "config" / "presets" / "balanced.toml"
+        marker_file = plsec_home / "configs" / "presets" / "balanced.toml"
         marker_file.write_text("custom preset\n")
         deploy_global_configs(plsec_home, force=True, agents=AGENTS)
         assert marker_file.read_text() != "custom preset\n"
 
     def test_creates_config_presets_subdirectory(self, tmp_path: Path):
-        """deploy_global_configs should create config/presets/ directory."""
+        """deploy_global_configs should create configs/presets/ directory."""
         plsec_home = tmp_path / ".peerlabs" / "plsec"
         deploy_global_configs(plsec_home, agents=AGENTS)
-        assert (plsec_home / "config").is_dir()
-        assert (plsec_home / "config" / "presets").is_dir()
+        assert (plsec_home / "configs").is_dir()
+        assert (plsec_home / "configs" / "presets").is_dir()
 
 
 # -----------------------------------------------------------------------

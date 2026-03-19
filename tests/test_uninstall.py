@@ -306,7 +306,7 @@ class TestUninstallCLI:
         """Uninstall --global should remove deployed preset TOML files."""
         plsec_home, project_dir = _setup_full_install(tmp_path)
         # Verify presets exist before uninstall
-        preset_dir = plsec_home / "config" / "presets"
+        preset_dir = plsec_home / "configs" / "presets"
         assert preset_dir.is_dir()
         assert (preset_dir / "balanced.toml").exists()
         with (

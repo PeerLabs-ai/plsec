@@ -6,7 +6,7 @@ postures. Users can select presets via CLI (--preset) or config files
 
 Presets are stored as TOML files in two locations:
   1. Built-in presets: src/plsec/configs/presets/ (shipped with package)
-  2. User presets: ~/.peerlabs/plsec/config/presets/ (custom user presets)
+  2. User presets: ~/.peerlabs/plsec/configs/presets/ (custom user presets)
 
 User presets take precedence over built-in presets with the same name.
 
@@ -46,7 +46,7 @@ def get_user_preset_dir() -> Path:
     """Return the path to user custom preset directory."""
     from plsec.core.config import get_plsec_home
 
-    return get_plsec_home() / "config" / "presets"
+    return get_plsec_home() / "configs" / "presets"
 
 
 def find_preset_file(name: str) -> Path | None:
@@ -54,7 +54,7 @@ def find_preset_file(name: str) -> Path | None:
     Find a preset TOML file by name.
 
     Search order:
-      1. User preset directory (~/.peerlabs/plsec/config/presets/{name}.toml)
+      1. User preset directory (~/.peerlabs/plsec/configs/presets/{name}.toml)
       2. Built-in preset directory (src/plsec/configs/presets/{name}.toml)
 
     Args:
