@@ -19,9 +19,8 @@ from plsec.core.tools import Tool, ToolStatus
 
 # Expected subdirectories under ~/.peerlabs/plsec/
 PLSEC_SUBDIRS: list[str] = [
-    "config",
-    "config/presets",
     "configs",
+    "configs/presets",
     "logs",
     "manifests",
     "trivy",
@@ -39,10 +38,10 @@ PLSEC_EXPECTED_FILES: list[tuple[str, str]] = [
 # Expected preset TOML files deployed by plsec install.
 # Each tuple is (relative_path, human_description).
 PLSEC_EXPECTED_PRESETS: list[tuple[str, str]] = [
-    ("config/presets/minimal.toml", "Minimal security preset"),
-    ("config/presets/balanced.toml", "Balanced security preset"),
-    ("config/presets/strict.toml", "Strict security preset"),
-    ("config/presets/paranoid.toml", "Paranoid security preset"),
+    ("configs/presets/minimal.toml", "Minimal security preset"),
+    ("configs/presets/balanced.toml", "Balanced security preset"),
+    ("configs/presets/strict.toml", "Strict security preset"),
+    ("configs/presets/paranoid.toml", "Paranoid security preset"),
 ]
 
 # Expected executable scripts deployed by plsec install.
