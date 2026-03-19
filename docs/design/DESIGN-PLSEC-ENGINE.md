@@ -193,6 +193,94 @@ Policy:
     correlations:   list[CorrelationRule] # Cross-finding rules
 ```
 
+### Tool Registry
+
+External tool metadata (binary names, install hints, version requirements)
+is managed by a centralized Tool Registry. See
+[DESIGN-TOOL-REGISTRY.md](DESIGN-TOOL-REGISTRY.md) for the full design.
+
+Engines declare tool dependencies by ID:
+
+```python
+class TrivySecretEngine(Engine):
+    @property
+    def dependencies(self) -> list[str]:
+        return ["trivy"]  # references TOOLS["trivy"]
+```
+
+The Engine base class provides default `check_available()` and
+`_tool_failure()` implementations that consult the Tool Registry.
+Engines only override for non-standard availability logic (e.g.,
+`ContainerIsolationEngine` checks runtime accessibility beyond binary
+presence).
+
+## Planning Layer
+
+The current orchestrator implicitly constructs a scan plan from the preset
+and available engines. As plsec evolves, this becomes explicit.
+
+### Architectural layers
+
+```
+Registry Layer (current)
+    ToolRegistry    -- what tools are available
+    EngineRegistry  -- what engines exist
+    AgentRegistry   -- what agents we manage
+
+Planning Layer (next)
+    ScanPlan        -- which engines to run, in what order, with what config
+    InstallPlan     -- what needs to be installed/configured
+    RemediationPlan -- what to do about findings
+
+Optimization Layer (future)
+    Heuristics      -- skip redundant scans, parallelize independent engines
+    Caching         -- don't re-scan unchanged files
+    Prioritization  -- run fast engines first, expensive ones only if needed
+
+Execution Layer (partially exists)
+    Orchestrator    -- executes the plan
+    Findings        -- universal IR
+    Verdict         -- outcome strategies
+
+Feedback Layer (future)
+    Logging         -- structured audit trail
+    Refinement      -- adjust plans based on results
+    Learning        -- adapt heuristics over time
+```
+
+### Design principles
+
+- Engines are **layer-scoped**, not preset-scoped. An engine declares
+  which security layer it operates in. It does not declare which presets
+  include it.
+- Presets are **user-configurable compositions** of engines across layers.
+  Preset TOML files are the source of truth for engine composition. Users
+  can create custom presets.
+- The **Planner** resolves what runs: preset config (TOML) + engine
+  capabilities (registry) + tool availability (tool registry) = ScanPlan.
+- A Plan is a function of what's available (registries) and what's desired
+  (presets). The Registry Layer must be solid before Plans can be generated.
+
+### Preset authority
+
+Preset TOML files declare per-layer engine lists:
+
+```toml
+[layers.static]
+engines = ["trivy-secrets", "trivy-vuln", "bandit", "semgrep"]
+
+[layers.config]
+engines = ["trivy-misconfig", "agent-constraint"]
+
+[layers.isolation]
+engines = ["container-isolation"]
+```
+
+Engine configuration is loaded from TOML at runtime. The Python
+`Engine.presets` frozenset (current implementation) will be replaced
+by this configuration-driven approach. See DESIGN-TOOL-REGISTRY.md
+for the migration plan.
+
 ## Preset → Engine Mapping
 
 Engines fall into two categories:
@@ -251,7 +339,18 @@ the execution mode.
    Entry points are a future consideration if third-party engines
    are needed.
 
-3. **Layers 3-5 use the Engine interface with control semantics.**
+3. **Tool metadata management: centralized Tool Registry.** Follows the
+   AGENTS pattern. One frozen `ToolSpec` per tool, one `TOOLS` dict,
+   helper functions for OS-aware install hints and availability checking.
+   Engines reference tools by ID. See
+   [DESIGN-TOOL-REGISTRY.md](DESIGN-TOOL-REGISTRY.md).
+
+4. **Preset TOML files are the source of truth** for engine composition.
+   Engines are layer-scoped, not preset-scoped. The Planner resolves
+   TOML config + engine capabilities + tool availability into a ScanPlan.
+   See the Planning Layer section above.
+
+5. **Layers 3-5 use the Engine interface with control semantics.**
    They implement `execute(ctx)` but produce MISSING_CONTROL findings
    rather than vulnerability findings. At strict/paranoid, plsec
    provides the infrastructure (container harness, proxy) and these
@@ -269,7 +368,12 @@ the execution mode.
    Same secret found by Trivy and detect-secrets. Deduplicate by
    location? By content hash? Engine priority?
 
-3. **Container harness design.** Several sub-questions:
+3. **ScanPlan representation.**
+   What does a ScanPlan object look like? Ordered list of
+   (engine, config) pairs? DAG of dependencies? How does it handle
+   partial execution (some engines unavailable)?
+
+4. **Container harness design.** Several sub-questions:
    - Agent binary provisioning: baked into image or mounted from host?
    - Container lifecycle: per-session (fresh) or long-lived with exec?
    - Image management: pre-built, built by `plsec init`, pulled from

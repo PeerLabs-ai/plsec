@@ -6,7 +6,7 @@ version = 1
 
 [layers.static]
 enabled = true
-scanners = ["trivy-secrets", "trivy-misconfig", "bandit", "semgrep"]
+scanners = ["trivy-secrets", "trivy-vuln", "trivy-misconfig", "bandit", "semgrep", "agent-constraint", "container-isolation"]
 skip_dirs = []  # Scan everything, even .venv
 skip_files = []  # Scan everything
 severity_threshold = "LOW"
