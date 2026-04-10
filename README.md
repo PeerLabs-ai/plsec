@@ -1,13 +1,27 @@
 # plsec - Security Tooling for AI Coding Assistants
 
-A defense-in-depth security framework for AI coding assistants
-(Claude Code, OpenCode, Gemini CLI, and others).
+The Peerlabs Security Framework (plsec) is a proof of concept, reference
+implementation of what we believe secure agent environments should be.
+
+It is:
+- A defense-in-depth security framework for AI coding assistants (Claude Code,
+  OpenCode, Gemini CLI, and others).
+- An important component in our overall vision of what an agentic framework
+  might look like
+
+It is not:
+- Intended to supplant or replace any existing tooling.
+- A production ready environment
+- A bullet proof (though we have taken steps to make sure it is secure and can
+  *be* secured)
+
 
 plsec wraps Trivy, Bandit, Semgrep, and other scanners into a unified
 CLI with progressive security presets, agent-specific configuration
-management, and runtime monitoring via Pipelock.  Agents and scanners
-are declared in registries so new tools can be added in one place
-without modifying command logic.
+management, and runtime monitoring via Pipelock.
+
+Agents and scanners are declared in registries so new tools can be added in one
+place without modifying command logic.
 
 ## Installation
 
