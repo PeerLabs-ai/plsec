@@ -1,7 +1,7 @@
 # PROJECT.md - plsec Project Overview
 
 **Version:** 0.1.0
-**Status:** Engine architecture implemented, 6 of 12 engines complete, all at
+**Status:** Engine architecture implemented, 7 of 14 engines complete, all at
 100% test coverage
 
 ---
@@ -24,7 +24,7 @@ Security controls are organised into 5 layers, each addressable by dedicated eng
 | Layer | Name      | Control Type           | Implemented Engines          | Planned Engines                          |
 |-------|-----------|------------------------|------------------------------|------------------------------------------|
 | 1     | STATIC    | Detection              | TrivySecret, Bandit, Semgrep, TrivyDependency | PipAuditEngine (Phase 2)      |
-| 2     | CONFIG    | Detection + Validation | TrivyMisconfig               | AgentConstraintEngine, DenyPatternEngine |
+| 2     | CONFIG    | Detection + Validation | TrivyMisconfig, AgentConstraint | DenyPatternEngine                        |
 | 3     | ISOLATION | Control Validation     | ContainerIsolationEngine     | SandboxEngine (macOS sandbox)            |
 | 4     | RUNTIME   | Control Validation     | —                            | EgressProxyEngine, DLPEngine             |
 | 5     | AUDIT     | Control Validation     | —                            | AuditLogEngine, IntegrityEngine          |
@@ -72,7 +72,7 @@ plsec.yaml (config)
 | **EngineRegistry**    | Central catalog. `register()`, `group_for(layer)`, `get(id)`, `build_default_registry()`.                                                                                             | `engine/registry.py`     |
 | **CorrelationEngine** | Cross-layer risk detection. Runs after all layers, produces synthetic findings for compound risks (e.g., secret + no egress control = CRITICAL).                                      | `engine/correlation.py`  |
 
-#### Implemented Engines (6)
+#### Implemented Engines (7)
 
 | Engine ID             | Layer     | Category  | What It Does                                                  |
 |-----------------------|-----------|-----------|---------------------------------------------------------------|
@@ -81,6 +81,7 @@ plsec.yaml (config)
 | `semgrep`             | STATIC    | Detection | Multi-language SAST (pattern-based security rules)            |
 | `trivy-vuln`          | STATIC    | Detection | Cross-language dependency vulnerability scanning              |
 | `trivy-misconfig`     | CONFIG    | Detection | IaC misconfiguration scanning (Dockerfiles, Kubernetes, etc.) |
+| `agent-constraint`    | CONFIG    | Control   | Agent config validation (CLAUDE.md/opencode.json vs preset)   |
 | `container-isolation` | ISOLATION | Control   | Container runtime + config check (Podman/Docker presence)     |
 
 #### Defensive JSON Parsing
@@ -107,8 +108,8 @@ The CLI is organised into thin command wrappers over deep core modules:
 ```
 src/plsec/
 ├── cli.py                     # Entry point, typer app, 11 subcommands
-├── commands/                  # Command modules (thin wrappers, 12 files, 3,734 lines)
-├── core/                      # Business logic (15 modules, 3,574 lines)
+├── commands/                  # Command modules (thin wrappers, 12 files, 3,710 lines)
+├── core/                      # Business logic (15 modules, 3,763 lines)
 │   ├── config.py              # Configuration management
 │   ├── tools.py               # Tool checking
 │   ├── agents.py              # Agent registry (Claude, OpenCode metadata)
@@ -120,7 +121,7 @@ src/plsec/
 │   ├── wizard.py              # Interactive wizards
 │   ├── compatibility.py       # Agent data adapter version probing
 │   └── adapters/              # Agent data adapters (Claude, OpenCode)
-├── engine/                    # Scan pipeline (15 modules, 2,887 lines)
+├── engine/                    # Scan pipeline (16 modules, 3,148 lines)
 │   ├── types.py               # Core types (Finding, Layer, Severity, ScanContext)
 │   ├── base.py                # Engine ABC, EngineGroup, extract_json
 │   ├── registry.py            # Engine catalog
@@ -134,14 +135,15 @@ src/plsec/
 │   ├── trivy_secrets.py       # Trivy secret engine
 │   ├── trivy_dependency.py    # Trivy dependency vuln engine
 │   ├── trivy_misconfig.py     # Trivy misconfig engine
+│   ├── agent_constraint.py    # Agent constraint validation engine
 │   └── container_isolation.py # Container isolation engine
-└── configs/                   # Embedded templates (3 modules, 1,418 lines)
+└── configs/                   # Python loaders + embedded templates (4 modules, 123 lines)
 ```
 
 **11 CLI Commands:** `create`, `secure`, `doctor`, `init`, `install`, `reset`,
 `scan`, `uninstall`, `validate`, `proxy`, `integrity`.
 
-**47 Python modules, 12,169 lines of source code.**
+**49 Python modules, 10,882 lines of source code.**
 
 ### Bootstrap
 
@@ -200,7 +202,7 @@ everything else follows from it.
 | ContainerIsolationEngine| control    |         |          | x      | x        |
 | TrivyDependencyEngine   | detection  |         | x        | x      | x        |
 | PipAuditEngine          | detection  | —       | —        | planned| planned  |
-| AgentConstraintEngine   | detection  | —       | planned  | planned| planned  |
+| AgentConstraintEngine   | control    | —       | x        | x      | x        |
 | DenyPatternEngine       | detection  | —       | —        | planned| planned  |
 | SandboxEngine           | control    | —       | —        | planned| planned  |
 | EgressProxyEngine       | control    | —       | —        | planned| planned  |
@@ -263,9 +265,10 @@ test files, 536 tests.
   - `test-bootstrap.yml` — triggers on `bin/bootstrap.sh`, `tests/bats/**`,
     `templates/**` changes. Runs BATS unit + integration tests on Ubuntu and
     macOS.
-  - `test-plsec.yml` — **planned** for Python code. Will trigger on `src/**`,
-    `tests/**` (excluding BATS), dependency changes. Two jobs: lint (ruff + ty)
-    and test (pytest with Python 3.12 + 3.14 matrix).
+  - `test-plsec.yml` — triggers on `src/**`, `tests/**` (excluding BATS),
+    `pyproject.toml`, and `uv.lock` changes. Three jobs: lint (ruff + ty),
+    test (pytest with Python 3.12 + 3.14 matrix), and scan (dogfood
+    `plsec scan` on own codebase).
 
 ### What's Implemented vs. Planned
 
@@ -301,11 +304,11 @@ test files, 536 tests.
 
 | Subsystem   | Modules |      Lines | Description                                                                                                    |
 |-------------|--------:|-----------:|----------------------------------------------------------------------------------------------------------------|
-| `engine/`   |      15 |      2,887 | Scan pipeline: types, base, registry, orchestrator, 6 engines, policy, correlation, verdict                    |
-| `core/`     |      15 |      3,764 | Business logic: config, tools, agents, processes, health, inventory, detector, adapters                        |
-| `commands/` |      12 |      3,734 | CLI command modules: create, secure, doctor, init, install, reset, scan, uninstall, validate, proxy, integrity |
-| `configs/`  |       3 |      1,717 | Embedded templates: CLAUDE.md, opencode.json, trivy configs, wrapper scripts                                   |
-| **Total**   |  **47** | **12,216** | Full Python codebase (includes top-level __init__.py and cli.py: 138 lines)                                    |
+| `engine/`   |      16 |      3,148 | Scan pipeline: types, base, registry, orchestrator, 7 engines, policy, correlation, verdict                    |
+| `core/`     |      15 |      3,763 | Business logic: config, tools, agents, processes, health, inventory, detector, adapters                        |
+| `commands/` |      12 |      3,710 | CLI command modules: create, secure, doctor, init, install, reset, scan, uninstall, validate, proxy, integrity |
+| `configs/`  |       4 |        123 | Python loaders + embedded templates (CLAUDE.md, opencode.json, trivy configs, wrapper scripts)                 |
+| **Total**   |  **49** | **10,882** | Full Python codebase (includes top-level __init__.py and cli.py: 138 lines)                                    |
 
 ---
 
@@ -459,6 +462,7 @@ See [`docs/roadmap.md`](docs/roadmap.md) for detailed milestones and planning.
 | Document                | Status                   | Location                                        |
 |-------------------------|--------------------------|-------------------------------------------------|
 | Engine Architecture     | Draft / Interface Design | `docs/design/DESIGN-PLSEC-ENGINE.md`            |
+| Tool Registry           | PROPOSED (v0.2)          | `docs/design/DESIGN-TOOL-REGISTRY.md`           |
 | Agent Monitoring        | PROPOSED (v0.1)          | `docs/design/DESIGN-AGENT-MONITORING.md`        |
 | Install/Reset/Uninstall | IMPLEMENTED (v0.2)       | `docs/design/DESIGN-INSTALL-RESET-UNINSTALL.md` |
 | Registry Refactoring    | IMPLEMENTED (v0.2)       | `docs/design/DESIGN-PLSEC-REFACTOR.md`          |
