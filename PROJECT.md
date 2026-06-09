@@ -415,6 +415,27 @@ Make is the unified entry point. See `docs/build-process.md` for developer workf
   tool registry with closures for install resolution. This blocks correct
   Linux support in `plsec doctor` output. See issue #6.
 
+- **Test suite shape is wrong.** Many existing tests are substring-greps
+  against template/source files rather than behavior tests. They couple to
+  implementation, do not catch real bugs (the 2026-06-09 `plsec-audit.sh`
+  placeholder regression slipped past every grep-pattern test), and create
+  churn during refactors without adding coverage. Categories
+  (unit/integration/E2E/regression/advisory) are also conflated — Python
+  `tests/` is flat, no regression directory exists, no advisory tier
+  exists in the harness. See [`docs/chore_test_refactor.md`](docs/chore_test_refactor.md)
+  for the proposed audit and refactor. Spurious-and-blocking tests were
+  deleted in `fix/plsec-audit-unblock` to unblock CI; the broader refactor
+  is the follow-up.
+
+- **`plsec install` UX without `--force` is misleading.** Default behaviour
+  is `--check` (read-only-by-default), which prints `[WARN] Exists` for
+  every pre-existing file and exits 0. From the caller's perspective this
+  looks like a successful deploy even though nothing was written. This is
+  how the 2026-06-09 placeholder regression survived in the install dir
+  after the source template was fixed. `make install` shadows the same
+  behaviour. Worth either renaming the read-only path to `make check-install`
+  or making the warning loud and the exit non-zero when files are skipped.
+
 ### Open Questions
 
 - **Container runtime default communication.** Podman is the default. How

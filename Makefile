@@ -97,7 +97,7 @@ clean-install: reset install  ## Reset + install + verify from clean slate
 build-dist:  ## Build sdist and wheel (output in dist/)
 	uv build
 
-install-test:  ## Test clean install in isolated venv
+install-test: build-dist  ## Test clean install in isolated venv
 	@echo "Testing clean install..."
 	@rm -rf /tmp/plsec-install-test
 	@uv venv /tmp/plsec-install-test

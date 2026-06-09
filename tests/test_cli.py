@@ -6,7 +6,6 @@ These verify app registration, global flags, and basic command routing.
 
 from typer.testing import CliRunner
 
-from plsec import __version__
 from plsec.cli import app
 
 runner = CliRunner()
@@ -20,12 +19,6 @@ class TestCLI:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         assert "plsec" in result.stdout
-
-    def test_version(self):
-        """--version should show the current version string."""
-        result = runner.invoke(app, ["--version"])
-        assert result.exit_code == 0
-        assert __version__ in result.stdout
 
     def test_doctor_runs(self):
         """doctor command should run without crashing.

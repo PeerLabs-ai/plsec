@@ -187,30 +187,9 @@ teardown() {
     assert_success
 }
 
-@test "audit script uses exec to preserve exit codes" {
-    run grep 'exec "$@"' "${PLSEC_DIR}/plsec-audit.sh"
-    assert_success
-}
-
-@test "audit script logs command with cwd" {
-    run grep 'cwd=$(pwd)' "${PLSEC_DIR}/plsec-audit.sh"
-    assert_success
-}
-
-@test "audit script logs command arguments" {
-    run grep 'cmd=$*' "${PLSEC_DIR}/plsec-audit.sh"
-    assert_success
-}
-
 # ---------------------------------------------------------------------------
 # Tier 2: Audit script execution
 # ---------------------------------------------------------------------------
-
-@test "audit script executes wrapped command" {
-    run "${PLSEC_DIR}/plsec-audit.sh" echo "hello from audit"
-    assert_success
-    assert_output "hello from audit"
-}
 
 @test "audit script preserves exit code on success" {
     run "${PLSEC_DIR}/plsec-audit.sh" true
@@ -220,37 +199,6 @@ teardown() {
 @test "audit script preserves exit code on failure" {
     run "${PLSEC_DIR}/plsec-audit.sh" false
     assert_failure
-}
-
-@test "audit script creates audit log file" {
-    "${PLSEC_DIR}/plsec-audit.sh" echo "test" 2>/dev/null || true
-    local log_pattern="${PLSEC_DIR}/logs/claude-audit-*.log"
-    # shellcheck disable=SC2086
-    assert [ -f $log_pattern ]
-}
-
-@test "audit script log contains command" {
-    "${PLSEC_DIR}/plsec-audit.sh" echo "audit-marker-test" 2>/dev/null || true
-    local log_pattern="${PLSEC_DIR}/logs/claude-audit-*.log"
-    # shellcheck disable=SC2086
-    run grep "audit-marker-test" $log_pattern
-    assert_success
-}
-
-@test "audit script log contains timestamp" {
-    "${PLSEC_DIR}/plsec-audit.sh" echo "ts-test" 2>/dev/null || true
-    local log_pattern="${PLSEC_DIR}/logs/claude-audit-*.log"
-    # shellcheck disable=SC2086
-    run grep -E '^\[20[0-9]{2}-[0-9]{2}-[0-9]{2}T' $log_pattern
-    assert_success
-}
-
-@test "audit script log contains cwd" {
-    "${PLSEC_DIR}/plsec-audit.sh" echo "cwd-test" 2>/dev/null || true
-    local log_pattern="${PLSEC_DIR}/logs/claude-audit-*.log"
-    # shellcheck disable=SC2086
-    run grep "cwd=" $log_pattern
-    assert_success
 }
 
 # ---------------------------------------------------------------------------

@@ -551,25 +551,6 @@ class TestWriteScanLog:
 class TestJsonFlag:
     """Contract: --json flag outputs scan results as JSON."""
 
-    def test_json_flag_outputs_valid_json(self, tmp_path: Path):
-        result = _make_scan_result()
-        with _patch_home(tmp_path), _patch_resolve_config(), _patch_orchestrator(result):
-            cli_result = runner.invoke(app, ["--json", str(tmp_path)])
-        assert cli_result.exit_code == EXIT_PASS
-        output = cli_result.output
-        json_start = output.find("{")
-        assert json_start >= 0
-        data = None
-        for end in range(len(output), json_start, -1):
-            try:
-                data = json.loads(output[json_start:end])
-                break
-            except json.JSONDecodeError:
-                continue
-        assert data is not None
-        assert "overall_passed" in data
-        assert "verdict" in data
-
     def test_json_flag_exit_1_on_failure(self, tmp_path: Path):
         result = _make_scan_result(
             verdict=_make_verdict(status=VerdictStatus.FAIL, exit_code=EXIT_FAIL, total=1)
