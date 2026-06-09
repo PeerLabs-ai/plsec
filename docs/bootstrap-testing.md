@@ -746,6 +746,14 @@ the project structure meaningfully and should be its own PR.
 
 ## CI Workflow
 
+> **Note (2026-06-09):** plsec currently has no GitHub Actions workflows.
+> The previous `test-bootstrap.yml` and `test-plsec.yml` were removed in
+> PR `fix/plsec-audit-unblock` pending the test refactor (see
+> [`chore_test_refactor.md`](chore_test_refactor.md)). Local `make ci`
+> is the only gate for now. The example below is illustrative of the
+> shape a future workflow might take; do not treat it as a description
+> of the current state.
+
 ```yaml
 # .github/workflows/test.yml
 name: Tests
