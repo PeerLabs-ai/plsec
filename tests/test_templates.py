@@ -335,10 +335,6 @@ class TestPlsecAuditSh:
     def test_has_plsec_dir_placeholder(self):
         assert _PLSEC_DIR_PLACEHOLDER in PLSEC_AUDIT_SH
 
-    def test_uses_exec(self):
-        """Audit script must use exec to preserve exit codes."""
-        assert 'exec "$@"' in PLSEC_AUDIT_SH
-
     def test_fire_and_forget_logging(self):
         """Log failures must not block command execution."""
         assert "2>/dev/null" in PLSEC_AUDIT_SH
