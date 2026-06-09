@@ -4,8 +4,9 @@
 **Status:** `make ci` green after audit-unblock PR. Test suite shape under audit
 (see `docs/chore_test_refactor.md`); 11 spurious blocking tests deleted (1
 Python audit-template test, 8 BATS audit-wrapper tests, 2 pre-existing
-pytest failures broken by Rich version drift), broader refactor queued as
-the next chore.
+pytest failures broken by Rich version drift). GitHub Actions workflows
+removed in the same PR — local `make ci` is the only gate until the test
+refactor lands. Broader refactor queued as the next chore.
 
 ---
 
@@ -246,6 +247,12 @@ Preset determines which engines run and which verdict strategy applies:
     - **Documented known gaps** in PROJECT.md: test-suite shape, and the
       misleading `plsec install` (default `--check`) UX that let the
       placeholder regression survive in the install dir.
+    - **Removed GitHub Actions workflows** (`test-bootstrap.yml` and
+      `test-plsec.yml`). Local `make ci` is the only gate for now. To be
+      reintroduced alongside or after the test refactor; running them
+      against a suite known to be the wrong shape (substring-greps,
+      mixed categories, no advisory tier) burns CI minutes on signal
+      that doesn't catch real bugs. Re-add post-refactor.
 
 ## Instructions
 
